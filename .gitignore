@@ -1,0 +1,20 @@
+### Maven Wrapper ###
+!.mvn/wrapper/maven-wrapper.jar
+!mvnw
+!mvnw.cmd
+
+### IntelliJ IDEA ###
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+### Maven ###
+target/
+
+### VS Code ###
+.vscode/
+
+### Mac OS ###
+.DS_Store
