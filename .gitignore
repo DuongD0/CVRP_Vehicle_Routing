@@ -20,4 +20,7 @@ target/
 .DS_Store
 
 ### Jade ###
-jade/classes/
+jade
+
+### Others ###
+reference/
