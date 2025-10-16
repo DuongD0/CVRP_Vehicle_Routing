@@ -8,10 +8,8 @@ import java.util.List;
 public class SolutionResult {
     public List<RouteInfo> routes;
     public double totalDistance;
-    public List<Integer> unservedCustomers;
 
     public SolutionResult() {
         routes = new ArrayList<>();
-        unservedCustomers = new ArrayList<>();
     }
 }
