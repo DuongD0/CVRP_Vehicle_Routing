@@ -17,13 +17,10 @@ target/
 .vscode/
 
 ### Mac OS ###
-.DS_Store/
+.DS_Store
 
 ### Jade ###
-jade/
-
-### NodeJS modules
-frontend/node_modules/
+jade
 
 ### Others ###
 reference/
