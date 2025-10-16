@@ -86,12 +86,6 @@ public class MRA extends Agent {
                 } else if (line.startsWith("NUM_CUSTOMERS:")) {
                     int numCustomers = Integer.parseInt(line.substring("NUM_CUSTOMERS:".length()));
                     numNodes = numCustomers + 1; // +1 for depot
-                } else if (line.startsWith("DEPOT_X:")) {
-                    // Store depot X for later processing
-                    depotX = Double.parseDouble(line.substring("DEPOT_X:".length()));
-                } else if (line.startsWith("DEPOT_Y:")) {
-                    // Store depot Y for later processing
-                    depotY = Double.parseDouble(line.substring("DEPOT_Y:".length()));
                 } else if (line.startsWith("CUSTOMER_COORDINATES:")) {
                     // Parse customer coordinates and demands
                     String coordsAndDemands = line.substring("CUSTOMER_COORDINATES:".length());

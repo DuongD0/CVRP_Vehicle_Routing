@@ -154,13 +154,16 @@ public class Depot extends Agent {
             System.out.println("Depot: API data: \n" + apiData);
             Map<String, Object> parsedData = parseAPIData(apiData);
             System.out.println("Depot: Parsed data: \n" + parsedData.toString());
+            sendProblemDataToMRA(parsedData, requestId);
+
+            /*            
             // Send to MRA for solving with request_id
             if (parsedData != null) {
                 sendProblemDataToMRA(parsedData, requestId);
             } else {
                 throw new Exception("Parsed data is null");
             }
-
+            */
         } catch (Exception e) {
             System.err.println("Depot: Error handling API request: " + e.getMessage());
         }
@@ -258,10 +261,6 @@ public class Depot extends Agent {
             // Get vehicle capacity (assuming all same capacity)
             Integer vehicleCapacity = (Integer) vehicles.values().iterator().next();
             problemData.append("VEHICLE_CAPACITY:").append(vehicleCapacity).append("\n");
-            
-            // Set depot coordinates (default or from API if needed)
-            problemData.append("DEPOT_X:400\n");  // Default depot X
-            problemData.append("DEPOT_Y:300\n");  // Default depot Y
             
             // Process customers
             @SuppressWarnings("unchecked")
