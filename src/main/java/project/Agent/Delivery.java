@@ -1,5 +1,9 @@
 package project.Agent;
 import jade.core.Agent;
 
-public class Delivery {
+public class Delivery extends Agent {
+    @Override
+    protected void setup() {
+        
+    }
 }
