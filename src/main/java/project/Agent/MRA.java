@@ -25,6 +25,8 @@ public class MRA extends Agent {
     private int[] demand;
     private int[][] distance;
     private String requestId;
+    private double depotX;
+    private double depotY;
 
     @Override
     protected void setup() {
@@ -43,14 +45,7 @@ public class MRA extends Agent {
                 System.out.println("\n=== MRA: Received Problem Data ===");
                 if (msg.getPerformative() == ACLMessage.INFORM) {
                     System.out.println("MRA: Processing problem data from " + msg.getSender().getName());
-
-                    // need more explanation about these types of data source
-                    if (msg.getContent().startsWith("API_PROBLEM_DATA")) {
-                        parseAPIProblemData(msg.getContent());
-                    } else {
-                        parseProblemData(msg.getContent());
-                    }
-
+                    parseAPIProblemData(msg.getContent());
                     solveVRPProblem(msg.getSender());
                     System.out.println("MRA: Problem solved and solution sent. Waiting for next problem...");
                 }
@@ -61,59 +56,13 @@ public class MRA extends Agent {
         }
     }
 
-    private void parseProblemData(String content) {
-        try {
-            String[] lines = content.split("\n");
-            
-            for (String line : lines) {
-                if (line.startsWith("NUM_VEHICLES:")) {
-                    numVehicles = Integer.parseInt(line.substring("NUM_VEHICLES:".length()));
-                } else if (line.startsWith("VEHICLE_CAPACITY:")) {
-                    vehicleCapacity = Integer.parseInt(line.substring("VEHICLE_CAPACITY:".length()));
-                } else if (line.startsWith("NUM_NODES:")) {
-                    numNodes = Integer.parseInt(line.substring("NUM_NODES:".length()));
-                } else if (line.startsWith("X_COORDINATES:")) {
-                    String[] coords = line.substring("X_COORDINATES:".length()).split(",");
-                    x = new double[coords.length];
-                    for (int i = 0; i < coords.length; i++) {
-                        x[i] = Double.parseDouble(coords[i]);
-                    }
-                } else if (line.startsWith("Y_COORDINATES:")) {
-                    String[] coords = line.substring("Y_COORDINATES:".length()).split(",");
-                    y = new double[coords.length];
-                    for (int i = 0; i < coords.length; i++) {
-                        y[i] = Double.parseDouble(coords[i]);
-                    }
-                } else if (line.startsWith("DEMANDS:")) {
-                    String[] demands = line.substring("DEMANDS:".length()).split(",");
-                    demand = new int[demands.length];
-                    for (int i = 0; i < demands.length; i++) {
-                        demand[i] = Integer.parseInt(demands[i]);
-                    }
-                } else if (line.startsWith("DISTANCE_MATRIX:")) {
-                    String[] rows = line.substring("DISTANCE_MATRIX:".length()).split(";");
-                    distance = new int[rows.length][];
-                    for (int i = 0; i < rows.length; i++) {
-                        String[] cols = rows[i].split(",");
-                        distance[i] = new int[cols.length];
-                        for (int j = 0; j < cols.length; j++) {
-                            distance[i][j] = Integer.parseInt(cols[j]);
-                        }
-                    }
-                }
-            }
-            
-            System.out.println("MRA: Problem data parsed successfully");
-            System.out.println("MRA: " + numVehicles + " vehicles, capacity " + vehicleCapacity + ", " + (numNodes-1) + " customers");
-            
-        } catch (Exception e) {
-            System.err.println("MRA: Error parsing problem data: " + e.getMessage());
-        }
-    }
-
     private void parseAPIProblemData(String content) {
         try {
             System.out.println("MRA: Parsing problem data...");
+            System.out.println("MRA: Full message content:");
+            System.out.println("--- START MESSAGE ---");
+            System.out.println(content);
+            System.out.println("--- END MESSAGE ---");
             String[] lines = content.split("\n");
             
             // Initialize default values
@@ -124,6 +73,8 @@ public class MRA extends Agent {
             y = null;
             demand = null;
             distance = null;
+            depotX = 400;
+            depotY = 300;
             
             for (String line : lines) {
                 if (line.startsWith("REQUEST_ID:")) {
@@ -136,13 +87,20 @@ public class MRA extends Agent {
                     int numCustomers = Integer.parseInt(line.substring("NUM_CUSTOMERS:".length()));
                     numNodes = numCustomers + 1; // +1 for depot
                 } else if (line.startsWith("DEPOT_X:")) {
-                    // We'll handle depot coordinates later
+                    // Store depot X for later processing
+                    depotX = Double.parseDouble(line.substring("DEPOT_X:".length()));
                 } else if (line.startsWith("DEPOT_Y:")) {
-                    // We'll handle depot coordinates later
+                    // Store depot Y for later processing
+                    depotY = Double.parseDouble(line.substring("DEPOT_Y:".length()));
                 } else if (line.startsWith("CUSTOMER_COORDINATES:")) {
                     // Parse customer coordinates and demands
                     String coordsAndDemands = line.substring("CUSTOMER_COORDINATES:".length());
+                    System.out.println("MRA: coordsAndDemands string: '" + coordsAndDemands + "'");
                     String[] parts = coordsAndDemands.split("DEMANDS:");
+                    System.out.println("MRA: Split parts length: " + parts.length);
+                    for (int i = 0; i < parts.length; i++) {
+                        System.out.println("MRA: Part[" + i + "]: '" + parts[i] + "'");
+                    }
                     if (parts.length != 2) {
                         System.err.println("MRA: Error parsing coordinates and demands");
                         return;
@@ -156,9 +114,9 @@ public class MRA extends Agent {
                     x = new double[numNodes];
                     y = new double[numNodes];
                     
-                    // Depot at index 0 (will be set from DEPOT_X, DEPOT_Y)
-                    x[0] = 400; // Default depot
-                    y[0] = 300;
+                    // Depot at index 0 (use parsed depot coordinates)
+                    x[0] = depotX;
+                    y[0] = depotY;
                     
                     // Customers starting from index 1
                     for (int i = 0; i < coordPairs.length && i/2 + 1 < numNodes; i += 2) {
@@ -262,8 +220,7 @@ public class MRA extends Agent {
             }
             
             solutionJson.append("\n  ],\n");
-            solutionJson.append("  \"total_distance\": ").append(result.totalDistance).append(",\n");
-            solutionJson.append("  \"unserved_customers\": []\n");
+            solutionJson.append("  \"total_distance\": ").append(result.totalDistance).append("\n");
             solutionJson.append("}");
             
             response.setContent(solutionJson.toString());

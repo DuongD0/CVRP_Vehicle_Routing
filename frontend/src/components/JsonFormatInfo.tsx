@@ -31,8 +31,7 @@ export function JsonFormatInfo() {
       "total_distance": 320.5
     }
   ],
-  "total_distance": 640.2,
-  "unserved_customers": []
+  "total_distance": 640.2
 }`;
 
   return (

@@ -3,13 +3,11 @@ import { Customer, Vehicle, Depot, Solution, Route } from '../types/cvrp';
 // API endpoint - can be updated dynamically
 let API_ENDPOINT = 'http://localhost:8000/api/solve-cvrp';
 
-/*
-Keep the endpoint static for easier testing
 
 export function setApiEndpoint(url: string) {
   API_ENDPOINT = url;
 }
-*/
+
 
 // User request data format
 export interface CVRPRequest {

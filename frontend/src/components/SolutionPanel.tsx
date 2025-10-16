@@ -1,6 +1,6 @@
 import { Solution } from '../types/cvrp';
 import { Alert, AlertDescription } from './ui/alert';
-import { AlertCircle, Package, Truck, Route as RouteIcon } from 'lucide-react';
+import { Truck, Route as RouteIcon } from 'lucide-react';
 
 interface SolutionPanelProps {
   solution: Solution | null;
@@ -38,25 +38,7 @@ export function SolutionPanel({ solution }: SolutionPanelProps) {
           </div>
           <div>{solution.totalDistance.toFixed(1)}</div>
         </div>
-        <div className="p-3 border rounded-md bg-card">
-          <div className="flex items-center gap-2 text-muted-foreground mb-1">
-            <Package className="h-4 w-4" />
-            <span>Unserved</span>
-          </div>
-          <div>{solution.unservedCustomers.length}</div>
-        </div>
       </div>
-
-      {/* Unserved customers warning */}
-      {solution.unservedCustomers.length > 0 && (
-        <Alert>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {solution.unservedCustomers.length} customer(s) could not be served. 
-            Add more vehicles or increase vehicle capacity.
-          </AlertDescription>
-        </Alert>
-      )}
 
       {/* Route details */}
       <div className="space-y-2">

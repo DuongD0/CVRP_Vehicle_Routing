@@ -151,8 +151,9 @@ public class Depot extends Agent {
             System.out.println("Depot: Request ID: " + requestId);
             
             // Parse API JSON-like format
+            System.out.println("Depot: API data: \n" + apiData);
             Map<String, Object> parsedData = parseAPIData(apiData);
-
+            System.out.println("Depot: Parsed data: \n" + parsedData.toString());
             // Send to MRA for solving with request_id
             if (parsedData != null) {
                 sendProblemDataToMRA(parsedData, requestId);
@@ -186,6 +187,9 @@ public class Depot extends Agent {
     private Map<String, Object> parseAPIData(String apiData) {
         Map<String, Object> result = new HashMap<>();
         
+        System.out.println("Depot: Parsing API data...");
+        System.out.println("Depot: API data content: " + apiData);
+        
         // Extract vehicles - handle the format: "vehicle_1": 100 (just capacity, no coordinates)
         Pattern vehiclePattern = Pattern.compile("\"vehicle_(\\d+)\":\\s*(\\d+)");
         Matcher vehicleMatcher = vehiclePattern.matcher(apiData);
@@ -196,12 +200,27 @@ public class Depot extends Agent {
             int capacity = Integer.parseInt(vehicleMatcher.group(2));
             
             vehicles.put(vehicleId, capacity);
+            System.out.println("Depot: Found vehicle_" + vehicleId + " with capacity " + capacity);
         }
         result.put("vehicles", vehicles);
         
-        // Extract customers - handle the format: "customer_1": [[x, y], demand]
-        Pattern customerPattern = Pattern.compile("\"customer_(\\d+)\":\\s*\\[\\[(\\d+(?:\\.\\d+)?),\\s*(\\d+(?:\\.\\d+)?)\\],\\s*(\\d+)\\]");
+        // Extract customers - handle the format: "customer_1": [[x, y], demand] (nested array with newlines)
+        Pattern customerPattern = Pattern.compile("\"customer_(\\d+)\":\\s*\\[\\s*\\[\\s*(\\d+(?:\\.\\d+)?),\\s*(\\d+(?:\\.\\d+)?)\\s*\\]\\s*,\\s*(\\d+)\\s*\\]", Pattern.DOTALL);
         Matcher customerMatcher = customerPattern.matcher(apiData);
+        
+        System.out.println("Depot: Customer regex pattern: " + customerPattern.pattern());
+        System.out.println("Depot: Looking for customer matches...");
+        
+        // Test if pattern matches at all
+        if (!customerMatcher.find()) {
+            System.out.println("Depot: No customer matches found with current pattern");
+            // Reset matcher for actual processing
+            customerMatcher = customerPattern.matcher(apiData);
+        } else {
+            System.out.println("Depot: Found at least one customer match");
+            // Reset matcher for actual processing
+            customerMatcher = customerPattern.matcher(apiData);
+        }
         
         Map<String, Object> customers = new HashMap<>();
         while (customerMatcher.find()) {
@@ -211,8 +230,11 @@ public class Depot extends Agent {
             int demand = Integer.parseInt(customerMatcher.group(4));
             
             customers.put(customerId, new Object[]{new double[]{x, y}, demand});
+            System.out.println("Depot: Found customer_" + customerId + " at (" + x + ", " + y + ") with demand " + demand);
         }
         result.put("customers", customers);
+        
+        System.out.println("Depot: Parsed " + vehicles.size() + " vehicles and " + customers.size() + " customers");
         
         return result;
     }
@@ -238,8 +260,8 @@ public class Depot extends Agent {
             problemData.append("VEHICLE_CAPACITY:").append(vehicleCapacity).append("\n");
             
             // Set depot coordinates (default or from API if needed)
-            problemData.append("DEPOT_X:0\n");  // Default depot X
-            problemData.append("DEPOT_Y:0\n");  // Default depot Y
+            problemData.append("DEPOT_X:400\n");  // Default depot X
+            problemData.append("DEPOT_Y:300\n");  // Default depot Y
             
             // Process customers
             @SuppressWarnings("unchecked")
