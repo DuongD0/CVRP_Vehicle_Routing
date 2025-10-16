@@ -1,65 +1,18 @@
 package project.Agent;
 
+import java.util.ArrayList;
 import jade.core.Agent;
-import jade.core.behaviours.CyclicBehaviour;
-import jade.lang.acl.ACLMessage;
 import jade.core.AID;
-import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.io.entity.StringEntity;
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import org.chocosolver.solver.Model;
 
 public class Depot extends Agent {
-    // API URL for the backend
-    private static final String API_URL = "http://localhost:8000/api/solve-cvrp";
-    private CloseableHttpClient httpClient;
+    private ArrayList<AID> deliveries;
+    private ArrayList<AID> customers;
 
     @Override
     protected void setup() {
-        System.out.println("Depot Agent " + getAID().getName() + " is ready.");
-        System.out.println("Depot: Connecting to API at " + API_URL);
-        
-        /* ########### API endpoint connection ########### */
-        // Initialize HTTP client
-        httpClient = HttpClients.createDefault();
-        
-        // Add behavior to continuously poll API and handle responses
-        addBehaviour(new APIPollerBehaviour());
-        addBehaviour(new ContinuousAPIHandlerBehaviour());
-    }
+        Model model = new Model("Depot");
 
-    private class APIPollerBehaviour extends CyclicBehaviour {
-        @Override
-        public void action() {
-            try {
-                // Poll the API for new requests continuously
-                String apiData = pollAPI();
-                if (apiData != null && !apiData.isEmpty()) {
-                    System.out.println("Depot: Received data from API");
-                    handleAPIRequest(apiData);
-                }
-                
-                // Wait 2 seconds before polling again
-                Thread.sleep(2000);
-                
-            } catch (InterruptedException e) {
-                // Ignore interruption
-            } catch (Exception e) {
-                System.err.println("Depot: Error polling API: " + e.getMessage());
-                try {
-                    Thread.sleep(5000); // Wait longer on error
-                } catch (InterruptedException ie) {
-                    // Ignore
-                }
-            }
-        }
-    }
 
     private String pollAPI() {
         try {
@@ -319,15 +272,6 @@ public class Depot extends Agent {
 
     @Override
     protected void takeDown() {
-        System.out.println("Depot Agent " + getAID().getName() + " terminating.");
-        
-        // Close HTTP client
-        if (httpClient != null) {
-            try {
-                httpClient.close();
-            } catch (Exception e) {
-                System.err.println("Depot: Error closing HTTP client: " + e.getMessage());
-            }
-        }
+
     }
 }
