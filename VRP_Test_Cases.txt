@@ -1,0 +1,24 @@
+Test case 1:
+
+- Depot: Main routing agent (receive packages from the customer)
+- Vehicle: Delivery agent (notify the MRA if free, receive packages then deliver)
+
+workflow:
+    - depot receive data from UI => notify the Delivery agent (direct communication)
+    - delivery generate vehicles (different agents), each has a random state, which then notify back to the depot
+    - after collecting the vehicle num, start the calculating process
+    - after done processing, release routes => vehicle will compete for the shortest route
+
+not make sense:
+    - generate vehicle based on user req
+        => should have 2 separate pages, 1 for vehicle defining, 1 for customer req (kind of a manage page for a company)
+        
+
+Fix: 
+- combine mra & Depot
+
+- delivery agent:
+    - state: free / occupied (random, simulate real-world situation)
+    - capacity
+    - the number of vehicles will be determined by the user (on the web)
+    - the route from MRA

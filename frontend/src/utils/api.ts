@@ -1,12 +1,7 @@
 import { Customer, Vehicle, Depot, Solution, Route } from '../types/cvrp';
 
-// API endpoint - can be updated dynamically
-let API_ENDPOINT = 'http://localhost:8000/api/solve-cvrp';
-
-
-export function setApiEndpoint(url: string) {
-  API_ENDPOINT = url;
-}
+// API endpoint - hardcoded default
+const API_ENDPOINT = 'http://localhost:8000/api/solve-cvrp';
 
 
 // User request data format

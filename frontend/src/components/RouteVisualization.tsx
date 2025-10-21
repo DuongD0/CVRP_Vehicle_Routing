@@ -1,10 +1,14 @@
+import { useState } from 'react';
 import { Customer, Depot, Route } from '../types/cvrp';
+import { Button } from './ui/button';
+import { ZoomIn, ZoomOut, Maximize2, Trash2 } from 'lucide-react';
 
 interface RouteVisualizationProps {
   depot: Depot;
   customers: Customer[];
   routes: Route[];
   onAddCustomer: (x: number, y: number) => void;
+  onDeleteCustomer: (id: number) => void;
 }
 
 const COLORS = [
@@ -23,23 +27,129 @@ export function RouteVisualization({
   customers,
   routes,
   onAddCustomer,
+  onDeleteCustomer,
 }: RouteVisualizationProps) {
+  const [zoom, setZoom] = useState(1);
+  const [panX, setPanX] = useState(0);
+  const [panY, setPanY] = useState(0);
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
+  const [wasPanning, setWasPanning] = useState(false);
+
   const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
+    // Don't add customer if user was panning (holding Ctrl or Shift)
+    if (wasPanning) {
+      setWasPanning(false);
+      return;
+    }
+    
     const svg = e.currentTarget;
     const rect = svg.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 800;
-    const y = ((e.clientY - rect.top) / rect.height) * 600;
+    // Convert screen coordinates to SVG coordinates considering viewBox
+    const x = ((e.clientX - rect.left) / rect.width) * (1200 / zoom) + (-panX);
+    const y = ((e.clientY - rect.top) / rect.height) * (900 / zoom) + (-panY);
     onAddCustomer(x, y);
   };
 
+  const handleCustomerClick = (e: React.MouseEvent, customerId: number) => {
+    e.stopPropagation();
+  };
+
+  const handleCustomerRightClick = (e: React.MouseEvent, customerId: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    onDeleteCustomer(customerId);
+  };
+
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev * 1.2, 5));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev / 1.2, 0.5));
+  };
+
+  const handleResetView = () => {
+    setZoom(1);
+    setPanX(0);
+    setPanY(0);
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (e.button === 1 || (e.button === 0 && (e.shiftKey || e.ctrlKey))) { // Middle mouse button or Shift/Ctrl + left click
+      setIsPanning(true);
+      setWasPanning(true);
+      setLastMousePos({ x: e.clientX, y: e.clientY });
+      e.preventDefault();
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
+    if (isPanning) {
+      const deltaX = e.clientX - lastMousePos.x;
+      const deltaY = e.clientY - lastMousePos.y;
+      setPanX(prev => prev + deltaX / zoom);
+      setPanY(prev => prev + deltaY / zoom);
+      setLastMousePos({ x: e.clientX, y: e.clientY });
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setZoom(prev => Math.max(0.5, Math.min(prev * delta, 5)));
+  };
+
   return (
-    <div className="border rounded-lg overflow-hidden bg-white">
+    <div className="border rounded-lg overflow-hidden bg-white relative h-full">
+      {/* Zoom Controls */}
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={handleZoomIn}
+          title="Zoom In"
+        >
+          <ZoomIn className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={handleZoomOut}
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="secondary"
+          size="icon"
+          onClick={handleResetView}
+          title="Reset View"
+        >
+          <Maximize2 className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Info Text */}
+      <div className="absolute bottom-3 left-3 z-10 bg-black/60 text-white px-3 py-2 rounded text-sm">
+        Click to add | Right-click customer to delete | Ctrl/Shift+Drag to pan | Scroll to zoom
+      </div>
+
       <svg
         width="100%"
         height="100%"
-        viewBox="0 0 800 600"
-        className="cursor-crosshair"
+        viewBox={`${-panX} ${-panY} ${1200/zoom} ${900/zoom}`}
+        className={isPanning ? "cursor-grabbing" : "cursor-crosshair"}
         onClick={handleCanvasClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
       >
         {/* Background grid */}
         <defs>
@@ -52,7 +162,14 @@ export function RouteVisualization({
             />
           </pattern>
         </defs>
-        <rect width="800" height="600" fill="url(#grid)" />
+        {/* Dynamic grid that fills the entire viewBox */}
+        <rect 
+          x={-panX} 
+          y={-panY} 
+          width={1200/zoom} 
+          height={900/zoom} 
+          fill="url(#grid)" 
+        />
 
         {/* Draw routes */}
         {routes.map((route, routeIndex) => {
@@ -140,7 +257,12 @@ export function RouteVisualization({
           const color = routeIndex >= 0 ? COLORS[routeIndex % COLORS.length] : '#94a3b8';
 
           return (
-            <g key={customer.id}>
+            <g 
+              key={customer.id}
+              onClick={(e) => handleCustomerClick(e, customer.id)}
+              onContextMenu={(e) => handleCustomerRightClick(e, customer.id)}
+              style={{ cursor: 'pointer' }}
+            >
               <circle
                 cx={customer.x}
                 cy={customer.y}
@@ -155,6 +277,7 @@ export function RouteVisualization({
                 textAnchor="middle"
                 fill="white"
                 fontSize="10"
+                pointerEvents="none"
               >
                 {customer.demand}
               </text>
@@ -164,6 +287,7 @@ export function RouteVisualization({
                 textAnchor="middle"
                 fill="#475569"
                 fontSize="11"
+                pointerEvents="none"
               >
                 {customer.name}
               </text>

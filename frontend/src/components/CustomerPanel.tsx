@@ -16,15 +16,17 @@ export function CustomerPanel({
   onDeleteCustomer,
 }: CustomerPanelProps) {
   return (
-    <div className="space-y-3">
-      <h3>Customers</h3>
+    <div className="h-full flex flex-col">
+      {/* Fixed Header */}
+      <h3 className="mb-3 flex-shrink-0">Customers</h3>
       
+      {/* Scrollable List */}
       {customers.length === 0 ? (
         <p className="text-muted-foreground">
           Click on the map to add customers
         </p>
       ) : (
-        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+        <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
           {customers.map((customer) => (
             <div
               key={customer.id}

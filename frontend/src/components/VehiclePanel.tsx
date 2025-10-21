@@ -18,8 +18,9 @@ export function VehiclePanel({
   onDeleteVehicle,
 }: VehiclePanelProps) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
+    <div className="h-full flex flex-col">
+      {/* Fixed Header */}
+      <div className="flex items-center justify-between mb-3 flex-shrink-0">
         <h3>Vehicles</h3>
         <Button onClick={onAddVehicle} size="sm">
           <Plus className="h-4 w-4 mr-1" />
@@ -27,7 +28,8 @@ export function VehiclePanel({
         </Button>
       </div>
 
-      <div className="space-y-2">
+      {/* Scrollable List */}
+      <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
         {vehicles.map((vehicle) => (
           <div
             key={vehicle.id}
