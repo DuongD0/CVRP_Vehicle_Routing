@@ -18,7 +18,65 @@ Fix:
 - combine mra & Depot
 
 - delivery agent:
-    - state: free / occupied (random, simulate real-world situation)
-    - capacity
-    - the number of vehicles will be determined by the user (on the web)
-    - the route from MRA
+    - create vehicle agents based on the number sent back by the website
+    - assign routes to vehicles (several type of communication can be applied)
+    - the routes are passed by the depot (which also the mra)
+    - 
+
+current problem:
+- frontend: simple output, need something to demonstrate that each route belongs to a vehicle agent
+    - the delivery agent will send routes and corresponding vehicles to the frontend => adjust the frontend data input format
+    - time window vrp: implement later
+    - some extra features:
+      - have 2 separate pages, 1 for adding/removing vehicles, and the other is the old page
+      - for the first request, vehicle data will be sent to the API
+      - for the next requests, if the number of vehicle does not change => send the customer coordinates only
+      - the display routes will still be the same, but now with more proper vehicle information
+        - each vehicle will have a name (manually set) (reason for a separate page) and its own capacity
+        - each route will associate with a vehicle name (instead of index)
+      - a notification box that notify about events (illustrate agent communication)
+      - about the vehicle page:
+        - the first run (first call to API) will reveal the status of each vehicle (free / absent)
+        - that information will be displayed on the vehicle page only
+
+
+
+- backend: depot will not send results to the API
+    - receive data from the frontend -> send data to the delivery agent
+        - each vehicle will have a random state (free / absent)
+        - this is to make the number of vehicles vary from the passed number, simulating a real industry scenario
+    - delivery agent creates the number of vehicle agents, then each agent report back whether they are free or not
+    - the number of free vehicle agents will be sent back to the depot to perform route calculation
+    - calculated routes will be sent back to the delivery agent to divide to the free vehicles
+        - each route will have an ID associated with
+    - after each vehicle received their desired route, they will notify the delivery agent about the route they have taken
+    - the data received from the frontend will have 2 formats
+      - the one with no vehicle data: use all the created vehicle agents
+      - the one with vehicle data:
+        - will check all the vehicle agents
+        - those which are not on the list will be eliminated
+
+    - about events
+      - should be real time (send to the api directly, not through the data sent to api)
+      - 
+
+previous:
+{
+  "routes": [
+    {
+      "vehicle_id": 1,
+      "customers": [
+        {
+          "id": 1,
+          "x": 150,
+          "y": 200,
+          "demand": 5,
+          "name": "C1"
+        }
+      ],
+      "total_demand": 5,
+      "total_distance": 320.5
+    }
+  ],
+  "total_distance": 640.2
+}

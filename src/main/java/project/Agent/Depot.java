@@ -4,6 +4,9 @@ import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.core.AID;
+import org.chocosolver.solver.Model;
+import org.chocosolver.solver.Solution;
+import org.chocosolver.solver.variables.IntVar;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
@@ -14,11 +17,24 @@ import org.apache.hc.core5.http.io.entity.StringEntity;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import project.General.*;
 
 public class Depot extends Agent {
     // API URL for the backend
     private static final String API_URL = "http://localhost:8000/api/solve-cvrp";
     private CloseableHttpClient httpClient;
+
+    // Fields merged from MRA for solving
+    private int numVehicles;
+    private int vehicleCapacity;
+    private int numNodes;
+    private double[] x;
+    private double[] y;
+    private int[] demand;
+    private int[][] distance;
+    private String requestId;
+    private double depotX;
+    private double depotY;
 
     @Override
     protected void setup() {
@@ -154,7 +170,11 @@ public class Depot extends Agent {
             System.out.println("Depot: API data: \n" + apiData);
             Map<String, Object> parsedData = parseAPIData(apiData);
             System.out.println("Depot: Parsed data: \n" + parsedData.toString());
-            sendProblemDataToMRA(parsedData, requestId);
+            // Build internal problem, solve, and send solution back to API directly
+            buildProblemFromParsedData(parsedData, requestId);
+            SolutionResult result = solveVRPWithChoco(numNodes, numNodes - 1, numVehicles, vehicleCapacity, demand, distance);
+            String solutionJson = formatSolutionJson(result);
+            sendSolutionToAPI(solutionJson);
 
             /*            
             // Send to MRA for solving with request_id
@@ -308,6 +328,205 @@ public class Depot extends Agent {
         } catch (Exception e) {
             System.err.println("Depot: Error sending API data to MRA: " + e.getMessage());
         }
+    }
+
+    // Build internal arrays and fields from parsed API map
+    private void buildProblemFromParsedData(Map<String, Object> apiData, String reqId) {
+        try {
+            this.requestId = reqId != null ? reqId : "unknown";
+            @SuppressWarnings("unchecked")
+            Map<String, Object> vehicles = (Map<String, Object>) apiData.get("vehicles");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> customers = (Map<String, Object>) apiData.get("customers");
+
+            this.numVehicles = vehicles.size();
+            // Assume uniform capacity across vehicles
+            this.vehicleCapacity = (Integer) vehicles.values().iterator().next();
+
+            int numCustomers = customers.size();
+            this.numNodes = numCustomers + 1; // +1 for depot
+
+            this.depotX = 400;
+            this.depotY = 300;
+
+            this.x = new double[numNodes];
+            this.y = new double[numNodes];
+            this.demand = new int[numNodes];
+
+            // Depot at index 0
+            x[0] = depotX;
+            y[0] = depotY;
+            demand[0] = 0;
+
+            // Sort customers numerically by id string key
+            List<Map.Entry<String, Object>> sortedCustomers = new ArrayList<>(customers.entrySet());
+            sortedCustomers.sort((a, b) -> Integer.compare(
+                    Integer.parseInt(a.getKey()),
+                    Integer.parseInt(b.getKey())
+            ));
+
+            int idx = 1;
+            for (Map.Entry<String, Object> entry : sortedCustomers) {
+                Object[] customerData = (Object[]) entry.getValue();
+                double[] coords = (double[]) customerData[0];
+                int d = (Integer) customerData[1];
+                x[idx] = coords[0];
+                y[idx] = coords[1];
+                demand[idx] = d;
+                idx++;
+            }
+
+            // Build distance matrix
+            this.distance = new int[numNodes][numNodes];
+            for (int i = 0; i < numNodes; i++) {
+                for (int j = 0; j < numNodes; j++) {
+                    double dx = x[i] - x[j];
+                    double dy = y[i] - y[j];
+                    distance[i][j] = (int) Math.round(Math.hypot(dx, dy));
+                }
+            }
+
+            System.out.println("Depot: Problem built for solving: vehicles=" + numVehicles + ", customers=" + (numNodes - 1));
+        } catch (Exception e) {
+            System.err.println("Depot: Error building problem from parsed data: " + e.getMessage());
+        }
+    }
+
+    // Solver logic from MRA
+    private SolutionResult solveVRPWithChoco(int numNodes, int numCustomers, int numVehicles,
+                                          int capacity, int[] demand, int[][] distance) {
+        Model model = new Model("CVRP-Choco-Solver");
+        final int depot = 0;
+
+        IntVar[] successor = model.intVarArray("successor", numNodes, 0, numNodes - 1);
+        IntVar[] vehicle = model.intVarArray("vehicle", numNodes, 0, numVehicles);
+        IntVar[] vehicleLoad = model.intVarArray("vehicleLoad", numVehicles, 0, capacity);
+        IntVar totalDistance = model.intVar("totalDistance", 0, 999999);
+
+        model.arithm(vehicle[depot], "=", 0).post();
+        model.member(successor[depot], 1, numNodes - 1).post();
+        for (int i = 1; i < numNodes; i++) {
+            model.member(vehicle[i], 1, numVehicles).post();
+        }
+        model.circuit(successor).post();
+        for (int i = 1; i < numNodes; i++) {
+            IntVar nextNode = successor[i];
+            IntVar nextVehicle = model.intVar("nextVeh_" + i, 0, numVehicles);
+            model.element(nextVehicle, vehicle, nextNode, 0).post();
+        }
+        for (int v = 1; v <= numVehicles; v++) {
+            IntVar[] customerOfVehicle = new IntVar[numCustomers];
+            for (int i = 1; i < numNodes; i++) {
+                customerOfVehicle[i - 1] = model.intVar("isV" + v + "_C" + i, 0, 1);
+                model.ifThenElse(
+                        model.arithm(vehicle[i], "=", v),
+                        model.arithm(customerOfVehicle[i - 1], "=", 1),
+                        model.arithm(customerOfVehicle[i - 1], "=", 0)
+                );
+            }
+            int[] demandCoeffs = new int[numCustomers];
+            for (int i = 0; i < numCustomers; i++) {
+                demandCoeffs[i] = demand[i + 1];
+            }
+            IntVar totalDemand = model.intVar("totalDemand_v" + v, 0, capacity);
+            model.scalar(customerOfVehicle, demandCoeffs, "=", totalDemand).post();
+            model.arithm(totalDemand, "<=", capacity).post();
+            model.arithm(vehicleLoad[v - 1], "=", totalDemand).post();
+        }
+        IntVar[] edgeDistances = new IntVar[numNodes];
+        for (int i = 0; i < numNodes; i++) {
+            edgeDistances[i] = model.intVar("dist_" + i, 0, 99999);
+            int[] distRow = distance[i];
+            model.element(edgeDistances[i], distRow, successor[i], 0).post();
+        }
+        model.sum(edgeDistances, "=", totalDistance).post();
+        model.setObjective(Model.MINIMIZE, totalDistance);
+
+        int timeLimitSeconds = 10;
+        model.getSolver().limitTime(timeLimitSeconds * 1000);
+
+        System.out.println("Solving with time limit: " + timeLimitSeconds + " seconds");
+        System.out.println();
+
+        Solution solution = model.getSolver().findOptimalSolution(totalDistance, false);
+        SolutionResult result = new SolutionResult();
+        if (solution != null) {
+            System.out.println("Solution found!");
+            double totalDist = solution.getIntVal(totalDistance);
+            result.totalDistance = totalDist;
+
+            Map<Integer, List<Integer>> routes = new HashMap<>();
+            for (int v = 1; v <= numVehicles; v++) {
+                routes.put(v, new ArrayList<>());
+            }
+            for (int i = 1; i < numNodes; i++) {
+                int v = solution.getIntVal(vehicle[i]);
+                if (v >= 1 && v <= numVehicles) {
+                    routes.get(v).add(i);
+                }
+            }
+            for (int v = 1; v <= numVehicles; v++) {
+                List<Integer> customers = routes.get(v);
+                if (!customers.isEmpty()) {
+                    RouteInfo routeInfo = new RouteInfo(v);
+                    int load = 0;
+                    double routeDistance = 0.0;
+                    routeDistance += Math.hypot(x[0] - x[customers.get(0)], y[0] - y[customers.get(0)]);
+                    for (int i = 0; i < customers.size(); i++) {
+                        int c = customers.get(i);
+                        load += demand[c];
+                        CustomerInfo customerInfo = new CustomerInfo(c, x[c], y[c], demand[c]);
+                        routeInfo.customers.add(customerInfo);
+                        if (i < customers.size() - 1) {
+                            int nextCustomer = customers.get(i + 1);
+                            routeDistance += Math.hypot(x[c] - x[nextCustomer], y[c] - y[nextCustomer]);
+                        } else {
+                            routeDistance += Math.hypot(x[c] - x[0], y[c] - y[0]);
+                        }
+                    }
+                    routeInfo.totalDemand = load;
+                    routeInfo.totalDistance = routeDistance;
+                    result.routes.add(routeInfo);
+                }
+            }
+        } else {
+            System.out.println("No solution found within the time limit.");
+            result.totalDistance = 0.0;
+        }
+        return result;
+    }
+
+    private String formatSolutionJson(SolutionResult result) {
+        StringBuilder solutionJson = new StringBuilder();
+        solutionJson.append("SOLUTION:{\n");
+        solutionJson.append("  \"request_id\": \"").append(requestId != null ? requestId : "unknown").append("\",\n");
+        solutionJson.append("  \"routes\": [\n");
+        for (int i = 0; i < result.routes.size(); i++) {
+            RouteInfo route = result.routes.get(i);
+            if (i > 0) solutionJson.append(",\n");
+            solutionJson.append("    {\n");
+            solutionJson.append("      \"vehicle_id\": ").append(route.vehicleId).append(",\n");
+            solutionJson.append("      \"customers\": [\n");
+            for (int j = 0; j < route.customers.size(); j++) {
+                CustomerInfo customer = route.customers.get(j);
+                if (j > 0) solutionJson.append(",\n");
+                solutionJson.append("        {\n");
+                solutionJson.append("          \"id\": ").append(customer.id).append(",\n");
+                solutionJson.append("          \"x\": ").append(customer.x).append(",\n");
+                solutionJson.append("          \"y\": ").append(customer.y).append(",\n");
+                solutionJson.append("          \"demand\": ").append(customer.demand).append(",\n");
+                solutionJson.append("          \"name\": \"").append(customer.name).append("\"\n");
+                solutionJson.append("        }");
+            }
+            solutionJson.append("\n      ],\n");
+            solutionJson.append("      \"total_demand\": ").append(route.totalDemand).append(",\n");
+            solutionJson.append("      \"total_distance\": ").append(route.totalDistance).append("\n");
+            solutionJson.append("    }");
+        }
+        solutionJson.append("\n  ],\n");
+        solutionJson.append("  \"total_distance\": ").append(result.totalDistance).append("\n");
+        solutionJson.append("}");
+        return solutionJson.toString();
     }
 
     // Method to process external API requests (for integration with HTTP server)

@@ -22,7 +22,7 @@ public class Main {
         AgentContainer mainContainer = rt.createMainContainer(p);
         
         try {
-            // Create and start Depot agent
+            // Create and start Unified Depot agent (handles API + solving)
             AgentController depotController = mainContainer.createNewAgent(
                 "depot-agent", 
                 "project.Agent.Depot", 
@@ -30,17 +30,8 @@ public class Main {
             );
             depotController.start();
             
-            // Create and start MRA agent
-            AgentController mraController = mainContainer.createNewAgent(
-                "mra-agent", 
-                "project.Agent.MRA", 
-                null
-            );
-            mraController.start();
-            
-            System.out.println("Agents started successfully!");
-            System.out.println("Depot Agent: depot-agent");
-            System.out.println("MRA Agent: mra-agent");
+            System.out.println("Unified agent started successfully!");
+            System.out.println("Depot Agent (Unified): depot-agent");
             
             // Wait a moment for agents to initialize
             try {
@@ -50,10 +41,9 @@ public class Main {
             }
             
             System.out.println("\n=== SYSTEM READY FOR CONTINUOUS OPERATION ===");
-            System.out.println("✓ Agents are running continuously");
-            System.out.println("✓ Depot Agent: Polling API at http://localhost:8000/api/solve-cvrp");
-            System.out.println("✓ MRA Agent: Waiting for problem data");
-            System.out.println("✓ Both agents will process requests indefinitely");
+            System.out.println("✓ Unified Depot agent is running continuously");
+            System.out.println("✓ Polling API at http://localhost:8000/api/solve-cvrp");
+            System.out.println("✓ Solving and sending solutions directly to API");
             System.out.println("\nAPI Integration:");
             System.out.println("  - Depot polls API every 2 seconds for new requests");
             System.out.println("  - Solutions are sent back to the same API endpoint");

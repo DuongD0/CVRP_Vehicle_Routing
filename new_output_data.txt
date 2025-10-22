@@ -1,0 +1,77 @@
+{
+  "request_id": "abc-123", // not neccessary
+
+  "fleet": [
+    {
+      "vehicle_id": 1,
+      "agent_name": "vehicle-agent-1",
+      "state": "free",
+      "capacity": 100
+    },
+    {
+      "vehicle_id": 2,
+      "agent_name": "vehicle-agent-2",
+      "state": "absent",
+      "capacity": 100
+    }
+  ],
+
+  "available_vehicle_count": 1, // no need
+
+  "routes": [
+    {
+      "route_id": "R1",
+      "vehicle_id": 1,
+      "customers": [
+        {
+          "id": 1,
+          "x": 150,
+          "y": 200,
+          "demand": 5,
+          "name": "C1"
+        }
+      ],
+      "total_demand": 5,
+      "total_distance": 320.5
+    }
+  ],
+
+  "assignments": [ // no need
+    {
+      "route_id": "R1",
+      "assigned_vehicle_id": 1,
+      "status": "assigned"
+    }
+  ],
+
+  "events": [ // there could be a 
+    {
+      "timestamp": "2025-10-22T10:00:00Z",
+      "type": "availability-report",
+      "vehicle_id": 1,
+      "state": "free"
+    },
+    {
+      "timestamp": "2025-10-22T10:00:01Z",
+      "type": "route-claim",
+      "route_id": "R1",
+      "vehicle_id": 1,
+      "result": "won"
+    },
+    {
+      "timestamp": "2025-10-22T10:00:02Z",
+      "type": "assignment-confirmed",
+      "route_id": "R1",
+      "vehicle_id": 1
+    }
+  ],
+
+  "unassigned_routes": [],
+  "unserved_customers": [],
+
+  "total_distance": 640.2,
+  "meta": {
+    "solver": "choco",
+    "solve_time_ms": 1234
+  }
+}
