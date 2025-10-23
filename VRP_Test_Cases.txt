@@ -30,35 +30,65 @@ current problem:
     - some extra features:
       - have 2 separate pages, 1 for adding/removing vehicles, and the other is the old page
       - for the first request, vehicle data will be sent to the API
-      - for the next requests, if the number of vehicle does not change => send the customer coordinates only
+      - for the next requests, if the vehicle list (both free AND absent) remains unchanged => send customer coordinates only
       - the display routes will still be the same, but now with more proper vehicle information
         - each vehicle will have a name (manually set) (reason for a separate page) and its own capacity
         - each route will associate with a vehicle name (instead of index)
-      - a notification box that notify about events (illustrate agent communication)
+      - a notification box that displays real-time events (illustrate agent communication)
       - about the vehicle page:
-        - the first run (first call to API) will reveal the status of each vehicle (free / absent)
-        - that information will be displayed on the vehicle page only
+        - displays the current status of each vehicle (free / absent)
+        - status updates when checked at request time
 
 
 
-- backend: depot will not send results to the API
-    - receive data from the frontend -> send data to the delivery agent
-        - each vehicle will have a random state (free / absent)
-        - this is to make the number of vehicles vary from the passed number, simulating a real industry scenario
-    - delivery agent creates the number of vehicle agents, then each agent report back whether they are free or not
-    - the number of free vehicle agents will be sent back to the depot to perform route calculation
-    - calculated routes will be sent back to the delivery agent to divide to the free vehicles
-        - each route will have an ID associated with
-    - after each vehicle received their desired route, they will notify the delivery agent about the route they have taken
-    - the data received from the frontend will have 2 formats
-      - the one with no vehicle data: use all the created vehicle agents
-      - the one with vehicle data:
-        - will check all the vehicle agents
-        - those which are not on the list will be eliminated
+- backend: DELIVERY AGENT sends final results to the API (not depot)
+    
+    WORKFLOW:
+    1. API receives data from frontend -> passes to Depot agent
+    2. Depot -> Delivery Agent (forwards request + customer data)
+    3. Delivery Agent checks vehicle states at request time (each vehicle has internal timer changing state randomly)
+    4. Delivery Agent -> Depot (reports number of FREE vehicles only)
+    5. Depot calculates routes for available vehicles -> sends routes to Delivery Agent
+    6. Delivery Agent assigns routes to FREE vehicle agents (each route has ID associated)
+    7. Each vehicle agent notifies Delivery Agent about the route they received
+    8. Delivery Agent -> API (sends final results: routes + vehicle assignments + events)
 
-    - about events
-      - should be real time (send to the api directly, not through the data sent to api)
-      - 
+    VEHICLE AGENT LIFECYCLE:
+    - Each vehicle agent has an internal timer that triggers random state changes (free <-> absent)
+    - States change independently, not triggered by requests
+    - At request time, Delivery Agent queries current state of all existing vehicle agents
+    - Vehicle agent persistence:
+      * If vehicle list (free + absent) remains unchanged from previous request:
+        - Frontend sends only customer data
+        - Use all existing vehicle agents (query their current states)
+      * If vehicle list changes:
+        - Frontend sends vehicle data (with names and capacities)
+        - Vehicles NOT on the new list: TERMINATE permanently (kill agent)
+        - Vehicles on list but don't exist yet: CREATE new agents
+        - Existing vehicles that remain: KEEP (but check their new state)
+
+    DATA FORMAT FROM FRONTEND:
+    - Format 1 (Customer data only): 
+      * Used when vehicle fleet unchanged
+      * Contains: customers, depot info
+    - Format 2 (Full data with vehicles):
+      * Used when vehicle fleet changes (additions/removals)
+      * Contains: customers, depot info, vehicle list (names, capacities)
+
+    REAL-TIME EVENTS (Incremental Updates):
+    - Events are sent to API progressively as they happen (not bundled with final result)
+    - Uses concurrent programming / async operations
+    - Event types:
+      1. "Vehicle Agent Created: [name]"
+      2. "Vehicle Agent Terminated: [name]"
+      3. "Vehicle State Checked: [name] is [free/absent]"
+      4. "Available Vehicles: [count] free out of [total]"
+      5. "Route [ID] calculated by Depot"
+      6. "Route [ID] assigned to Vehicle [name]"
+      7. "Vehicle [name] confirmed Route [ID]"
+      8. "All routes assigned successfully"
+    - Frontend notification box displays these events in real-time
+    - Events show agent communication and system workflow transparently
 
 previous:
 {
