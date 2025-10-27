@@ -32,7 +32,7 @@ export function CustomerPanel({
               key={customer.id}
               className="flex items-center gap-2 p-3 border rounded-md bg-card"
             >
-              <div className="flex-1">
+              <div className="flex-1 space-y-1">
                 <div className="flex items-center gap-2">
                   <Label htmlFor={`customer-${customer.id}`} className="min-w-16">
                     {customer.name}
@@ -49,6 +49,9 @@ export function CustomerPanel({
                     min="1"
                   />
                   <span className="text-muted-foreground">units</span>
+                </div>
+                <div className="text-xs text-muted-foreground pl-16">
+                  ({customer.x.toFixed(0)}, {customer.y.toFixed(0)})
                 </div>
               </div>
               <Button

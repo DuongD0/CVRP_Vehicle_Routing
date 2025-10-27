@@ -1,57 +1,26 @@
-import { Depot } from '../types/cvrp';
-import { Input } from './ui/input';
-import { Label } from './ui/label';
+import { Warehouse } from 'lucide-react';
 
 interface DepotPanelProps {
-  depot: Depot;
-  onUpdateDepot: (x: number, y: number) => void;
+  x: number;
+  y: number;
 }
 
-export function DepotPanel({ depot, onUpdateDepot }: DepotPanelProps) {
+export function DepotPanel({ x, y }: DepotPanelProps) {
   return (
-    <div className="h-full flex flex-col">
-      {/* Fixed Header */}
-      <h3 className="mb-3 flex-shrink-0">Depot</h3>
-      
-      {/* Scrollable Content */}
-      <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
-        <div className="flex items-center gap-2 p-3 border rounded-md bg-card">
-          <div className="flex-1 space-y-3">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="depot-x" className="min-w-16">
-                X:
-              </Label>
-              <Input
-                id="depot-x"
-                type="number"
-                value={depot.x}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value) || 0;
-                  onUpdateDepot(value, depot.y);
-                }}
-                className="w-24"
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="depot-y" className="min-w-16">
-                Y:
-              </Label>
-              <Input
-                id="depot-y"
-                type="number"
-                value={depot.y}
-                onChange={(e) => {
-                  const value = parseFloat(e.target.value) || 0;
-                  onUpdateDepot(depot.x, value);
-                }}
-                className="w-24"
-              />
-            </div>
-          </div>
+    <div className="p-4 border rounded-lg bg-card">
+      <div className="flex items-center gap-2 mb-3">
+        <Warehouse className="h-5 w-5" />
+        <h3>Depot</h3>
+      </div>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">X:</span>
+          <span>{x.toFixed(0)}</span>
         </div>
-        <p className="text-muted-foreground">
-          Starting point for all vehicle routes
-        </p>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Y:</span>
+          <span>{y.toFixed(0)}</span>
+        </div>
       </div>
     </div>
   );

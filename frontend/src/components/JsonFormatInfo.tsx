@@ -4,8 +4,8 @@ import { Badge } from './ui/badge';
 export function JsonFormatInfo() {
   const exampleJson = `{
   "vehicles": {
-    "vehicle_1": 20,
-    "vehicle_2": 20
+    "Vehicle 1": 20,
+    "Vehicle 2": 20
   },
   "customers": {
     "customer_1": [[150, 200], 5],
@@ -55,10 +55,13 @@ export function JsonFormatInfo() {
           </Card>
           <div className="mt-2 space-y-1">
             <p className="text-muted-foreground">
-              <strong>vehicles:</strong> Object with vehicle IDs as keys
+              <strong>vehicles:</strong> Object with vehicle names as keys
             </p>
             <p className="text-muted-foreground ml-4">
               • Value: capacity (number only)
+            </p>
+            <p className="text-muted-foreground ml-4">
+              • Only sent if vehicles changed since last request
             </p>
             <p className="text-muted-foreground">
               <strong>customers:</strong> Object with customer IDs as keys

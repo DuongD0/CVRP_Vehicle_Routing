@@ -90,23 +90,7 @@ current problem:
     - Frontend notification box displays these events in real-time
     - Events show agent communication and system workflow transparently
 
-previous:
-{
-  "routes": [
-    {
-      "vehicle_id": 1,
-      "customers": [
-        {
-          "id": 1,
-          "x": 150,
-          "y": 200,
-          "demand": 5,
-          "name": "C1"
-        }
-      ],
-      "total_demand": 5,
-      "total_distance": 320.5
-    }
-  ],
-  "total_distance": 640.2
-}
+    VEHICLE - DELIVERY COMMUNICATION:
+    - currently there is only basic type of communication between the vehicles and the delivery agent (when assigning routes)
+    => need to implement some kind of communication
+    

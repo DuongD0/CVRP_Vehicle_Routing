@@ -1,26 +1,8 @@
+previous:
 {
-  "request_id": "abc-123", // not neccessary
-
-  "fleet": [
-    {
-      "vehicle_id": 1,
-      "agent_name": "vehicle-agent-1",
-      "state": "free",
-      "capacity": 100
-    },
-    {
-      "vehicle_id": 2,
-      "agent_name": "vehicle-agent-2",
-      "state": "absent",
-      "capacity": 100
-    }
-  ],
-
-  "available_vehicle_count": 1, // no need
-
+  "request_id": "abc-123",
   "routes": [
     {
-      "route_id": "R1",
       "vehicle_id": 1,
       "customers": [
         {
@@ -35,8 +17,48 @@
       "total_distance": 320.5
     }
   ],
+  "total_distance": 640.2
+}
 
-  "assignments": [ // no need
+
+new:
+{
+  "request_id": "abc-123",
+
+  "fleet": [
+    {
+      "vehicle_agent": "Thanh",
+      "state": "free",
+      "capacity": 100
+    },
+    {
+      "vehicle_agent": "Chang",
+      "state": "absent",
+      "capacity": 100
+    }
+  ],
+
+  "available_vehicle_count": 1, // for visualize
+
+  "routes": [
+    {
+      "route_id": "R1",
+      "vehicle_agent": "Thanh",  // Now uses vehicle name instead of numeric ID
+      "customers": [
+        {
+          "id": 1,
+          "x": 150,
+          "y": 200,
+          "demand": 5,
+          "name": "C1"
+        }
+      ],
+      "total_demand": 5,
+      "total_distance": 320.5
+    }
+  ],
+
+  "assignments": [ // implement later, mainly for illustrating communication
     {
       "route_id": "R1",
       "assigned_vehicle_id": 1,
@@ -44,7 +66,7 @@
     }
   ],
 
-  "events": [ // there could be a 
+  "events": [ // implement later, mainly for illustrating communication
     {
       "timestamp": "2025-10-22T10:00:00Z",
       "type": "availability-report",
@@ -66,8 +88,8 @@
     }
   ],
 
-  "unassigned_routes": [],
-  "unserved_customers": [],
+  "unassigned_routes": [], // advanced scenario
+  "unserved_customers": [], // advanced scenario
 
   "total_distance": 640.2,
   "meta": {

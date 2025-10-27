@@ -22,35 +22,46 @@ public class Main {
         AgentContainer mainContainer = rt.createMainContainer(p);
         
         try {
-            // Create and start Unified Depot agent (handles API + solving)
+            // Create and start Delivery Agent first
+            AgentController deliveryController = mainContainer.createNewAgent(
+                "delivery-agent", 
+                "project.Agent.Delivery", 
+                null
+            );
+            deliveryController.start();
+            System.out.println("Delivery Agent started: delivery-agent");
+            
+            // Wait a moment for Delivery Agent to initialize
+            Thread.sleep(1000);
+            
+            // Create and start Depot agent
             AgentController depotController = mainContainer.createNewAgent(
                 "depot-agent", 
                 "project.Agent.Depot", 
                 null
             );
             depotController.start();
-            
-            System.out.println("Unified agent started successfully!");
-            System.out.println("Depot Agent (Unified): depot-agent");
+            System.out.println("Depot Agent started: depot-agent");
             
             // Wait a moment for agents to initialize
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                System.out.println("Interrupted while waiting for agents to initialize");
-            }
+            Thread.sleep(2000);
             
-            System.out.println("\n=== SYSTEM READY FOR CONTINUOUS OPERATION ===");
-            System.out.println("✓ Unified Depot agent is running continuously");
-            System.out.println("✓ Polling API at http://localhost:8000/api/solve-cvrp");
-            System.out.println("✓ Solving and sending solutions directly to API");
-            System.out.println("\nAPI Integration:");
-            System.out.println("  - Depot polls API every 2 seconds for new requests");
-            System.out.println("  - Solutions are sent back to the same API endpoint");
-            System.out.println("  - Frontend can send requests to: http://localhost:8000/api/solve-cvrp");
+            System.out.println("\n=== MULTI-AGENT SYSTEM READY ===");
+            System.out.println("✓ Depot Agent: Polls API and solves VRP");
+            System.out.println("✓ Delivery Agent: Manages vehicle agents and assigns routes");
+            System.out.println("✓ Vehicle Agents: Created dynamically based on request");
+            System.out.println("\nWorkflow:");
+            System.out.println("  1. API receives request → Depot Agent");
+            System.out.println("  2. Depot → Delivery Agent (forwards vehicle data)");
+            System.out.println("  3. Delivery Agent manages vehicle agents (create/query states)");
+            System.out.println("  4. Delivery → Depot (reports available vehicles)");
+            System.out.println("  5. Depot calculates routes → Delivery Agent");
+            System.out.println("  6. Delivery Agent assigns routes to vehicles");
+            System.out.println("  7. Delivery Agent → API (sends final solution)");
+            System.out.println("\nAPI Endpoint: http://localhost:8000/api/solve-cvrp");
             System.out.println("===============================================\n");
             
-        } catch (StaleProxyException e) {
+        } catch (Exception e) {
             System.err.println("Error creating agents: " + e.getMessage());
             e.printStackTrace();
         }

@@ -1,0 +1,3 @@
+- hệ thống nhận hàng tự động (dây chuyền)
+- một mạng lưới các khách hàng (customer là agent nữa sẽ prompt hàng)
+- thêm cái quãng đường di chuyển (path cost)

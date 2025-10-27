@@ -49,6 +49,7 @@
     --color-black: #000;
     --color-white: #fff;
     --spacing: .25rem;
+    --container-3xl: 48rem;
     --text-xs: .75rem;
     --text-xs--line-height: calc(1 / .75);
     --text-sm: .875rem;
@@ -397,14 +398,6 @@
     position: relative;
   }
 
-  .top-3 {
-    top: calc(var(--spacing) * 3);
-  }
-
-  .right-3 {
-    right: calc(var(--spacing) * 3);
-  }
-
   .bottom-3 {
     bottom: calc(var(--spacing) * 3);
   }
@@ -499,6 +492,10 @@
     margin-left: calc(var(--spacing) * 4);
   }
 
+  .ml-auto {
+    margin-left: auto;
+  }
+
   .line-clamp-1 {
     -webkit-line-clamp: 1;
     -webkit-box-orient: vertical;
@@ -533,8 +530,16 @@
     height: 100%;
   }
 
+  .h-3 {
+    height: calc(var(--spacing) * 3);
+  }
+
   .h-4 {
     height: calc(var(--spacing) * 4);
+  }
+
+  .h-5 {
+    height: calc(var(--spacing) * 5);
   }
 
   .h-8 {
@@ -565,8 +570,16 @@
     min-height: calc(var(--spacing) * 4);
   }
 
+  .w-3 {
+    width: calc(var(--spacing) * 3);
+  }
+
   .w-4 {
     width: calc(var(--spacing) * 4);
+  }
+
+  .w-5 {
+    width: calc(var(--spacing) * 5);
   }
 
   .w-20 {
@@ -585,16 +598,16 @@
     width: 100%;
   }
 
+  .max-w-3xl {
+    max-width: var(--container-3xl);
+  }
+
   .min-w-0 {
     min-width: calc(var(--spacing) * 0);
   }
 
   .min-w-16 {
     min-width: calc(var(--spacing) * 16);
-  }
-
-  .min-w-24 {
-    min-width: calc(var(--spacing) * 24);
   }
 
   .flex-1 {
@@ -625,8 +638,8 @@
     grid-template-columns: repeat(1, minmax(0, 1fr));
   }
 
-  .grid-cols-2 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .grid-cols-\[0_1fr\] {
@@ -679,6 +692,10 @@
 
   .gap-3 {
     gap: calc(var(--spacing) * 3);
+  }
+
+  .gap-4 {
+    gap: calc(var(--spacing) * 4);
   }
 
   .gap-6 {
@@ -796,6 +813,16 @@
     background-color: var(--card);
   }
 
+  .bg-card\/50 {
+    background-color: var(--card);
+  }
+
+  @supports (color: color-mix(in lab, red, red)) {
+    .bg-card\/50 {
+      background-color: color-mix(in oklab, var(--card) 50%, transparent);
+    }
+  }
+
   .bg-destructive {
     background-color: var(--destructive);
   }
@@ -880,6 +907,10 @@
 
   .pb-6 {
     padding-bottom: calc(var(--spacing) * 6);
+  }
+
+  .pl-16 {
+    padding-left: calc(var(--spacing) * 16);
   }
 
   .text-base {

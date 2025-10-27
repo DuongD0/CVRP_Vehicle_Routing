@@ -39,6 +39,12 @@
             <artifactId>httpclient5</artifactId>
             <version>5.2.1</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.google.ortools</groupId>
+            <artifactId>ortools-java</artifactId>
+            <version>9.12.4544</version>
+        </dependency>
     </dependencies>
 
 </project>

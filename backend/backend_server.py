@@ -115,9 +115,16 @@ def submit_solution():
             if not cvrp_data:
                 return jsonify({'error': 'No JSON data provided'}), 400
                 
-            # Validate required fields
-            if 'vehicles' not in cvrp_data or 'customers' not in cvrp_data:
-                return jsonify({'error': 'Missing required fields: vehicles and customers'}), 400
+            # Validate required fields (vehicles is optional if fleet unchanged)
+            if 'customers' not in cvrp_data:
+                return jsonify({'error': 'Missing required field: customers'}), 400
+            
+            # Log the request type
+            if 'vehicles' in cvrp_data:
+                print(f"Received vehicles: {list(cvrp_data['vehicles'].keys())}")
+                print(f"Request type: Full data (vehicles + customers)")
+            else:
+                print(f"Request type: Customers only (vehicle fleet unchanged)")
                 
             print(f"Received CVRP request from frontend: {json.dumps(cvrp_data, indent=2)}")
             request_id = server.add_request(cvrp_data)

@@ -1,24 +1,23 @@
 import { useState } from 'react';
-import { Customer, Depot, Vehicle, Solution } from './types/cvrp';
+import { Customer, Vehicle, Solution } from './types/cvrp';
 import { solveCVRPBackend, exportFormattedJSON } from './utils/api';
 import { RouteVisualization } from './components/RouteVisualization';
 import { CustomerPanel } from './components/CustomerPanel';
-import { VehiclePanel } from './components/VehiclePanel';
 import { DepotPanel } from './components/DepotPanel';
+import { VehiclesPage } from './components/VehiclesPage';
 import { SolutionPanel } from './components/SolutionPanel';
 import { JsonFormatInfo } from './components/JsonFormatInfo';
 import { Button } from './components/ui/button';
 import { Toaster } from './components/ui/sonner';
-import { Play, RotateCcw, Download, Loader2 } from 'lucide-react';
+import { Play, RotateCcw, Download, Loader2, Settings } from 'lucide-react';
 import { toast } from 'sonner@2.0.3';
-import { Resizable } from 're-resizable';
 
 export default function App() {
-  const [depot, setDepot] = useState<Depot>({ x: 600, y: 450, name: 'Depot' });
+  const [currentPage, setCurrentPage] = useState<'main' | 'vehicles'>('main');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([
-    { id: 1, capacity: 20 },
-    { id: 2, capacity: 20 },
+    { id: 1, name: 'Vehicle 1', capacity: 20 },
+    { id: 2, name: 'Vehicle 2', capacity: 20 },
   ]);
   const [solution, setSolution] = useState<Solution | null>(null);
   const [solutionStatus, setSolutionStatus] = useState<'unsolved' | 'solving' | 'solved' | 'no-solution'>('unsolved');
@@ -26,10 +25,9 @@ export default function App() {
   const [nextVehicleId, setNextVehicleId] = useState(3);
   const [isLoading, setIsLoading] = useState(false);
   
-  // Panel heights (total must equal 852px - the available space after gaps)
-  const [vehiclePanelHeight, setVehiclePanelHeight] = useState(180);
-  const [customerPanelHeight, setCustomerPanelHeight] = useState(260);
-  const [depotPanelHeight, setDepotPanelHeight] = useState(412);
+  // Vehicle comparison tracking
+  const [previousVehicles, setPreviousVehicles] = useState<Vehicle[] | null>(null);
+  const [currentRequestVehicles, setCurrentRequestVehicles] = useState<Vehicle[] | null>(null);
 
   const handleAddCustomer = (x: number, y: number) => {
     const newCustomer: Customer = {
@@ -70,15 +68,10 @@ export default function App() {
     setSolutionStatus('unsolved');
   };
 
-  const handleUpdateDepot = (x: number, y: number) => {
-    setDepot({ ...depot, x, y });
-    setSolution(null);
-    setSolutionStatus('unsolved');
-  };
-
   const handleAddVehicle = () => {
     const newVehicle: Vehicle = {
       id: nextVehicleId,
+      name: `Vehicle ${nextVehicleId}`,
       capacity: 20,
     };
     setVehicles([...vehicles, newVehicle]);
@@ -87,9 +80,9 @@ export default function App() {
     setSolutionStatus('unsolved');
   };
 
-  const handleUpdateVehicle = (id: number, capacity: number) => {
+  const handleUpdateVehicle = (id: number, name: string, capacity: number) => {
     setVehicles(
-      vehicles.map((v) => (v.id === id ? { ...v, capacity } : v))
+      vehicles.map((v) => (v.id === id ? { ...v, name, capacity } : v))
     );
     setSolution(null); // Clear solution when updating
     setSolutionStatus('unsolved');
@@ -101,14 +94,44 @@ export default function App() {
     setSolutionStatus('unsolved');
   };
 
+  // Compare two vehicle lists to see if they're the same
+  const vehiclesAreEqual = (v1: Vehicle[], v2: Vehicle[]): boolean => {
+    if (v1.length !== v2.length) return false;
+    
+    // Sort by id and compare
+    const sorted1 = [...v1].sort((a, b) => a.id - b.id);
+    const sorted2 = [...v2].sort((a, b) => a.id - b.id);
+    
+    return sorted1.every((vehicle, index) => {
+      const other = sorted2[index];
+      return vehicle.name === other.name && vehicle.capacity === other.capacity;
+    });
+  };
+
   const handleSolve = async () => {
     if (customers.length === 0) return;
     
     setIsLoading(true);
     setSolutionStatus('solving');
+    
+    // Determine if we should send vehicle data
+    let vehiclesToSend: Vehicle[] | undefined = vehicles;
+    
+    if (previousVehicles && currentRequestVehicles) {
+      // We have history - compare current vehicles with last request vehicles
+      if (vehiclesAreEqual(vehicles, currentRequestVehicles)) {
+        // Vehicles haven't changed since last request - don't send
+        vehiclesToSend = undefined;
+      }
+    }
+    
     try {
       // Send data to backend API
-      const result = await solveCVRPBackend(customers, vehicles, depot);
+      const result = await solveCVRPBackend(customers, vehiclesToSend);
+      
+      // Update vehicle tracking
+      setPreviousVehicles(currentRequestVehicles);
+      setCurrentRequestVehicles([...vehicles]);
       
       // Check if we got a valid solution with routes
       if (!result || !result.routes || result.routes.length === 0) {
@@ -135,7 +158,7 @@ export default function App() {
       toast.error('No data to export. Please add customers first.');
       return;
     }
-    exportFormattedJSON(customers, vehicles, depot);
+    exportFormattedJSON(customers, vehicles);
     toast.success('JSON data exported successfully!');
   };
 
@@ -146,6 +169,24 @@ export default function App() {
     setNextCustomerId(1);
   };
 
+  // Show vehicles page
+  if (currentPage === 'vehicles') {
+    return (
+      <>
+        <VehiclesPage
+          vehicles={vehicles}
+          vehicleStates={solution?.vehicleStates}
+          onAddVehicle={handleAddVehicle}
+          onUpdateVehicle={handleUpdateVehicle}
+          onDeleteVehicle={handleDeleteVehicle}
+          onBack={() => setCurrentPage('main')}
+        />
+        <Toaster />
+      </>
+    );
+  }
+
+  // Main page
   return (
     <div className="size-full bg-muted/30 overflow-auto">
       <div className="container mx-auto p-6 space-y-6">
@@ -177,6 +218,14 @@ export default function App() {
             )}
           </Button>
           <Button
+            onClick={() => setCurrentPage('vehicles')}
+            variant="outline"
+            size="lg"
+          >
+            <Settings className="h-4 w-4 mr-2" />
+            Manage Vehicles
+          </Button>
+          <Button
             onClick={handleExportJSON}
             variant="outline"
             disabled={customers.length === 0}
@@ -202,7 +251,6 @@ export default function App() {
           <div className="lg:col-span-2 h-[900px]">
             <div className="h-full">
               <RouteVisualization
-                depot={depot}
                 customers={customers}
                 routes={solution?.routes || []}
                 onAddCustomer={handleAddCustomer}
@@ -211,70 +259,15 @@ export default function App() {
             </div>
           </div>
 
-          {/* Control Panel - 3 resizable panels matching map height */}
+          {/* Control Panel - Depot and Customer panels */}
           <div className="h-[900px] flex flex-col gap-6">
-            <Resizable
-              size={{ width: '100%', height: vehiclePanelHeight }}
-              onResizeStop={(e, direction, ref, d) => {
-                const newHeight = vehiclePanelHeight + d.height;
-                const availableSpace = 852; // 900px - 48px gaps
-                const otherPanelsHeight = customerPanelHeight + depotPanelHeight;
-                const minHeight = 100;
-                const maxHeight = availableSpace - 2 * minHeight;
-                
-                if (newHeight >= minHeight && newHeight <= maxHeight) {
-                  setVehiclePanelHeight(newHeight);
-                  // Distribute the change proportionally to other panels
-                  const ratio = customerPanelHeight / (customerPanelHeight + depotPanelHeight);
-                  const remaining = availableSpace - newHeight;
-                  setCustomerPanelHeight(remaining * ratio);
-                  setDepotPanelHeight(remaining * (1 - ratio));
-                }
-              }}
-              enable={{ bottom: true }}
-              minHeight={100}
-              maxHeight={652}
-            >
-              <div className="p-4 border rounded-lg bg-card h-full">
-                <VehiclePanel
-                  vehicles={vehicles}
-                  onAddVehicle={handleAddVehicle}
-                  onUpdateVehicle={handleUpdateVehicle}
-                  onDeleteVehicle={handleDeleteVehicle}
-                />
-              </div>
-            </Resizable>
-
-            <Resizable
-              size={{ width: '100%', height: customerPanelHeight }}
-              onResizeStop={(e, direction, ref, d) => {
-                const newHeight = customerPanelHeight + d.height;
-                const availableSpace = 852;
-                const minHeight = 100;
-                const maxHeight = availableSpace - vehiclePanelHeight - minHeight;
-                
-                if (newHeight >= minHeight && newHeight <= maxHeight) {
-                  setCustomerPanelHeight(newHeight);
-                  setDepotPanelHeight(availableSpace - vehiclePanelHeight - newHeight);
-                }
-              }}
-              enable={{ bottom: true }}
-              minHeight={100}
-              maxHeight={652}
-            >
-              <div className="p-4 border rounded-lg bg-card h-full">
-                <CustomerPanel
-                  customers={customers}
-                  onUpdateCustomer={handleUpdateCustomer}
-                  onDeleteCustomer={handleDeleteCustomer}
-                />
-              </div>
-            </Resizable>
-
-            <div className="p-4 border rounded-lg bg-card flex-1">
-              <DepotPanel
-                depot={depot}
-                onUpdateDepot={handleUpdateDepot}
+            <DepotPanel x={800} y={600} />
+            
+            <div className="p-4 border rounded-lg bg-card flex-1 overflow-auto">
+              <CustomerPanel
+                customers={customers}
+                onUpdateCustomer={handleUpdateCustomer}
+                onDeleteCustomer={handleDeleteCustomer}
               />
             </div>
           </div>

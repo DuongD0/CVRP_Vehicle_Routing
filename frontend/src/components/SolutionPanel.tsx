@@ -1,6 +1,6 @@
 import { Solution } from '../types/cvrp';
 import { Alert, AlertDescription } from './ui/alert';
-import { Truck, Route as RouteIcon, AlertCircle, XCircle, HelpCircle } from 'lucide-react';
+import { Truck, Route as RouteIcon, AlertCircle, XCircle, HelpCircle, CheckCircle, Clock } from 'lucide-react';
 
 interface SolutionPanelProps {
   solution: Solution | null;
@@ -59,14 +59,23 @@ export function SolutionPanel({ solution, solutionStatus }: SolutionPanelProps) 
       <h3 className="mb-4">Solution</h3>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="grid grid-cols-3 gap-3 mb-4">
         <div className="p-3 border rounded-md bg-card">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <Truck className="h-4 w-4" />
-            <span>Vehicles</span>
+            <span>Routes</span>
           </div>
           <div>{solution.routes.length}</div>
         </div>
+        {solution.availableVehicleCount !== undefined && (
+          <div className="p-3 border rounded-md bg-card">
+            <div className="flex items-center gap-2 text-muted-foreground mb-1">
+              <CheckCircle className="h-4 w-4" />
+              <span>Available</span>
+            </div>
+            <div>{solution.availableVehicleCount}</div>
+          </div>
+        )}
         <div className="p-3 border rounded-md bg-card">
           <div className="flex items-center gap-2 text-muted-foreground mb-1">
             <RouteIcon className="h-4 w-4" />
@@ -76,17 +85,40 @@ export function SolutionPanel({ solution, solutionStatus }: SolutionPanelProps) 
         </div>
       </div>
 
+      {/* Metadata */}
+      {solution.meta && (
+        <div className="mb-4 p-3 border rounded-md bg-card/50">
+          <div className="flex items-center justify-between text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Clock className="h-3 w-3" />
+              <span>{solution.meta.solver}</span>
+            </div>
+            <span className="text-muted-foreground">
+              {solution.meta.solve_time_ms}ms
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Route details - scrollable */}
       <div className="flex flex-col min-h-0 flex-1">
         <h4 className="mb-2">Routes</h4>
         <div className="space-y-2 overflow-y-auto flex-1">
           {solution.routes.map((route, index) => (
             <div
-              key={index}
+              key={route.routeId || index}
               className="p-3 border rounded-md bg-card space-y-2"
             >
               <div className="flex items-center justify-between">
-                <span>Vehicle {route.vehicleId}</span>
+                <div className="flex flex-col">
+                  <span>{route.vehicleName || `Vehicle ${route.vehicleId}`}</span>
+                  <div className="flex gap-2 text-xs text-muted-foreground">
+                    {route.routeId && <span>Route: {route.routeId}</span>}
+                    {route.vehicleName && route.vehicleName !== `Vehicle ${route.vehicleId}` && (
+                      <span>ID: {route.vehicleId}</span>
+                    )}
+                  </div>
+                </div>
                 <span className="text-muted-foreground">
                   {route.customers.length} stops
                 </span>

@@ -1,19 +1,25 @@
-import { Customer, Vehicle, Depot, Solution, Route } from '../types/cvrp';
+import { Customer, Vehicle, Solution, Route } from '../types/cvrp';
 
 // API endpoint - hardcoded default
 const API_ENDPOINT = 'http://localhost:8000/api/solve-cvrp';
 
 
 // User request data format
+// vehicles is optional - can send customer data only if vehicle fleet unchanged
 export interface CVRPRequest {
-  vehicles: { [key: string]: number };
-  customers: { [key: string]: [number[], number] };
+  vehicles?: { [key: string]: number };  // Optional: vehicle_name: capacity or vehicle_1: capacity
+  customers: { [key: string]: [number[], number] };  // Required: customer_id: [[x, y], demand]
 }
 
-// Backend response data format
+// Backend response data format (new format with vehicle states)
 export interface CVRPResponse {
+  request_id: string;
+  vehicle_state?: { [vehicleName: string]: string };  // Optional: vehicle states (free/absent)
+  available_vehicle_count?: number;  // Optional: count of available vehicles
   routes: Array<{
-    vehicle_id: number;
+    route_id?: string;  // Optional: route identifier
+    vehicle_id?: number;  // Optional: numeric vehicle ID
+    vehicle_agent?: string;  // Optional: vehicle agent name
     customers: Array<{
       id: number;
       x: number;
@@ -25,6 +31,10 @@ export interface CVRPResponse {
     total_distance: number;
   }>;
   total_distance: number;
+  meta?: {
+    solver: string;
+    solve_time_ms: number;
+  };
 }
 
 /**
@@ -32,18 +42,19 @@ export interface CVRPResponse {
  */
 export function formatCVRPRequest(
   customers: Customer[],
-  vehicles: Vehicle[],
-  depot: Depot
+  vehicles?: Vehicle[]
 ): CVRPRequest {
   const formattedData: CVRPRequest = {
-    vehicles: {},
     customers: {},
   };
 
-  // Format vehicles: vehicle_j: capacity
-  vehicles.forEach((vehicle) => {
-    formattedData.vehicles[`vehicle_${vehicle.id}`] = vehicle.capacity;
-  });
+  // Format vehicles: name: capacity (only if provided)
+  if (vehicles && vehicles.length > 0) {
+    formattedData.vehicles = {};
+    vehicles.forEach((vehicle) => {
+      formattedData.vehicles![vehicle.name || `Vehicle ${vehicle.id}`] = vehicle.capacity;
+    });
+  }
 
   // Format customers: customer_i: [[x, y], demand]
   customers.forEach((customer) => {
@@ -60,8 +71,10 @@ export function formatCVRPRequest(
  * Converts backend response to frontend Solution format
  */
 export function parseBackendResponse(response: CVRPResponse): Solution {
-  const routes: Route[] = response.routes.map((route) => ({
-    vehicleId: route.vehicle_id,
+  const routes: Route[] = response.routes.map((route, index) => ({
+    vehicleId: route.vehicle_id || route.vehicle_agent as any || index + 1,  // Support both formats
+    vehicleName: route.vehicle_agent,  // Optional: vehicle agent name
+    routeId: route.route_id,  // Optional: route ID
     customers: route.customers,
     totalDemand: route.total_demand,
     totalDistance: route.total_distance,
@@ -69,7 +82,10 @@ export function parseBackendResponse(response: CVRPResponse): Solution {
 
   return {
     routes,
-    totalDistance: response.total_distance
+    totalDistance: response.total_distance,
+    vehicleStates: response.vehicle_state,  // Optional: vehicle states
+    availableVehicleCount: response.available_vehicle_count,  // Optional: available count
+    meta: response.meta,  // Optional: solver metadata
   };
 }
 
@@ -78,10 +94,9 @@ export function parseBackendResponse(response: CVRPResponse): Solution {
  */
 export async function solveCVRPBackend(
   customers: Customer[],
-  vehicles: Vehicle[],
-  depot: Depot
+  vehicles?: Vehicle[]
 ): Promise<Solution> {
-  const requestData = formatCVRPRequest(customers, vehicles, depot);
+  const requestData = formatCVRPRequest(customers, vehicles);
 
   try {
     const response = await fetch(API_ENDPOINT, {
@@ -178,10 +193,9 @@ export async function checkSolutionStatus(requestId: string): Promise<{
  */
 export function exportFormattedJSON(
   customers: Customer[],
-  vehicles: Vehicle[],
-  depot: Depot
+  vehicles: Vehicle[]
 ): void {
-  const data = formatCVRPRequest(customers, vehicles, depot);
+  const data = formatCVRPRequest(customers, vehicles);
   console.log('CVRP Request Data:', JSON.stringify(data, null, 2));
   
   const jsonString = JSON.stringify(data, null, 2);

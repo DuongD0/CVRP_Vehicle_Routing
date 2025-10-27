@@ -1,10 +1,7 @@
 import { useState } from 'react';
-import { Customer, Depot, Route } from '../types/cvrp';
-import { Button } from './ui/button';
-import { ZoomIn, ZoomOut, Maximize2, Trash2 } from 'lucide-react';
+import { Customer, Route } from '../types/cvrp';
 
 interface RouteVisualizationProps {
-  depot: Depot;
   customers: Customer[];
   routes: Route[];
   onAddCustomer: (x: number, y: number) => void;
@@ -23,18 +20,19 @@ const COLORS = [
 ];
 
 export function RouteVisualization({
-  depot,
   customers,
   routes,
   onAddCustomer,
   onDeleteCustomer,
 }: RouteVisualizationProps) {
-  const [zoom, setZoom] = useState(1);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
   const [isPanning, setIsPanning] = useState(false);
   const [lastMousePos, setLastMousePos] = useState({ x: 0, y: 0 });
   const [wasPanning, setWasPanning] = useState(false);
+  
+  // Fixed depot at center
+  const depot = { x: 800, y: 600 };
 
   const handleCanvasClick = (e: React.MouseEvent<SVGSVGElement>) => {
     // Don't add customer if user was panning (holding Ctrl or Shift)
@@ -44,11 +42,13 @@ export function RouteVisualization({
     }
     
     const svg = e.currentTarget;
-    const rect = svg.getBoundingClientRect();
-    // Convert screen coordinates to SVG coordinates considering viewBox
-    const x = ((e.clientX - rect.left) / rect.width) * (1200 / zoom) + (-panX);
-    const y = ((e.clientY - rect.top) / rect.height) * (900 / zoom) + (-panY);
-    onAddCustomer(x, y);
+    const pt = svg.createSVGPoint();
+    pt.x = e.clientX;
+    pt.y = e.clientY;
+    
+    // Use SVG's built-in coordinate transformation for accuracy
+    const svgP = pt.matrixTransform(svg.getScreenCTM()!.inverse());
+    onAddCustomer(svgP.x, svgP.y);
   };
 
   const handleCustomerClick = (e: React.MouseEvent, customerId: number) => {
@@ -61,16 +61,7 @@ export function RouteVisualization({
     onDeleteCustomer(customerId);
   };
 
-  const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev * 1.2, 5));
-  };
-
-  const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev / 1.2, 0.5));
-  };
-
   const handleResetView = () => {
-    setZoom(1);
     setPanX(0);
     setPanY(0);
   };
@@ -88,8 +79,8 @@ export function RouteVisualization({
     if (isPanning) {
       const deltaX = e.clientX - lastMousePos.x;
       const deltaY = e.clientY - lastMousePos.y;
-      setPanX(prev => prev + deltaX / zoom);
-      setPanY(prev => prev + deltaY / zoom);
+      setPanX(prev => prev + deltaX);
+      setPanY(prev => prev + deltaY);
       setLastMousePos({ x: e.clientX, y: e.clientY });
     }
   };
@@ -98,58 +89,23 @@ export function RouteVisualization({
     setIsPanning(false);
   };
 
-  const handleWheel = (e: React.WheelEvent<SVGSVGElement>) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(prev => Math.max(0.5, Math.min(prev * delta, 5)));
-  };
-
   return (
     <div className="border rounded-lg overflow-hidden bg-white relative h-full">
-      {/* Zoom Controls */}
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-2">
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={handleZoomIn}
-          title="Zoom In"
-        >
-          <ZoomIn className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={handleZoomOut}
-          title="Zoom Out"
-        >
-          <ZoomOut className="h-4 w-4" />
-        </Button>
-        <Button
-          variant="secondary"
-          size="icon"
-          onClick={handleResetView}
-          title="Reset View"
-        >
-          <Maximize2 className="h-4 w-4" />
-        </Button>
-      </div>
-
       {/* Info Text */}
       <div className="absolute bottom-3 left-3 z-10 bg-black/60 text-white px-3 py-2 rounded text-sm">
-        Click to add | Right-click customer to delete | Ctrl/Shift+Drag to pan | Scroll to zoom
+        Click to add | Right-click customer to delete | Ctrl/Shift+Drag to pan
       </div>
 
       <svg
         width="100%"
         height="100%"
-        viewBox={`${-panX} ${-panY} ${1200/zoom} ${900/zoom}`}
+        viewBox={`${-panX} ${-panY} 1600 1200`}
         className={isPanning ? "cursor-grabbing" : "cursor-crosshair"}
         onClick={handleCanvasClick}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
       >
         {/* Background grid */}
         <defs>
@@ -166,8 +122,8 @@ export function RouteVisualization({
         <rect 
           x={-panX} 
           y={-panY} 
-          width={1200/zoom} 
-          height={900/zoom} 
+          width={1600} 
+          height={1200} 
           fill="url(#grid)" 
         />
 
