@@ -1,3 +1,28 @@
 - hệ thống nhận hàng tự động (dây chuyền)
+    - sẽ có một cái list hàng mà customer agent liên tiếp request hàng vào đó
+        - request hàng random (tca cùng request một hàng gì đó)
+        - có thể cần truy xuất db
+    - depot bắt đầu act as kho chứa hàng thay vì chỉ nhận slieu đơn thuần và tính toán route
+        - tra xem hàng có còn ko
+            - implement tạm cái list hàng bằng dict với slieu ở cả phía customer và depot
+            - sẽ query cái dict đó cho đơn giản, thừa tgian làm db sau
+        - nếu hàng còn thì lôi vào tính toán route
+        - hàng ko có thì sẽ có mục unserved customers
+
 - một mạng lưới các khách hàng (customer là agent nữa sẽ prompt hàng)
 - thêm cái quãng đường di chuyển (path cost)
+- time window ? ()
+- thay vì distance như thường thì h cần implement path cost (gồm distance + các thứ như xăng, vv)
+- implement xe đi (time window + path cost)
+
+1. Hệ thống nhận hàng tự động:
+    - List hàng: các customer (agent) sẽ liên tiếp request các mặt hàng
+    - Các mặt hàng tự động được depot nhận về và đưa vào một list để xử lý
+    - Khi nào số hàng vượt mức nào đó, sẽ lấy số hàng dưới mức đó để đưa vào tính toán
+    - Dưới danh nghĩa hàng nma vẫn chỉ implement khối lượng cho việc tính toán đơn giản
+
+2. Hệ thống tính toán quãng đường mới: (chắc lùi qua test case 3, nên tập trung vào multiagent sys)
+    - Thay vì chỉ có mỗi distance (khoảng cách toạ độ euclid), thì implement path cost
+
+3. Hệ thống giao tiếp mới cho delivery và vehicle
+    - 

@@ -5,12 +5,9 @@ import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.core.AID;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.io.entity.StringEntity;
 import com.google.ortools.Loader;
 import com.google.ortools.constraintsolver.Assignment;
 import com.google.ortools.constraintsolver.FirstSolutionStrategy;
@@ -111,33 +108,6 @@ public class Depot extends Agent {
             System.err.println("Depot: Error polling API: " + e.getMessage());
         }
         return null;
-    }
-
-    private void sendSolutionToAPI(String solution) {
-        try {
-            HttpPost request = new HttpPost(API_URL + "?action=response");
-            request.setHeader("Content-Type", "application/json");
-            
-            // Extract the JSON part from the solution (remove "SOLUTION:" prefix)
-            String jsonSolution = solution;
-            if (solution.startsWith("SOLUTION:")) {
-                jsonSolution = solution.substring("SOLUTION:".length());
-            }
-            
-            StringEntity entity = new StringEntity(jsonSolution, ContentType.APPLICATION_JSON);
-            request.setEntity(entity);
-            
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                int statusCode = response.getCode();
-                if (statusCode == 200) {
-                    System.out.println("Depot: Solution sent to API successfully");
-                } else {
-                    System.err.println("Depot: Failed to send solution to API. Status: " + statusCode);
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Depot: Error sending solution to API: " + e.getMessage());
-        }
     }
 
     private class ContinuousAPIHandlerBehaviour extends CyclicBehaviour {
@@ -434,74 +404,6 @@ public class Depot extends Agent {
         System.out.println("Depot: Parsed " + vehicles.size() + " vehicles and " + customers.size() + " customers");
         
         return result;
-    }
-
-    private void sendProblemDataToMRA(Map<String, Object> apiData, String requestId) {
-        try {
-            ACLMessage msg = new ACLMessage(ACLMessage.INFORM);
-            AID mraAgent = new AID("mra-agent", AID.ISLOCALNAME);
-            msg.addReceiver(mraAgent);
-            
-            // Convert API data to our internal format
-            StringBuilder problemData = new StringBuilder();
-            problemData.append("API_PROBLEM_DATA\n");
-            problemData.append("REQUEST_ID:").append(requestId).append("\n");
-            
-            // Process vehicles
-            @SuppressWarnings("unchecked")
-            Map<String, Object> vehicles = (Map<String, Object>) apiData.get("vehicles");
-            problemData.append("NUM_VEHICLES:").append(vehicles.size()).append("\n");
-            
-            // Get vehicle capacity (assuming all same capacity)
-            Integer vehicleCapacity = (Integer) vehicles.values().iterator().next();
-            problemData.append("VEHICLE_CAPACITY:").append(vehicleCapacity).append("\n");
-            
-            // Process customers
-            @SuppressWarnings("unchecked")
-            Map<String, Object> customers = (Map<String, Object>) apiData.get("customers");
-            int numCustomers = customers.size();
-            problemData.append("NUM_CUSTOMERS:").append(numCustomers).append("\n");
-            
-            // Build coordinate and demand arrays in numeric customer order and correct format
-            // Sort customers by numeric id to keep coordinates aligned with demands
-            List<Map.Entry<String, Object>> sortedCustomers = new ArrayList<>(customers.entrySet());
-            sortedCustomers.sort((a, b) -> Integer.compare(
-                    Integer.parseInt(a.getKey()),
-                    Integer.parseInt(b.getKey())
-            ));
-
-            StringBuilder coordsSb = new StringBuilder();
-            StringBuilder demandsSb = new StringBuilder();
-
-            for (int i = 0; i < sortedCustomers.size(); i++) {
-                Map.Entry<String, Object> entry = sortedCustomers.get(i);
-                Object[] customerData = (Object[]) entry.getValue();
-                double[] coords = (double[]) customerData[0];
-                int demandVal = (Integer) customerData[1];
-
-                if (i > 0) {
-                    coordsSb.append(",");
-                    demandsSb.append(",");
-                }
-                coordsSb.append(coords[0]).append(",").append(coords[1]);
-                demandsSb.append(demandVal);
-            }
-
-            // MRA expects both sections on the SAME line: "CUSTOMER_COORDINATES:...DEMANDS:..."
-            problemData.append("CUSTOMER_COORDINATES:")
-                       .append(coordsSb)
-                       .append("DEMANDS:")
-                       .append(demandsSb)
-                       .append("\n");
-            
-            msg.setContent(problemData.toString());
-            send(msg);
-            
-            System.out.println("Depot: API data sent to MRA agent for solving");
-            
-        } catch (Exception e) {
-            System.err.println("Depot: Error sending API data to MRA: " + e.getMessage());
-        }
     }
 
     // Build internal arrays and fields from parsed API map
