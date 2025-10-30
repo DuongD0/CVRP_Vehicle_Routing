@@ -1,0 +1,120 @@
+Toward a More Flexible VRP with Pickup and Delivery Allowing Consolidations (Transportation Research Part C, 2021)
+
+Authors: Yannis Ancele, Minh Hoàng Hà, Charly Lersteau, Dante Ben Matellini, Trung Thanh Nguyen
+
+=======================================================================
+1. CORE IDEA AND CONTEXT
+=======================================================================
+The authors address a very general Vehicle Routing Problem (VRP) that involves pickup and delivery (P&D) requests, allows cross-docking (temporary goods transfer points), and supports consolidations (combining multiple shipments into one vehicle). It reflects Physical Internet (PI) logistics — modular, collaborative, and flexible.
+
+Traditional VRPs assume a single depot and do not allow goods to transfer between vehicles. This paper models a realistic collaborative logistics network with multiple depots, cross-docks, and vehicles that can start and end in different depots (open routes).
+
+Key attributes include:
+- Mixed pickup and delivery
+- Multiple depots and cross-docks
+- Consolidation flexibility across facilities
+- Heterogeneous fleets, open routes, time windows, and site dependencies
+
+=======================================================================
+2. MATHEMATICAL MODEL (MILP FORMULATION)
+=======================================================================
+
+Objective: Minimize total driving time across all vehicles.
+Decision Variables: Binary variables for vehicle movements (x_ij^k), transport of requests (y_rij^k), and continuous variables for arrival and departure times (u_i^k, v_i^k).
+
+Constraints include:
+1. Time windows for vehicles and customers.
+2. Vehicle capacity and compatibility restrictions.
+3. Flow conservation — each node must be entered and exited once.
+4. Cross-dock synchronization for load exchanges.
+5. Pickup-before-delivery precedence.
+6. Site-dependency constraints.
+
+This model supports direct shipping or multi-cross-dock consolidation.
+
+=======================================================================
+3. META-HEURISTIC: MULTI-THREADED SIMULATED ANNEALING WITH MEMORY (TSAM)
+=======================================================================
+
+A meta-heuristic approach replaces exact MILP for large-scale problems.
+
+Key features:
+- Based on Simulated Annealing (SA).
+- Parallel multi-threaded search with shared memory.
+- Problem-specific operators for consolidations.
+- Restart strategy and adaptive cooling schedule.
+
+Threads and Operators:
+1. Thread 1: PD interchange, PD move
+2. Thread 2: PD consolidation
+3. Thread 3: PD swap, PD exchange
+
+Memory mechanism: Shared solution pool among threads to prevent premature convergence.
+
+Operators:
+- PD Move: Move a P&D pair to another route.
+- PD Interchange: Swap two pairs between routes.
+- PD Swap/Exchange: Exchange multiple P&D nodes.
+- PD Stretch: Insert cross-dock (add consolidation).
+- PD Shrink: Remove cross-dock (direct shipping).
+
+Hierarchical clustering groups requests with similar pickup/delivery locations to enable consolidation.
+
+=======================================================================
+4. COMPUTATIONAL RESULTS
+=======================================================================
+
+Synthetic dataset generation:
+- 1–5 cross-docks, 1–5 vehicles, 10–50 requests.
+- Vehicle capacity: 50–100
+- Time windows: [0–1000]
+- Coordinates: Random [0–100]
+
+Comparison of CPLEX vs TSAM:
+- CPLEX solves small instances only (≤15 requests).
+- TSAM scales up to 100–200 customers efficiently.
+- TSAM provides up to 200× faster runtime and ≤5% gap on small cases.
+
+Consolidation benefit:
+- Reduces distance by 10–20%.
+- Improves vehicle utilization and load balance.
+
+Benchmark (Li & Lim, 2001):
+- TSAM matches or outperforms best-known solutions for 100- and 200-customer PDP instances.
+
+=======================================================================
+5. INSIGHTS FOR PROJECT DEVELOPMENT
+=======================================================================
+
+Applications:
+- Multi-company shared logistics.
+- Urban consolidation center routing.
+- Physical Internet hub network design.
+
+Extensions:
+- Dynamic routing for real-time logistics.
+- Multi-objective optimization (cost, CO2, distance).
+- Driver rest and shift constraints.
+- Stochastic demand and travel times.
+- Machine learning-assisted heuristics.
+- Hybrid meta-heuristics (ALNS, GA, Tabu Search).
+
+Implementation notes:
+- Use Python (NetworkX, NumPy, PuLP/CPLEX for baseline).
+- Multi-threading via multiprocessing or async tasks.
+- Visualize with matplotlib (routes, cross-dock transfers).
+- Benchmark using Li & Lim and Solomon VRPTW datasets.
+
+Key takeaways:
+1. Flexibility with multiple depots and open routes.
+2. Integrate consolidation logic into model.
+3. Hybridize exact and heuristic methods.
+4. Modular design of algorithm components.
+5. Experiment with clustering-based load exchange logic.
+
+=======================================================================
+6. CONCLUSION
+=======================================================================
+The paper presents a new rich VRP variant integrating multiple real-world logistics features into one model. The proposed MILP formulation is exact but computationally heavy; the TSAM heuristic efficiently solves large instances with consolidations.
+
+The algorithm outperforms CPLEX, scales well, and matches best-known benchmarks. Future work includes developing standardized benchmarks, integrating into unified frameworks, and extending to multi-objective or dynamic contexts.

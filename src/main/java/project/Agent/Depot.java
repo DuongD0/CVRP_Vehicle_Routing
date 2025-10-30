@@ -3,10 +3,10 @@ package project.Agent;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.domain.FIPANames;
 import jade.core.AID;
 import org.apache.hc.client5.http.classic.methods.HttpGet;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import com.google.ortools.Loader;
 import com.google.ortools.constraintsolver.Assignment;
@@ -86,13 +86,13 @@ public class Depot extends Agent {
             HttpGet request = new HttpGet(API_URL + "?action=poll");
             request.setHeader("Accept", "application/json");
             
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                int statusCode = response.getCode();
+            org.apache.hc.core5.http.io.HttpClientResponseHandler<String> handler = (resp) -> {
+                int statusCode = resp.getCode();
                 if (statusCode == 200) {
-                    // API has data for us
-                    try (java.io.InputStream inputStream = response.getEntity().getContent()) {
+                    if (resp.getEntity() == null) return null;
+                    try (java.io.InputStream inputStream = resp.getEntity().getContent()) {
                         java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
-                        int nRead;  
+                        int nRead;
                         byte[] data = new byte[1024];
                         while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
                             buffer.write(data, 0, nRead);
@@ -103,7 +103,9 @@ public class Depot extends Agent {
                     // No data available
                     return null;
                 }
-            }
+                return null;
+            };
+            return httpClient.execute(request, handler);
         } catch (Exception e) {
             System.err.println("Depot: Error polling API: " + e.getMessage());
         }
@@ -118,8 +120,8 @@ public class Depot extends Agent {
                 System.out.println("\n=== Depot: Received Message ===");
                 String content = msg.getContent();
                 
-                if (content.startsWith("AVAILABLE_VEHICLES:")) {
-                    // Response from Delivery Agent with available vehicle count
+                if (content.startsWith("AVAILABLE_VEHICLES:") || content.startsWith("NAMES:")) {
+                    // Response from Delivery Agent with available vehicle info
                     handleDeliveryAgentResponse(msg);
                 } else if (msg.getPerformative() == ACLMessage.REQUEST || content.startsWith("{")) {
                     // Received API request data
@@ -183,11 +185,17 @@ public class Depot extends Agent {
                 i++;
             }
             
-            // Send request to Delivery Agent
+            // Send request to Delivery Agent (FIPA-REQUEST)
             ACLMessage msg = new ACLMessage(ACLMessage.REQUEST);
             AID deliveryAgent = new AID("delivery-agent", AID.ISLOCALNAME);
             msg.addReceiver(deliveryAgent);
-            msg.setContent("REQUEST:" + requestId + "|VEHICLES:" + vehicleData.toString());
+            // Minimal payload: only vehicles list; conversationId carries correlation
+            msg.setContent("VEHICLES:" + vehicleData.toString());
+            // FIPA metadata
+            msg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+            String convId = "req-" + requestId;
+            msg.setConversationId(convId);
+            msg.setReplyWith("rw-" + System.currentTimeMillis());
             send(msg);
             
             System.out.println("Depot: Request sent to Delivery Agent");
@@ -199,21 +207,37 @@ public class Depot extends Agent {
     
     private void handleDeliveryAgentResponse(ACLMessage msg) {
         try {
+            // Ensure response matches the current conversation (if set)
+            if (this.requestId != null) {
+                String expectedConv = "req-" + this.requestId;
+                String gotConv = msg.getConversationId();
+                if (gotConv != null && !expectedConv.equals(gotConv)) {
+                    System.out.println("Depot: Ignoring INFORM with mismatched conversationId: " + gotConv + " (expected " + expectedConv + ")");
+                    return;
+                }
+            }
             String content = msg.getContent();
-            // Format: AVAILABLE_VEHICLES:2|NAMES:Thanh,Chang,ASd
-            String[] parts = content.split("\\|");
-            
-            // Parse vehicle count
-            int availableVehicles = Integer.parseInt(parts[0].substring("AVAILABLE_VEHICLES:".length()));
-            
-            // Parse vehicle names
             this.availableVehicleNames = new ArrayList<>();
-            if (parts.length > 1 && parts[1].startsWith("NAMES:")) {
-                String namesStr = parts[1].substring("NAMES:".length());
+            int availableVehicles = 0;
+            if (content.startsWith("AVAILABLE_VEHICLES:")) {
+                // Backward-compat format: AVAILABLE_VEHICLES:count|NAMES:a,b
+                String[] parts = content.split("\\|");
+                availableVehicles = Integer.parseInt(parts[0].substring("AVAILABLE_VEHICLES:".length()));
+                if (parts.length > 1 && parts[1].startsWith("NAMES:")) {
+                    String namesStr = parts[1].substring("NAMES:".length());
+                    String[] names = namesStr.split(",");
+                    for (String name : names) {
+                        if (!name.trim().isEmpty()) availableVehicleNames.add(name.trim());
+                    }
+                }
+            } else if (content.startsWith("NAMES:")) {
+                // New minimal format: NAMES:a,b
+                String namesStr = content.substring("NAMES:".length());
                 String[] names = namesStr.split(",");
                 for (String name : names) {
-                    availableVehicleNames.add(name.trim());
+                    if (!name.trim().isEmpty()) availableVehicleNames.add(name.trim());
                 }
+                availableVehicles = availableVehicleNames.size();
             }
             
             System.out.println("Depot: Received available vehicle count: " + availableVehicles);

@@ -4,11 +4,12 @@ import jade.core.Agent;
 import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.lang.acl.ACLMessage;
+import jade.lang.acl.MessageTemplate;
+import jade.domain.FIPANames;
 import jade.wrapper.AgentController;
 import jade.wrapper.StaleProxyException;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.io.entity.StringEntity;
@@ -23,7 +24,7 @@ public class Delivery extends Agent {
     private Map<String, AID> vehicleAgents;  // name -> AID
     private Map<String, VehicleInfo> vehicleInfo;  // name -> info
     private CloseableHttpClient httpClient;
-    private String currentRequestId;
+    // removed unused currentRequestId
     
     @Override
     protected void setup() {
@@ -40,12 +41,20 @@ public class Delivery extends Agent {
     private class MessageHandlerBehaviour extends CyclicBehaviour {
         @Override
         public void action() {
-            ACLMessage msg = receive();
+            // Prefer messages matching FIPA-REQUEST for Depot -> Delivery
+            MessageTemplate template = MessageTemplate.or(
+                MessageTemplate.and(
+                    MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+                    MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST)
+                ),
+                MessageTemplate.MatchAll()
+            );
+            ACLMessage msg = receive(template);
             if (msg != null) {
                 String content = msg.getContent();
                 
-                if (content.startsWith("REQUEST:")) {
-                    // Request from Depot with customer data and vehicle list
+                if (msg.getPerformative() == ACLMessage.REQUEST && FIPANames.InteractionProtocol.FIPA_REQUEST.equals(msg.getProtocol())) {
+                    // FIPA-REQUEST from Depot with vehicle data (minimal payload)
                     handleDepotRequest(msg);
                 } else if (content.startsWith("ROUTES:")) {
                     // Routes from Depot after solving
@@ -68,17 +77,18 @@ public class Delivery extends Agent {
             String content = msg.getContent();
             System.out.println("\n=== Delivery Agent: Processing Request ===");
             
-            // Parse the request
-            // Format: REQUEST:request_id|VEHICLES:name1:capacity1,name2:capacity2|CUSTOMERS:...
-            String[] parts = content.split("\\|");
-            currentRequestId = parts[0].substring("REQUEST:".length());
-            
-            // Parse vehicle data
+            // Minimal format supported: VEHICLES:name1:cap1,name2:cap2
             String vehicleData = null;
-            for (String part : parts) {
-                if (part.startsWith("VEHICLES:")) {
-                    vehicleData = part.substring("VEHICLES:".length());
-                    break;
+            if (content.startsWith("VEHICLES:")) {
+                vehicleData = content.substring("VEHICLES:".length());
+            } else {
+                // Backward-compat: split by '|' and find VEHICLES:
+                String[] parts = content.split("\\|");
+                for (String part : parts) {
+                    if (part.startsWith("VEHICLES:")) {
+                        vehicleData = part.substring("VEHICLES:".length());
+                        break;
+                    }
                 }
             }
             
@@ -107,22 +117,21 @@ public class Delivery extends Agent {
             System.out.println("Delivery Agent: Found " + freeCount + " free vehicles out of " + vehicleInfo.size() + " total");
             System.out.println("Delivery Agent: Free vehicles: " + freeVehicleNames);
             
-            // Send response back to Depot with free vehicle count and names
+            // Send response back to Depot with minimal payload (names only). Preserve FIPA metadata.
             ACLMessage reply = msg.createReply();
             reply.setPerformative(ACLMessage.INFORM);
+            // Keep protocol and conversation for FIPA compliance
+            reply.setProtocol(msg.getProtocol());
+            reply.setConversationId(msg.getConversationId());
             
-            // Format: AVAILABLE_VEHICLES:count|NAMES:name1,name2,name3
-            StringBuilder replyContent = new StringBuilder();
-            replyContent.append("AVAILABLE_VEHICLES:").append(freeCount);
-            if (freeCount > 0) {
-                replyContent.append("|NAMES:");
-                for (int i = 0; i < freeVehicleNames.size(); i++) {
-                    if (i > 0) replyContent.append(",");
-                    replyContent.append(freeVehicleNames.get(i));
-                }
+            // Format: NAMES:name1,name2,name3
+            StringBuilder namesOnly = new StringBuilder();
+            namesOnly.append("NAMES:");
+            for (int i = 0; i < freeVehicleNames.size(); i++) {
+                if (i > 0) namesOnly.append(",");
+                namesOnly.append(freeVehicleNames.get(i));
             }
-            
-            reply.setContent(replyContent.toString());
+            reply.setContent(namesOnly.toString());
             send(reply);
             
         } catch (Exception e) {
@@ -227,7 +236,11 @@ public class Delivery extends Agent {
             }
             
             if (name != null && vehicleInfo.containsKey(name)) {
-                vehicleInfo.get(name).state = state;
+                VehicleInfo info = vehicleInfo.get(name);
+                info.state = state;
+                if (capacity > 0) {
+                    info.capacity = capacity;
+                }
                 System.out.println("Delivery Agent: Vehicle " + name + " state: " + state);
             }
             
@@ -321,21 +334,23 @@ public class Delivery extends Agent {
             StringEntity entity = new StringEntity(solution, ContentType.APPLICATION_JSON);
             request.setEntity(entity);
             
-            try (CloseableHttpResponse response = httpClient.execute(request)) {
-                int statusCode = response.getCode();
+            org.apache.hc.core5.http.io.HttpClientResponseHandler<Void> handler = (resp) -> {
+                int statusCode = resp.getCode();
                 if (statusCode == 200) {
                     System.out.println("✓ Delivery Agent: Solution sent to API successfully");
                 } else {
                     System.err.println("✗ Delivery Agent: Failed to send solution to API. Status: " + statusCode);
-                    // Try to read error response
-                    if (response.getEntity() != null) {
-                        java.io.InputStream is = response.getEntity().getContent();
-                        java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A");
-                        String errorBody = s.hasNext() ? s.next() : "";
-                        System.err.println("Error response: " + errorBody);
+                    if (resp.getEntity() != null) {
+                        java.io.InputStream is = resp.getEntity().getContent();
+                        try (java.util.Scanner s = new java.util.Scanner(is).useDelimiter("\\A")) {
+                            String errorBody = s.hasNext() ? s.next() : "";
+                            System.err.println("Error response: " + errorBody);
+                        }
                     }
                 }
-            }
+                return null;
+            };
+            httpClient.execute(request, handler);
         } catch (Exception e) {
             System.err.println("Delivery Agent: Error sending solution to API: " + e.getMessage());
             e.printStackTrace();

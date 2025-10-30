@@ -1,0 +1,89 @@
+Detailed vehicle_state format
+Type: object mapping vehicle agent name (string) -> state (string)
+Allowed states (current):
+- free: vehicle is available to be assigned a route at request time
+- absent: vehicle is temporarily unavailable at request time
+Notes:
+- States are evaluated per request, based on Delivery querying Vehicle agents.
+- Future extensions may include busy, offline; frontend should treat unknown values as unavailable unless documented.
+
+Example:
+{
+  "vehicle_state": {
+    "Thanh": "free",
+    "Chang": "absent",
+    "Truck-3": "free"
+  },
+  "available_vehicle_count": 2
+}
+
+Field semantics:
+- vehicle_state: Optional in responses; when present, includes the last polled state per vehicle.
+- available_vehicle_count: Optional; equals the number of vehicles with state == "free" used by Depot to size the solver.
+
+
+Detailed routes format
+Top-level:
+{
+  "routes": Route[],
+  "total_distance": number,
+  "meta": { "solver": string, "solve_time_ms": number }
+}
+
+Route object (each element in routes):
+- route_id (string, optional): human-friendly identifier (e.g., "R1"). If absent, UI can derive from index.
+- vehicle_agent (string, optional): agent name of the assigned vehicle (preferred when available).
+- vehicle_id (number, optional): numeric index fallback when name is not available.
+- customers (CustomerOnRoute[]): ordered list of customers visited on this route (excluding depot).
+- total_demand (number): sum of demands for customers on this route.
+- total_distance (number): sum of arc costs for the route (in distance units produced by solver).
+
+CustomerOnRoute object:
+- id (number): internal customer index used by Depot (>=1; 0 is depot in solver context).
+- x (number): customer X coordinate.
+- y (number): customer Y coordinate.
+- demand (number): demand (units) consumed by this stop.
+- name (string): stable customer label (e.g., "customer_1").
+
+Example with multiple routes:
+{
+  "request_id": "1f7a2a2e-3a2e-4a9b-9ec8-5c4b1d1a2b3c",
+  "vehicle_state": {
+    "Thanh": "free",
+    "Chang": "absent",
+    "Truck-3": "free"
+  },
+  "available_vehicle_count": 2,
+  "routes": [
+    {
+      "route_id": "R1",
+      "vehicle_agent": "Thanh",
+      "customers": [
+        { "id": 1, "x": 820.0, "y": 615.0, "demand": 10, "name": "customer_1" },
+        { "id": 3, "x": 770.2, "y": 640.1, "demand": 8,  "name": "customer_3" }
+      ],
+      "total_demand": 18,
+      "total_distance": 187.0
+    },
+    {
+      "route_id": "R2",
+      "vehicle_agent": "Truck-3",
+      "customers": [
+        { "id": 2, "x": 760.5, "y": 590.2, "demand": 15, "name": "customer_2" }
+      ],
+      "total_demand": 15,
+      "total_distance": 96.0
+    }
+  ],
+  "total_distance": 283.0,
+  "meta": {
+    "solver": "or-tools",
+    "solve_time_ms": 245
+  }
+}
+
+Additional notes:
+- vehicle_agent vs vehicle_id: Prefer vehicle_agent (name) when available. vehicle_id is a numeric fallback.
+- Distances: The solver currently uses Euclidean distances; units are solver-unscaled integers converted to doubles in formatting.
+- Ordering: Customers appear in traversal order for each route. The depot node is omitted from the customer list.
+- Backward compatibility: UI should handle presence/absence of route_id and vehicle_agent gracefully.
