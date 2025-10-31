@@ -1,4 +1,4 @@
-~Test case 3: Flexible VRP with Pickup & Delivery, Cross-Docks, and Consolidation (Multi-Agent)
+Test case 3: Flexible VRP with Pickup & Delivery, Cross-Docks, and Consolidation (Multi-Agent)
 
 1) Goal and Scope (enhanced from TC2)
 - Extend TC2 (inventory + batching + FIPA Depot↔Delivery) to support:
