@@ -1,0 +1,4 @@
+about current bidding:
+- if the depot takes all vehicles into calculation -> some vehicle can only takes some route (which depends on their capacity)
+- haven implemented maximum travel distance
+- 
