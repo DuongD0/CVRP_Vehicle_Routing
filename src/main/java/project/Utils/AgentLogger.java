@@ -2,23 +2,29 @@ package project.Utils;
 
 import jade.lang.acl.ACLMessage;
 import jade.core.AID;
+import jade.core.Agent;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Utility class for logging agent conversations to files
+ * Logs all ACL messages (sent and received) with full details
  */
 public class AgentLogger {
     private PrintWriter writer;
     private String agentName;
+    private AID agentAID;  // Store agent AID for proper logging
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
     
     public AgentLogger(String agentName) {
         this.agentName = agentName;
+        this.agentAID = null;
         try {
             // Create log file in logs directory
             String logDir = "logs";
@@ -41,12 +47,31 @@ public class AgentLogger {
     }
     
     /**
+     * Sets the agent AID for proper logging of sent messages
+     */
+    public void setAgentAID(AID aid) {
+        this.agentAID = aid;
+        if (aid != null) {
+            log("Agent AID set: " + aid.getName());
+        }
+    }
+    
+    /**
+     * Sets the agent AID from an Agent object
+     */
+    public void setAgentAID(Agent agent) {
+        if (agent != null) {
+            setAgentAID(agent.getAID());
+        }
+    }
+    
+    /**
      * Logs a sent message
      */
     public void logSent(ACLMessage msg) {
         if (writer != null) {
             log(">>> SENT MESSAGE");
-            logMessage(msg, "TO");
+            logMessage(msg, true);
         }
     }
     
@@ -56,33 +81,58 @@ public class AgentLogger {
     public void logReceived(ACLMessage msg) {
         if (writer != null) {
             log("<<< RECEIVED MESSAGE");
-            logMessage(msg, "FROM");
+            logMessage(msg, false);
         }
     }
     
     /**
      * Logs message details
+     * @param msg The ACL message to log
+     * @param isSent true if this is a sent message, false if received
      */
-    private void logMessage(ACLMessage msg, String direction) {
+    private void logMessage(ACLMessage msg, boolean isSent) {
         if (writer == null) return;
         
-        log("  Direction: " + direction);
-        
-        // Get receivers
+        // Get all receivers
+        List<String> receiverNames = new ArrayList<>();
         @SuppressWarnings("unchecked")
         Iterator<AID> receivers = msg.getAllReceiver();
-        if (receivers.hasNext()) {
+        while (receivers.hasNext()) {
             AID receiver = receivers.next();
-            log("  To: " + receiver.getName());
-            // Log additional receivers if any
-            while (receivers.hasNext()) {
-                log("  To (additional): " + receivers.next().getName());
-            }
-        } else {
-            log("  To: N/A");
+            receiverNames.add(receiver.getName());
         }
         
-        log("  From: " + (msg.getSender() != null ? msg.getSender().getName() : "N/A"));
+        // Determine sender and receiver based on message direction
+        String fromName;
+        String toName;
+        
+        if (isSent) {
+            // For sent messages: From is this agent, To is the receiver(s)
+            fromName = (agentAID != null ? agentAID.getName() : agentName);
+            if (receiverNames.isEmpty()) {
+                toName = "N/A (no receivers)";
+            } else if (receiverNames.size() == 1) {
+                toName = receiverNames.get(0);
+            } else {
+                toName = receiverNames.toString();  // Multiple receivers
+            }
+        } else {
+            // For received messages: From is the sender, To is this agent
+            fromName = (msg.getSender() != null ? msg.getSender().getName() : "N/A (unknown sender)");
+            toName = (agentAID != null ? agentAID.getName() : agentName);
+        }
+        
+        log("  From: " + fromName);
+        if (isSent && receiverNames.size() > 1) {
+            // Log each receiver separately for sent messages with multiple receivers
+            log("  To: " + receiverNames.size() + " receivers");
+            for (int i = 0; i < receiverNames.size(); i++) {
+                log("    Receiver " + (i + 1) + ": " + receiverNames.get(i));
+            }
+        } else {
+            log("  To: " + toName);
+        }
+        
         log("  Performative: " + ACLMessage.getPerformative(msg.getPerformative()));
         log("  Protocol: " + (msg.getProtocol() != null ? msg.getProtocol() : "N/A"));
         log("  Conversation ID: " + (msg.getConversationId() != null ? msg.getConversationId() : "N/A"));
@@ -110,6 +160,22 @@ public class AgentLogger {
      */
     public void logEvent(String event) {
         log("*** EVENT: " + event);
+    }
+    
+    /**
+     * Logs a conversation start (useful for tracking conversation flows)
+     */
+    public void logConversationStart(String conversationId, String description) {
+        log("=== CONVERSATION START: " + conversationId + " ===");
+        log("  Description: " + description);
+    }
+    
+    /**
+     * Logs a conversation end
+     */
+    public void logConversationEnd(String conversationId, String result) {
+        log("=== CONVERSATION END: " + conversationId + " ===");
+        log("  Result: " + result);
     }
     
     /**

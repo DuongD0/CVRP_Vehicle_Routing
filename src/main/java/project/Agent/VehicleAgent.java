@@ -4,6 +4,7 @@ import jade.core.Agent;
 import jade.core.AID;
 import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.WakerBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.lang.acl.ACLMessage;
 import jade.lang.acl.MessageTemplate;
 import jade.domain.FIPANames;
@@ -11,26 +12,21 @@ import jade.domain.DFService;
 import jade.domain.FIPAException;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
-import jade.proto.ContractNetResponder;
 import project.General.CustomerInfo;
 import project.Utils.AgentLogger;
 
-import java.util.Random;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
 
 /**
- * Independent Vehicle Agent that bids for routes via Contract-Net
- * Tracks current position and calculates bids based on distance from first customer
+ * Vehicle Agent that accepts direct route assignments from depot
+ * Moves to customers and notifies them upon arrival
  */
 public class VehicleAgent extends Agent {
     private String vehicleName;
     private int capacity;
     private double maxDistance;  // Maximum distance vehicle can travel (Basic Requirement 2)
     private String state; // "free", "absent", "busy"
-    private Random random;
     
     // Current position (not always at depot)
     private double currentX;
@@ -41,6 +37,15 @@ public class VehicleAgent extends Agent {
     // Current assignment
     private String assignedRouteId;
     private java.util.List<CustomerInfo> currentRoute;
+    
+    // Movement state
+    private int currentCustomerIndex;  // Index of customer currently moving to (-1 means returning to depot)
+    private double targetX;            // Target X coordinate
+    private double targetY;            // Target Y coordinate
+    private boolean isMoving;          // Whether vehicle is currently moving
+    private MovementBehaviour currentMovementBehaviour;  // Track current movement behavior instance
+    private static final double MOVEMENT_SPEED = 10.0;  // Units per second
+    private static final double ARRIVAL_THRESHOLD = 1.0;  // Distance threshold to consider arrived
     
     // Logger for conversations
     private AgentLogger logger;
@@ -61,13 +66,15 @@ public class VehicleAgent extends Agent {
         // Initialize position at depot
         this.depotX = 0.0;
         this.depotY = 0.0;
-        this.random = new Random();
         this.currentX = depotX;  // Start at depot
         this.currentY = depotY;
         
         this.state = "free"; // There are 2 states: free and absent, simulating real-world availability
         this.assignedRouteId = null;
         this.currentRoute = null;
+        this.currentCustomerIndex = -1;
+        this.isMoving = false;
+        this.currentMovementBehaviour = null;
         
         System.out.println("Vehicle Agent " + vehicleName + " started:");
         System.out.println("  Capacity: " + capacity + " items");
@@ -77,6 +84,7 @@ public class VehicleAgent extends Agent {
         
         // Initialize logger
         logger = new AgentLogger("Vehicle-" + vehicleName);
+        logger.setAgentAID(this);  // Set agent AID for proper logging
         logger.logEvent("Agent started");
         logger.log("Capacity: " + capacity + ", Max Distance: " + maxDistance);
         logger.log("Initial position: (" + currentX + ", " + currentY + ")");
@@ -88,8 +96,11 @@ public class VehicleAgent extends Agent {
         // Add behavior to handle state queries
         addBehaviour(new QueryHandlerBehaviour());
         
-        // Add behavior for vehicle-to-vehicle route bidding
-        addBehaviour(new VehicleBiddingCoordinator());
+        // Add behavior to handle route availability broadcasts from depot
+        addBehaviour(new RouteAssignmentHandler());
+        
+        // Add behavior to handle depot rejections (e.g., route already assigned to another vehicle)
+        addBehaviour(new RouteRejectionHandler());
         
         // Add behavior to return to depot when free
         addBehaviour(new ReturnToDepotBehaviour(this, 5000));  // Check every 5 seconds
@@ -109,12 +120,25 @@ public class VehicleAgent extends Agent {
             ACLMessage msg = receive(template);
             if (msg != null) {
                 logger.logReceived(msg);
+                
+                // Log conversation start for state query
+                if (msg.getConversationId() != null) {
+                    logger.logConversationStart(msg.getConversationId(), 
+                        "State query from " + (msg.getSender() != null ? msg.getSender().getLocalName() : "unknown"));
+                }
+                
                 if (msg.getContent().equals("QUERY_STATE")) {
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
                     reply.setProtocol(FIPANames.InteractionProtocol.FIPA_QUERY);
                     reply.setContent("STATE:" + state + "|CAPACITY:" + capacity + "|MAX_DISTANCE:" + maxDistance + 
                                    "|NAME:" + vehicleName + "|X:" + currentX + "|Y:" + currentY);
+                    
+                    // Log conversation end
+                    logger.logConversationEnd(msg.getConversationId(), 
+                        "State query responded - State: " + state + ", Capacity: " + capacity + 
+                        ", MaxDistance: " + maxDistance);
+                    
                     logger.logSent(reply);
                     send(reply);
                     System.out.println("Vehicle " + vehicleName + " reported state: " + state + 
@@ -128,51 +152,48 @@ public class VehicleAgent extends Agent {
     }
     
     /**
-     * Vehicle-to-Vehicle Bidding Coordinator
-     * Handles route announcements, coordinates bidding among vehicles, and determines winner
+     * Route Assignment Handler
+     * Handles route availability broadcasts from depot
+     * Vehicles self-evaluate routes and accept if they can handle them
      */
-    private class VehicleBiddingCoordinator extends CyclicBehaviour {
-        // Active bidding sessions: routeId -> BidSession
-        private Map<String, BidSession> activeBids = new HashMap<>();
-        
+    private class RouteAssignmentHandler extends CyclicBehaviour {
         @Override
         public void action() {
-            // Check for route announcements from depot
-            MessageTemplate routeAnnouncementTemplate = MessageTemplate.and(
-                MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-                MessageTemplate.MatchContent("ROUTE_ANNOUNCEMENT:")
+            // Check for route availability messages from depot
+            MessageTemplate routeAvailableTemplate = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
+                MessageTemplate.MatchContent("ROUTE_AVAILABLE:")
             );
             
-            ACLMessage announcement = receive(routeAnnouncementTemplate);
-            if (announcement != null) {
-                logger.logReceived(announcement);
-                handleRouteAnnouncement(announcement);
-                return;
-            }
-            
-            // Check for bid messages from other vehicles
-            MessageTemplate bidTemplate = MessageTemplate.and(
-                MessageTemplate.MatchPerformative(ACLMessage.PROPOSE),
-                MessageTemplate.MatchProtocol("vehicle-bidding")
-            );
-            
-            ACLMessage bidMsg = receive(bidTemplate);
-            if (bidMsg != null) {
-                logger.logReceived(bidMsg);
-                handleVehicleBid(bidMsg);
-                return;
-            }
-            
-            // Check for winner announcement from other vehicles
-            MessageTemplate winnerTemplate = MessageTemplate.and(
-                MessageTemplate.MatchPerformative(ACLMessage.INFORM),
-                MessageTemplate.MatchProtocol("vehicle-bidding")
-            );
-            
-            ACLMessage winnerMsg = receive(winnerTemplate);
-            if (winnerMsg != null && winnerMsg.getContent() != null && winnerMsg.getContent().startsWith("WINNER:")) {
-                logger.logReceived(winnerMsg);
-                handleWinnerAnnouncement(winnerMsg);
+            ACLMessage routeAvailable = receive(routeAvailableTemplate);
+            if (routeAvailable != null) {
+                logger.logReceived(routeAvailable);
+                
+                // Log conversation start for route availability
+                if (routeAvailable.getConversationId() != null) {
+                    // Extract route ID for logging
+                    String routeId = "unknown";
+                    try {
+                        String content = routeAvailable.getContent();
+                        if (content != null && content.startsWith("ROUTE_AVAILABLE:")) {
+                            String routeData = content.substring("ROUTE_AVAILABLE:".length());
+                            String[] parts = routeData.split("\\|");
+                            for (String part : parts) {
+                                if (part.startsWith("ROUTE:")) {
+                                    routeId = part.substring("ROUTE:".length());
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (Exception e) {
+                        // Ignore parsing errors
+                    }
+                    logger.logConversationStart(routeAvailable.getConversationId(), 
+                        "Route availability broadcast for route " + routeId + " from " + 
+                        (routeAvailable.getSender() != null ? routeAvailable.getSender().getLocalName() : "unknown"));
+                }
+                
+                handleRouteAvailability(routeAvailable);
                 return;
             }
             
@@ -180,31 +201,24 @@ public class VehicleAgent extends Agent {
         }
         
         /**
-         * Handles route announcement from depot
+         * Handles route availability broadcast from depot
+         * Vehicle self-evaluates if it can handle the route
          */
-        private void handleRouteAnnouncement(ACLMessage announcement) {
-            String content = announcement.getContent();
-            // Format: ROUTE_ANNOUNCEMENT:ROUTE:routeId|CUSTOMERS:...|COORDS:...|DEMAND:...|DISTANCE:...
+        private void handleRouteAvailability(ACLMessage routeAvailable) {
+            String content = routeAvailable.getContent();
+            // Format: ROUTE_AVAILABLE:ROUTE:routeId|CUSTOMERS:...|CUSTOMER_IDS:...|COORDS:...|DEMAND:...|DISTANCE:...
             
-            System.out.println("\n=== Vehicle " + vehicleName + ": Received Route Announcement ===");
-            logger.logEvent("Received route announcement from depot");
+            System.out.println("\n=== Vehicle " + vehicleName + ": Received Route Availability ===");
+            logger.logEvent("Received route availability broadcast from depot");
             
-            // Only bid if free
-            if (!"free".equals(state)) {
-                System.out.println("Vehicle " + vehicleName + ": Not available (state: " + state + ")");
-                logger.logEvent("Skipping route: state is " + state);
-                return;
-            }
-            
-            // Parse route information
-            String routeData = content.substring("ROUTE_ANNOUNCEMENT:".length());
+            // Parse route data
+            String routeData = content.substring("ROUTE_AVAILABLE:".length());
             String[] parts = routeData.split("\\|");
             
             String routeId = null;
             int routeDemand = 0;
             double routeDistance = 0.0;
-            double[] firstCustomerPos = null;
-            double[] lastCustomerPos = null;
+            List<CustomerInfo> routeCustomers = new ArrayList<>();
             
             try {
                 for (String part : parts) {
@@ -215,599 +229,664 @@ public class VehicleAgent extends Agent {
                     } else if (part.startsWith("DISTANCE:")) {
                         routeDistance = Double.parseDouble(part.substring("DISTANCE:".length()));
                     } else if (part.startsWith("COORDS:")) {
+                        // Parse customer coordinates
                         String coordsString = part.substring("COORDS:".length());
                         if (!coordsString.isEmpty()) {
                             String[] coordPairs = coordsString.split(";");
-                            if (coordPairs.length > 0) {
-                                String[] firstCoords = coordPairs[0].split(",");
-                                if (firstCoords.length == 2) {
-                                    firstCustomerPos = new double[]{
-                                        Double.parseDouble(firstCoords[0]),
-                                        Double.parseDouble(firstCoords[1])
-                                    };
-                                }
-                                if (coordPairs.length > 1) {
-                                    String[] lastCoords = coordPairs[coordPairs.length - 1].split(",");
-                                    if (lastCoords.length == 2) {
-                                        lastCustomerPos = new double[]{
-                                            Double.parseDouble(lastCoords[0]),
-                                            Double.parseDouble(lastCoords[1])
-                                        };
-                                    }
-                                } else {
-                                    lastCustomerPos = firstCustomerPos;
+                            for (int i = 0; i < coordPairs.length; i++) {
+                                String[] coords = coordPairs[i].split(",");
+                                if (coords.length == 2) {
+                                    double x = Double.parseDouble(coords[0]);
+                                    double y = Double.parseDouble(coords[1]);
+                                    CustomerInfo customer = new CustomerInfo(i + 1, x, y, 0);
+                                    routeCustomers.add(customer);
                                 }
                             }
                         }
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Vehicle " + vehicleName + ": Error parsing route announcement: " + e.getMessage());
+                System.err.println("Vehicle " + vehicleName + ": Error parsing route availability: " + e.getMessage());
+                logger.log("ERROR: Failed to parse route availability: " + e.getMessage());
+                sendRejection(routeAvailable, "Invalid route format");
                 return;
             }
             
             if (routeId == null) {
+                System.err.println("Vehicle " + vehicleName + ": Invalid route format - missing route ID");
+                logger.log("ERROR: Invalid route format - missing route ID");
+                sendRejection(routeAvailable, "Invalid route format");
                 return;
             }
             
-            // Check constraints
+            System.out.println("Vehicle " + vehicleName + ": Evaluating route " + routeId + 
+                             " (demand: " + routeDemand + ", distance: " + String.format("%.2f", routeDistance) + ")");
+            logger.logEvent("Evaluating route " + routeId + ": demand=" + routeDemand + 
+                          ", distance=" + String.format("%.2f", routeDistance));
+            
+            // Self-check 1: Vehicle state must be "free"
+            if (!"free".equals(state)) {
+                System.out.println("Vehicle " + vehicleName + ": Cannot accept route " + routeId + 
+                                 " - current state: " + state + " (must be free)");
+                logger.logEvent("REJECTED route " + routeId + ": Vehicle state is " + state + " (must be free)");
+                sendRejection(routeAvailable, "Vehicle not available. Current state: " + state);
+                return;
+            }
+            
+            // Self-check 2: Route demand must fit vehicle capacity
             if (routeDemand > capacity) {
-                System.out.println("Vehicle " + vehicleName + ": Insufficient capacity (" + 
-                                 routeDemand + " > " + capacity + ")");
-                logger.logEvent("Skipping route: insufficient capacity");
+                System.out.println("Vehicle " + vehicleName + ": Cannot accept route " + routeId + 
+                                 " - demand " + routeDemand + " exceeds capacity " + capacity);
+                logger.logEvent("REJECTED route " + routeId + ": Demand " + routeDemand + 
+                              " exceeds capacity " + capacity);
+                sendRejection(routeAvailable, "Route demand " + routeDemand + " exceeds vehicle capacity " + capacity);
                 return;
             }
             
-            // Calculate total distance
-            double totalRouteDistance = routeDistance;
-            if (firstCustomerPos != null) {
-                double toFirstCustomer = Math.hypot(
-                    currentX - firstCustomerPos[0],
-                    currentY - firstCustomerPos[1]
-                );
-                totalRouteDistance += toFirstCustomer;
-            }
-            if (lastCustomerPos != null) {
-                double toDepot = Math.hypot(
-                    lastCustomerPos[0] - depotX,
-                    lastCustomerPos[1] - depotY
-                );
-                totalRouteDistance += toDepot;
-            }
-            
-            if (totalRouteDistance > maxDistance) {
-                System.out.println("Vehicle " + vehicleName + ": Route exceeds maximum distance (" + 
-                                 String.format("%.2f", totalRouteDistance) + " > " + maxDistance + ")");
-                logger.logEvent("Skipping route: exceeds maximum distance");
-                return;
-            }
-            
-            // Calculate bid cost
-            double bidCost = totalRouteDistance;
-            
-            System.out.println("Vehicle " + vehicleName + ": Bidding with cost: " + String.format("%.2f", bidCost));
-            logger.logEvent("Bidding for route " + routeId + ": cost=" + String.format("%.2f", bidCost));
-            
-            // Get or create bid session (might already exist if bids were received before announcement)
-            BidSession session = activeBids.get(routeId);
-            if (session == null) {
-                session = new BidSession(routeId, routeData, bidCost);
-                activeBids.put(routeId, session);
+            // Self-check 3: Calculate total distance (from current position to first customer + route distance + return to depot)
+            double totalDistance = routeDistance;
+            if (!routeCustomers.isEmpty()) {
+                // Distance from current position to first customer
+                CustomerInfo firstCustomer = routeCustomers.get(0);
+                double distanceToFirst = Math.hypot(currentX - firstCustomer.x, currentY - firstCustomer.y);
+                totalDistance += distanceToFirst;
+                
+                // Distance from last customer back to depot
+                CustomerInfo lastCustomer = routeCustomers.get(routeCustomers.size() - 1);
+                double distanceToDepot = Math.hypot(lastCustomer.x - depotX, lastCustomer.y - depotY);
+                totalDistance += distanceToDepot;
             } else {
-                // Update existing session with route data and my bid
-                session.routeData = routeData;
-                session.myBid = bidCost;
+                // If no customers, just distance from current position to depot
+                totalDistance = Math.hypot(currentX - depotX, currentY - depotY);
             }
             
-            // Find other vehicles via DF and send bid
-            List<AID> otherVehicles = findOtherVehiclesViaDF();
-            if (otherVehicles.isEmpty()) {
-                // Only vehicle available, notify depot directly
-                notifyDepotWinner(routeId, routeData);
-            } else {
-                // Send bid to all other vehicles
-                for (AID vehicleAID : otherVehicles) {
-                    ACLMessage bidMsg = new ACLMessage(ACLMessage.PROPOSE);
-                    bidMsg.addReceiver(vehicleAID);
-                    bidMsg.setProtocol("vehicle-bidding");
-                    bidMsg.setConversationId("bid-" + routeId + "-" + System.currentTimeMillis());
-                    bidMsg.setContent("BID:ROUTE:" + routeId + "|VEHICLE:" + vehicleName + 
-                                    "|COST:" + String.format("%.2f", bidCost));
-                    logger.logSent(bidMsg);
-                    send(bidMsg);
-                }
-                
-                // Wait for bids from other vehicles (with timeout)
-                addBehaviour(new BidCollectionBehaviour(getAgent(), routeId, otherVehicles.size(), 3000));
-            }
-        }
-        
-        /**
-         * Handles bid message from another vehicle
-         */
-        private void handleVehicleBid(ACLMessage bidMsg) {
-            String content = bidMsg.getContent();
-            // Format: BID:ROUTE:routeId|VEHICLE:vehicleName|COST:cost
-            
-            String[] parts = content.split("\\|");
-            String routeId = null;
-            String bidderName = null;
-            double bidCost = 0.0;
-            
-            for (String part : parts) {
-                if (part.startsWith("BID:ROUTE:")) {
-                    routeId = part.substring("BID:ROUTE:".length());
-                } else if (part.startsWith("VEHICLE:")) {
-                    bidderName = part.substring("VEHICLE:".length());
-                } else if (part.startsWith("COST:")) {
-                    bidCost = Double.parseDouble(part.substring("COST:".length()));
-                }
-            }
-            
-            if (routeId == null || bidderName == null) {
+            // Self-check 4: Total distance must not exceed vehicle max distance
+            if (totalDistance > maxDistance) {
+                System.out.println("Vehicle " + vehicleName + ": Cannot accept route " + routeId + 
+                                 " - total distance " + String.format("%.2f", totalDistance) + 
+                                 " exceeds max distance " + maxDistance);
+                logger.logEvent("REJECTED route " + routeId + ": Total distance " + 
+                              String.format("%.2f", totalDistance) + " exceeds max distance " + maxDistance);
+                sendRejection(routeAvailable, "Route total distance " + String.format("%.2f", totalDistance) + 
+                            " exceeds vehicle max distance " + maxDistance);
                 return;
             }
             
-            // Get or create bid session
-            BidSession session = activeBids.get(routeId);
-            if (session == null) {
-                // This vehicle received a bid but hasn't received the route announcement yet
-                // Create a session to track this bid
-                session = new BidSession(routeId, null, 0.0);
-                activeBids.put(routeId, session);
-            }
+            // All checks passed - accept the route
+            System.out.println("Vehicle " + vehicleName + ": ✓ All self-checks passed for route " + routeId);
+            System.out.println("Vehicle " + vehicleName + ": Capacity: " + capacity + " >= Demand: " + routeDemand);
+            System.out.println("Vehicle " + vehicleName + ": Max Distance: " + maxDistance + " >= Total Distance: " + 
+                             String.format("%.2f", totalDistance));
+            logger.logEvent("ACCEPTED route " + routeId + ": Capacity=" + capacity + " (demand=" + routeDemand + 
+                          "), MaxDistance=" + maxDistance + " (total=" + String.format("%.2f", totalDistance) + ")");
             
-            session.addBid(bidderName, bidCost);
-            System.out.println("Vehicle " + vehicleName + ": Received bid from " + bidderName + 
-                             " for route " + routeId + ": " + String.format("%.2f", bidCost));
-            logger.logEvent("Received bid from " + bidderName + " for route " + routeId);
+            // Send acceptance
+            ACLMessage acceptance = routeAvailable.createReply();
+            acceptance.setPerformative(ACLMessage.AGREE);
+            acceptance.setContent("ROUTE_ACCEPTED:ROUTE:" + routeId + "|VEHICLE:" + vehicleName);
+            
+            // Log conversation response (conversation end will be logged by depot when it receives this)
+            logger.logSent(acceptance);
+            send(acceptance);
+            
+            System.out.println("Vehicle " + vehicleName + ": Sent route acceptance to depot for route " + routeId);
+            logger.logEvent("Sent route acceptance to depot for route " + routeId);
+            
+            // Start the route immediately (depot will reject if another vehicle already accepted)
+            parseRouteAndStartMovement(routeId, routeData);
         }
         
         /**
-         * Handles winner announcement from another vehicle
+         * Sends rejection message to depot
          */
-        private void handleWinnerAnnouncement(ACLMessage winnerMsg) {
-            String content = winnerMsg.getContent();
-            // Format: WINNER:ROUTE:routeId|VEHICLE:vehicleName|COST:cost
-            
-            String[] parts = content.split("\\|");
-            String routeId = null;
-            String winnerName = null;
-            
-            for (String part : parts) {
-                if (part.startsWith("WINNER:ROUTE:")) {
-                    routeId = part.substring("WINNER:ROUTE:".length());
-                } else if (part.startsWith("VEHICLE:")) {
-                    winnerName = part.substring("VEHICLE:".length());
-                }
-            }
-            
-            if (routeId == null) {
-                return;
-            }
-            
-            BidSession session = activeBids.get(routeId);
-            if (session != null) {
-                activeBids.remove(routeId);
-                
-                if (winnerName.equals(vehicleName)) {
-                    // I won! Notify depot
-                    notifyDepotWinner(routeId, session.routeData);
-                } else {
-                    // Someone else won
-                    System.out.println("Vehicle " + vehicleName + ": Route " + routeId + 
-                                     " won by " + winnerName);
-                    logger.logEvent("Route " + routeId + " won by " + winnerName);
-                }
-            }
-        }
-        
-        /**
-         * Collects bids from other vehicles and determines winner
-         */
-        private class BidCollectionBehaviour extends WakerBehaviour {
-            private String routeId;
-            private int expectedBids;
-            
-            public BidCollectionBehaviour(Agent a, String routeId, int expectedBids, long timeout) {
-                super(a, timeout);
-                this.routeId = routeId;
-                this.expectedBids = expectedBids;
-            }
-            
-            @Override
-            protected void onWake() {
-                BidSession session = activeBids.get(routeId);
-                if (session == null) {
-                    return;
-                }
-                
-                // Only proceed if this vehicle initiated the bid session (has routeData)
-                if (session.routeData == null) {
-                    // This vehicle only received bids but didn't initiate - don't determine winner
-                    return;
-                }
-                
-                // Add my own bid if not already added
-                if (!session.bids.containsKey(vehicleName) && session.myBid > 0) {
-                    session.addBid(vehicleName, session.myBid);
-                }
-                
-                // Determine winner (lowest cost)
-                String winner = session.determineWinner();
-                
-                if (winner != null) {
-                    System.out.println("Vehicle " + vehicleName + ": Winner determined for route " + routeId + 
-                                     ": " + winner + " with cost " + String.format("%.2f", session.getWinnerCost()));
-                    logger.logEvent("Winner determined for route " + routeId + ": " + winner);
-                    
-                    // Announce winner to all other vehicles
-                    List<AID> otherVehicles = findOtherVehiclesViaDF();
-                    for (AID vehicleAID : otherVehicles) {
-                        ACLMessage winnerMsg = new ACLMessage(ACLMessage.INFORM);
-                        winnerMsg.addReceiver(vehicleAID);
-                        winnerMsg.setProtocol("vehicle-bidding");
-                        winnerMsg.setContent("WINNER:ROUTE:" + routeId + "|VEHICLE:" + winner + 
-                                            "|COST:" + String.format("%.2f", session.getWinnerCost()));
-                        logger.logSent(winnerMsg);
-                        send(winnerMsg);
-                    }
-                    
-                    // If I won, notify depot
-                    if (winner.equals(vehicleName)) {
-                        notifyDepotWinner(routeId, session.routeData);
-                    }
-                }
-                
-                activeBids.remove(routeId);
-            }
-        }
-        
-        /**
-         * Notifies depot that this vehicle won the route
-         */
-        private void notifyDepotWinner(String routeId, String routeData) {
+        private void sendRejection(ACLMessage routeAvailable, String reason) {
+            // Extract route ID from message content for logging
+            String routeId = "unknown";
             try {
-                AID depotAID = findDepotViaDF();
-                if (depotAID == null) {
-                    System.err.println("Vehicle " + vehicleName + ": Depot not found via DF");
-                    return;
+                String content = routeAvailable.getContent();
+                if (content != null && content.startsWith("ROUTE_AVAILABLE:")) {
+                    String routeData = content.substring("ROUTE_AVAILABLE:".length());
+                    String[] parts = routeData.split("\\|");
+                    for (String part : parts) {
+                        if (part.startsWith("ROUTE:")) {
+                            routeId = part.substring("ROUTE:".length());
+                            break;
+                        }
+                    }
                 }
-                
-                ACLMessage winnerNotification = new ACLMessage(ACLMessage.INFORM);
-                winnerNotification.addReceiver(depotAID);
-                winnerNotification.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-                winnerNotification.setContent("ROUTE_WON:ROUTE:" + routeId + "|VEHICLE:" + vehicleName + 
-                                            "|" + routeData);
-                logger.logSent(winnerNotification);
-                send(winnerNotification);
-                
-                System.out.println("Vehicle " + vehicleName + ": Notified depot - won route " + routeId);
-                logger.logEvent("Notified depot: won route " + routeId);
-                
-                // Update state
-                assignedRouteId = routeId;
-                state = "absent";
-                
             } catch (Exception e) {
-                System.err.println("Vehicle " + vehicleName + ": Error notifying depot: " + e.getMessage());
+                // Ignore parsing errors, use "unknown" route ID
             }
+            
+            ACLMessage rejection = routeAvailable.createReply();
+            rejection.setPerformative(ACLMessage.REFUSE);
+            rejection.setContent("ROUTE_REJECTED:" + reason);
+            
+            // Log conversation end for rejected route
+            logger.logConversationEnd(routeAvailable.getConversationId(), 
+                "Route " + routeId + " rejected: " + reason);
+            
+            logger.logSent(rejection);
+            send(rejection);
+            System.out.println("Vehicle " + vehicleName + ": Sent route rejection to depot: " + reason);
+            logger.logEvent("Sent route rejection to depot: " + reason);
         }
-        
-        /**
-         * Finds other vehicles via DF (excluding self)
-         */
-        private List<AID> findOtherVehiclesViaDF() {
-            List<AID> vehicles = new ArrayList<>();
-            try {
-                DFAgentDescription dfd = new DFAgentDescription();
-                ServiceDescription sd = new ServiceDescription();
-                sd.setType("vehicle-service");
-                dfd.addServices(sd);
+    }
+    
+    /**
+     * Handles route rejection from depot (e.g., route already assigned to another vehicle)
+     * Cancels the route if it was already started
+     */
+    private class RouteRejectionHandler extends CyclicBehaviour {
+        @Override
+        public void action() {
+            MessageTemplate template = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.REFUSE),
+                MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST)
+            );
+            
+            ACLMessage msg = receive(template);
+            if (msg != null) {
+                logger.logReceived(msg);
+                String content = msg.getContent();
                 
-                DFAgentDescription[] results = DFService.search(getAgent(), dfd);
-                for (DFAgentDescription result : results) {
-                    String localName = result.getName().getLocalName();
-                    if (!localName.equals(vehicleName) && !localName.equals("vehicle-" + vehicleName)) {
-                        vehicles.add(result.getName());
+                // Log conversation end for route rejection
+                if (msg.getConversationId() != null) {
+                    logger.logConversationEnd(msg.getConversationId(), 
+                        "Route rejected by depot: " + (content != null ? content : "unknown reason"));
+                }
+                
+                if (content != null && content.startsWith("ROUTE_ALREADY_ASSIGNED:")) {
+                    // Extract route ID from rejection message
+                    String routeId = assignedRouteId;  // Use current assigned route ID
+                    
+                    System.out.println("\n=== Vehicle " + vehicleName + ": Received Route Rejection from Depot ===");
+                    System.out.println("Vehicle " + vehicleName + ": " + content);
+                    logger.logEvent("Received route rejection from depot: " + content);
+                    
+                    // Cancel the route if it was already started
+                    if (routeId != null && routeId.equals(assignedRouteId)) {
+                        System.out.println("Vehicle " + vehicleName + ": Cancelling route " + routeId + 
+                                         " - already assigned to another vehicle");
+                        logger.logEvent("Cancelling route " + routeId + " - already assigned to another vehicle");
+                        
+                        // Stop movement behavior if it's running
+                        if (currentMovementBehaviour != null) {
+                            System.out.println("Vehicle " + vehicleName + ": Stopping MovementBehaviour due to route cancellation");
+                            logger.logEvent("Stopping MovementBehaviour due to route cancellation");
+                            removeBehaviour(currentMovementBehaviour);
+                            currentMovementBehaviour = null;
+                        }
+                        
+                        // Reset vehicle state
+                        state = "free";
+                        assignedRouteId = null;
+                        currentRoute = null;
+                        currentCustomerIndex = -1;
+                        isMoving = false;
+                        
+                        System.out.println("Vehicle " + vehicleName + ": State reset to 'free'");
+                        logger.logEvent("State reset to 'free' after route cancellation");
                     }
                 }
-            } catch (FIPAException fe) {
-                System.err.println("Vehicle " + vehicleName + ": Error searching DF for vehicles: " + fe.getMessage());
-            }
-            return vehicles;
-        }
-        
-        /**
-         * Finds depot via DF
-         */
-        private AID findDepotViaDF() {
-            try {
-                DFAgentDescription dfd = new DFAgentDescription();
-                ServiceDescription sd = new ServiceDescription();
-                sd.setType("depot-service");
-                dfd.addServices(sd);
-                
-                DFAgentDescription[] results = DFService.search(getAgent(), dfd);
-                if (results.length > 0) {
-                    return results[0].getName();
-                }
-            } catch (FIPAException fe) {
-                System.err.println("Vehicle " + vehicleName + ": Error searching DF for depot: " + fe.getMessage());
-            }
-            return null;
-        }
-        
-        /**
-         * Bid session for a route
-         */
-        private class BidSession {
-            String routeId;
-            String routeData;
-            double myBid;
-            Map<String, Double> bids = new HashMap<>();
-            
-            public BidSession(String routeId, String routeData, double myBid) {
-                this.routeId = routeId;
-                this.routeData = routeData;
-                this.myBid = myBid;
-            }
-            
-            public void addBid(String vehicleName, double cost) {
-                bids.put(vehicleName, cost);
-            }
-            
-            public String determineWinner() {
-                if (bids.isEmpty()) {
-                    return null;
-                }
-                
-                String winner = null;
-                double minCost = Double.MAX_VALUE;
-                
-                for (Map.Entry<String, Double> entry : bids.entrySet()) {
-                    if (entry.getValue() < minCost) {
-                        minCost = entry.getValue();
-                        winner = entry.getKey();
-                    }
-                }
-                
-                return winner;
-            }
-            
-            public double getWinnerCost() {
-                String winner = determineWinner();
-                return winner != null ? bids.get(winner) : 0.0;
+            } else {
+                block();
             }
         }
     }
     
     /**
-     * Contract-Net Responder that bids on routes (DEPRECATED - kept for backward compatibility)
+     * Parses route data and starts movement behavior
+     * Called when vehicle accepts a route assignment
      */
-    private class RouteContractNetResponder extends ContractNetResponder {
-        public RouteContractNetResponder(Agent a) {
-            super(a, MessageTemplate.and(
-                MessageTemplate.MatchPerformative(ACLMessage.CFP),
-                MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET)
-            ));
-        }
+    private void parseRouteAndStartMovement(String routeId, String routeData) {
+        System.out.println("Vehicle " + vehicleName + ": Parsing route data for route " + routeId);
+        logger.logEvent("Parsing route data for route " + routeId);
         
-        @Override
-        protected ACLMessage handleCfp(ACLMessage cfp) {
-            System.out.println("\n=== Vehicle " + vehicleName + ": Received CFP ===");
-            System.out.println("CFP: " + cfp.getContent());
-            
-            logger.logReceived(cfp);
-            
-            // Only bid if free
-            if (!"free".equals(state)) {
-                System.out.println("Vehicle " + vehicleName + ": Not available (state: " + state + ")");
-                logger.logEvent("Refusing route: state is " + state);
-                ACLMessage refuse = cfp.createReply();
-                refuse.setPerformative(ACLMessage.REFUSE);
-                refuse.setContent("Vehicle not available: " + state);
-                logger.logSent(refuse);
-                return refuse;
-            }
-            
-            // Parse route information
-            String content = cfp.getContent();
-            // Format: ROUTE:routeId|CUSTOMERS:customerId1,customerId2|COORDS:x1,y1;x2,y2|DEMAND:total|DISTANCE:total
-            
-            String[] parts = content.split("\\|");
-            if (parts.length < 5) {
-                ACLMessage refuse = cfp.createReply();
-                refuse.setPerformative(ACLMessage.REFUSE);
-                refuse.setContent("Invalid route format");
-                return refuse;
-            }
-            
-            int routeDemand = 0;
-            double routeDistance = 0.0;
-            double[] firstCustomerPos = null;
-            double[] lastCustomerPos = null;
-            
-            try {
-                for (String part : parts) {
-                    if (part.startsWith("DEMAND:")) {
-                        routeDemand = Integer.parseInt(part.substring("DEMAND:".length()));
-                    } else if (part.startsWith("DISTANCE:")) {
-                        routeDistance = Double.parseDouble(part.substring("DISTANCE:".length()));
-                    } else if (part.startsWith("COORDS:")) {
-                        // Parse customer coordinates from depot
-                        String coordsString = part.substring("COORDS:".length());
-                        if (!coordsString.isEmpty()) {
-                            // Format: x1,y1;x2,y2
-                            String[] coordPairs = coordsString.split(";");
-                            if (coordPairs.length > 0) {
-                                // First customer
-                                String[] firstCoords = coordPairs[0].split(",");
-                                if (firstCoords.length == 2) {
-                                    firstCustomerPos = new double[]{
-                                        Double.parseDouble(firstCoords[0]),
-                                        Double.parseDouble(firstCoords[1])
-                                    };
-                                }
-                                // Last customer
-                                if (coordPairs.length > 1) {
-                                    String[] lastCoords = coordPairs[coordPairs.length - 1].split(",");
-                                    if (lastCoords.length == 2) {
-                                        lastCustomerPos = new double[]{
-                                            Double.parseDouble(lastCoords[0]),
-                                            Double.parseDouble(lastCoords[1])
-                                        };
-                                    }
-                                } else if (coordPairs.length == 1) {
-                                    // Only one customer, so last customer is same as first
-                                    lastCustomerPos = firstCustomerPos;
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                System.err.println("Vehicle " + vehicleName + ": Error parsing route: " + e.getMessage());
-                ACLMessage refuse = cfp.createReply();
-                refuse.setPerformative(ACLMessage.REFUSE);
-                refuse.setContent("Error parsing route");
-                return refuse;
-            }
-            
-            // BASIC REQUIREMENT: Check capacity constraint
-            if (routeDemand > capacity) {
-                System.out.println("Vehicle " + vehicleName + ": Insufficient capacity (" + 
-                                 routeDemand + " > " + capacity + ")");
-                logger.logEvent("Refusing route: insufficient capacity (" + routeDemand + " > " + capacity + ")");
-                ACLMessage refuse = cfp.createReply();
-                refuse.setPerformative(ACLMessage.REFUSE);
-                refuse.setContent("Insufficient capacity");
-                logger.logSent(refuse);
-                return refuse;
-            }
-            
-            // BASIC REQUIREMENT 2: Check maximum distance constraint
-            // Calculate total distance: from current position to first customer + route distance + return to depot
-            double totalRouteDistance = routeDistance;
-            if (firstCustomerPos != null) {
-                // Distance from current position to first customer
-                double toFirstCustomer = Math.hypot(
-                    currentX - firstCustomerPos[0],
-                    currentY - firstCustomerPos[1]
-                );
-                totalRouteDistance += toFirstCustomer;
-            }
-            if (lastCustomerPos != null) {
-                // Distance from last customer back to depot
-                double toDepot = Math.hypot(
-                    lastCustomerPos[0] - depotX,
-                    lastCustomerPos[1] - depotY
-                );
-                totalRouteDistance += toDepot;
-            }
-            
-            if (totalRouteDistance > maxDistance) {
-                System.out.println("Vehicle " + vehicleName + ": Route exceeds maximum distance (" + 
-                                 String.format("%.2f", totalRouteDistance) + " > " + maxDistance + ")");
-                logger.logEvent("Refusing route: exceeds maximum distance (" + 
-                              String.format("%.2f", totalRouteDistance) + " > " + maxDistance + ")");
-                ACLMessage refuse = cfp.createReply();
-                refuse.setPerformative(ACLMessage.REFUSE);
-                refuse.setContent("Route exceeds maximum distance");
-                logger.logSent(refuse);
-                return refuse;
-            }
-            
-            // Calculate bid cost based on total distance
-            double bidCost = totalRouteDistance;
-            
-            System.out.println("Vehicle " + vehicleName + ": Bidding with cost: " + String.format("%.2f", bidCost));
-            System.out.println("  Route demand: " + routeDemand + "/" + capacity);
-            System.out.println("  Route distance: " + String.format("%.2f", routeDistance));
-            System.out.println("  Total distance (with travel): " + String.format("%.2f", totalRouteDistance) + "/" + maxDistance);
-            logger.logEvent("Bidding for route: cost=" + String.format("%.2f", bidCost) + 
-                          ", demand=" + routeDemand + "/" + capacity +
-                          ", totalDistance=" + String.format("%.2f", totalRouteDistance) + "/" + maxDistance);
-            
-            // Create proposal
-            ACLMessage propose = cfp.createReply();
-            propose.setPerformative(ACLMessage.PROPOSE);
-            propose.setContent("COST:" + String.format("%.2f", bidCost) + 
-                            "|CAPACITY:" + capacity + 
-                            "|MAX_DISTANCE:" + maxDistance +
-                            "|AVAILABLE:" + (capacity - routeDemand));
-            logger.logSent(propose);
-            
-            return propose;
-        }
+        // Update state
+        assignedRouteId = routeId;
+        state = "absent";
         
-        @Override
-        protected ACLMessage handleAcceptProposal(ACLMessage cfp, ACLMessage propose, ACLMessage accept) {
-            logger.logReceived(accept);
-            System.out.println("\n=== Vehicle " + vehicleName + ": Route Accepted ===");
-            logger.logEvent("Route accepted via Contract-Net");
-            
-            // Extract route info from CFP
-            String content = cfp.getContent();
-            String[] parts = content.split("\\|");
-            String routeId = "R1";
-            for (String part : parts) {
-                if (part.startsWith("ROUTE:")) {
-                    routeId = part.substring("ROUTE:".length());
-                    break;
-                }
-            }
-            
-            assignedRouteId = routeId;
-            state = "absent";  // Vehicle is now absent (delivering)
-            
-            // Extract customer IDs from CFP for notification later
-            List<String> customerIds = new ArrayList<>();
+        System.out.println("Vehicle " + vehicleName + ": State changed to 'absent' (delivering)");
+        logger.logEvent("State changed to 'absent' - starting delivery for route " + routeId);
+        
+        // Parse route data to extract customer information
+        // Format: ROUTE:routeId|CUSTOMERS:numericId1,numericId2|CUSTOMER_IDS:customer-1,customer-2|COORDS:x1,y1;x2,y2|DEMAND:total|DISTANCE:total
+        // Note: Customer IDs in route are numeric (1, 2, 3) from the solver
+        // CUSTOMER_IDS contains the actual customer agent IDs (customer-1, customer-2, etc.)
+        String[] parts = routeData.split("\\|");
+        
+        List<String> customerNumericIds = new ArrayList<>();
+        List<String> customerAgentIds = new ArrayList<>();
+        List<CustomerInfo> customers = new ArrayList<>();
+        
+        try {
             for (String part : parts) {
                 if (part.startsWith("CUSTOMERS:")) {
                     String customerIdsStr = part.substring("CUSTOMERS:".length());
                     if (!customerIdsStr.isEmpty()) {
                         String[] ids = customerIdsStr.split(",");
                         for (String id : ids) {
-                            customerIds.add(id.trim());
+                            customerNumericIds.add(id.trim());
                         }
                     }
-                    break;
+                } else if (part.startsWith("CUSTOMER_IDS:")) {
+                    // New field: actual customer agent IDs
+                    String customerAgentIdsStr = part.substring("CUSTOMER_IDS:".length());
+                    if (!customerAgentIdsStr.isEmpty()) {
+                        String[] ids = customerAgentIdsStr.split(",");
+                        for (String id : ids) {
+                            customerAgentIds.add(id.trim());
+                        }
+                    }
+                } else if (part.startsWith("COORDS:")) {
+                    String coordsString = part.substring("COORDS:".length());
+                    if (!coordsString.isEmpty()) {
+                        String[] coordPairs = coordsString.split(";");
+                        int numCustomers = Math.max(customerNumericIds.size(), customerAgentIds.size());
+                        for (int i = 0; i < coordPairs.length && i < numCustomers; i++) {
+                            String[] coords = coordPairs[i].split(",");
+                            if (coords.length == 2) {
+                                double x = Double.parseDouble(coords[0]);
+                                double y = Double.parseDouble(coords[1]);
+                                
+                                // Get numeric ID and agent ID
+                                String numericId = i < customerNumericIds.size() ? customerNumericIds.get(i) : String.valueOf(i + 1);
+                                String agentId = i < customerAgentIds.size() ? customerAgentIds.get(i) : "customer-" + numericId;
+                                
+                                // Create CustomerInfo - numeric ID from solver (1, 2, 3, ...)
+                                int customerIdNum = Integer.parseInt(numericId);
+                                CustomerInfo customer = new CustomerInfo(customerIdNum, x, y, 0);
+                                // Store the actual customer agent ID (e.g., "customer-1", "customer-2")
+                                customer.name = agentId;
+                                customers.add(customer);
+                            }
+                        }
+                    }
                 }
             }
-            
-            // Vehicle starts route from current position (will be at depot if free)
-            // Position will be updated as route progresses (simulated in RouteCompletionBehaviour)
-            
-            System.out.println("Vehicle " + vehicleName + ": Assigned route " + routeId);
-            System.out.println("Vehicle " + vehicleName + ": State changed to 'absent' (delivering)");
-            System.out.println("Vehicle " + vehicleName + ": Starting from position: (" + currentX + ", " + currentY + ")");
-            logger.logEvent("State changed to 'absent' - starting delivery from (" + currentX + ", " + currentY + ")");
-            
-            // Confirm acceptance
-            ACLMessage inform = accept.createReply();
-            inform.setPerformative(ACLMessage.INFORM);
-            inform.setContent("ROUTE_ACCEPTED:" + routeId + "|VEHICLE:" + vehicleName);
-            logger.logSent(inform);
-            
-            // After some time, return to free state (simulating route completion)
-            // Pass customer IDs to notify them when delivery completes
-            addBehaviour(new RouteCompletionBehaviour(getAgent(), 30000, customerIds));  // Complete in 30 seconds
-            
-            return inform;
+        } catch (Exception e) {
+            System.err.println("Vehicle " + vehicleName + ": Error parsing route data: " + e.getMessage());
+            e.printStackTrace();
+            logger.log("ERROR: Failed to parse route data: " + e.getMessage());
+            state = "free"; // Reset state if parsing fails
+            return;
+        }
+        
+        if (customers.isEmpty()) {
+            System.err.println("Vehicle " + vehicleName + ": ERROR - No customers found in route data");
+            logger.log("ERROR: No customers found in route data for route " + routeId);
+            state = "free"; // Reset state if route parsing fails
+            return;
+        }
+        
+        // Store route
+        currentRoute = customers;
+        currentCustomerIndex = 0;
+        isMoving = true;
+        
+        System.out.println("Vehicle " + vehicleName + ": Route " + routeId + " parsed successfully");
+        System.out.println("Vehicle " + vehicleName + ": Route contains " + currentRoute.size() + " customers");
+        logger.logEvent("Route " + routeId + " parsed: " + currentRoute.size() + " customers");
+        
+        // Log route details
+        for (int i = 0; i < currentRoute.size(); i++) {
+            CustomerInfo customer = currentRoute.get(i);
+            System.out.println("Vehicle " + vehicleName + ": Route customer " + (i + 1) + ": " + 
+                             customer.name + " (ID: " + customer.id + ") at (" + 
+                             customer.x + ", " + customer.y + ")");
+            logger.logEvent("Route customer " + (i + 1) + ": " + customer.name + 
+                          " (ID: " + customer.id + ") at (" + customer.x + ", " + customer.y + ")");
+        }
+        
+        // Set target to first customer
+        if (currentRoute.size() > 0) {
+            CustomerInfo firstCustomer = currentRoute.get(0);
+            targetX = firstCustomer.x;
+            targetY = firstCustomer.y;
+            double distanceToFirst = Math.hypot(currentX - targetX, currentY - targetY);
+            System.out.println("Vehicle " + vehicleName + ": Starting route with " + currentRoute.size() + 
+                             " customers. Moving to customer " + firstCustomer.name + " at (" + 
+                             targetX + ", " + targetY + ")");
+            System.out.println("Vehicle " + vehicleName + ": Current position: (" + currentX + ", " + currentY + 
+                             "), Distance to first customer: " + String.format("%.2f", distanceToFirst));
+            logger.logEvent("Starting route: " + currentRoute.size() + " customers. Moving to " + 
+                          firstCustomer.name + " at (" + targetX + ", " + targetY + 
+                          "). Distance: " + String.format("%.2f", distanceToFirst));
+        }
+        
+        // Stop any existing movement behavior
+        if (currentMovementBehaviour != null) {
+            System.out.println("Vehicle " + vehicleName + ": Stopping existing MovementBehaviour");
+            logger.logEvent("Stopping existing MovementBehaviour");
+            removeBehaviour(currentMovementBehaviour);
+            currentMovementBehaviour = null;
+        }
+        
+        // Start movement behavior (updates position every second)
+        currentMovementBehaviour = new MovementBehaviour(this, 1000);  // Update every 1 second
+        addBehaviour(currentMovementBehaviour);
+        System.out.println("Vehicle " + vehicleName + ": MovementBehaviour started for route " + routeId);
+        logger.logEvent("MovementBehaviour started for route " + routeId);
+    }
+    
+    /**
+     * Movement behavior that updates vehicle position every second
+     * Moves vehicle towards customers and notifies them when arrived
+     */
+    private class MovementBehaviour extends TickerBehaviour {
+        public MovementBehaviour(Agent a, long period) {
+            super(a, period);
+            System.out.println("Vehicle " + vehicleName + ": MovementBehaviour constructor called with period=" + period + "ms");
+            logger.logEvent("MovementBehaviour constructor called with period=" + period + "ms");
         }
         
         @Override
-        protected void handleRejectProposal(ACLMessage cfp, ACLMessage propose, ACLMessage reject) {
-            logger.logReceived(reject);
-            System.out.println("Vehicle " + vehicleName + ": Proposal rejected");
-            logger.logEvent("Proposal rejected by depot");
+        protected void onTick() {
+            // Log every 10 ticks (every 10 seconds) to reduce verbosity
+            if (getTickCount() % 10 == 0 || getTickCount() == 1) {
+                System.out.println("Vehicle " + vehicleName + ": MovementBehaviour tick #" + getTickCount() + 
+                                 " - isMoving=" + isMoving + ", customerIndex=" + currentCustomerIndex + 
+                                 ", routeSize=" + (currentRoute != null ? currentRoute.size() : 0));
+            }
+            
+            if (!isMoving) {
+                if (getTickCount() == 1) {
+                    System.out.println("Vehicle " + vehicleName + ": MovementBehaviour - isMoving=false, waiting for route");
+                }
+                return;
+            }
+            
+            if (currentRoute == null) {
+                System.out.println("Vehicle " + vehicleName + ": ERROR - MovementBehaviour - currentRoute is null!");
+                logger.log("ERROR: MovementBehaviour - currentRoute is null");
+                return;
+            }
+            
+            // Check if we're moving to a customer or returning to depot
+            if (currentCustomerIndex >= 0 && currentCustomerIndex < currentRoute.size()) {
+                // Moving to a customer
+                moveTowardsCustomer();
+            } else if (currentCustomerIndex == -2) {
+                // Returning to depot after completing all deliveries
+                returnToDepot();
+            } else if (currentCustomerIndex == -1 && currentRoute.isEmpty()) {
+                // All customers visited, return to depot (edge case)
+                returnToDepot();
+            } else {
+                System.out.println("Vehicle " + vehicleName + ": WARNING - MovementBehaviour - Unknown state: currentCustomerIndex=" + 
+                                 currentCustomerIndex + ", routeSize=" + currentRoute.size());
+                logger.log("WARNING: MovementBehaviour - Unknown state: currentCustomerIndex=" + currentCustomerIndex);
+            }
+        }
+        
+        /**
+         * Moves vehicle towards current target customer
+         */
+        private void moveTowardsCustomer() {
+            if (currentRoute == null || currentCustomerIndex < 0 || currentCustomerIndex >= currentRoute.size()) {
+                System.out.println("Vehicle " + vehicleName + ": moveTowardsCustomer() - Invalid state: route=" + 
+                                 (currentRoute != null ? "not null" : "null") + ", index=" + currentCustomerIndex);
+                return;
+            }
+            
+            CustomerInfo customer = currentRoute.get(currentCustomerIndex);
+            targetX = customer.x;
+            targetY = customer.y;
+            
+            // Calculate distance to target
+            double dx = targetX - currentX;
+            double dy = targetY - currentY;
+            double distance = Math.hypot(dx, dy);
+            
+            // Log position every 5 ticks or on first tick
+            if (getTickCount() % 5 == 0 || getTickCount() == 1) {
+                System.out.println("Vehicle " + vehicleName + ": Moving to customer " + customer.name + 
+                                 " at (" + String.format("%.1f", targetX) + ", " + String.format("%.1f", targetY) + 
+                                 "), Current: (" + String.format("%.1f", currentX) + ", " + String.format("%.1f", currentY) + 
+                                 "), Distance: " + String.format("%.2f", distance));
+            }
+            
+            if (distance <= ARRIVAL_THRESHOLD) {
+                // Arrived at customer
+                currentX = targetX;
+                currentY = targetY;
+                System.out.println("\n=== Vehicle " + vehicleName + ": ARRIVED at Customer ===");
+                System.out.println("Vehicle " + vehicleName + ": Customer: " + customer.name + 
+                                 " (ID: " + customer.id + ")");
+                System.out.println("Vehicle " + vehicleName + ": Arrival position: (" + currentX + ", " + currentY + ")");
+                System.out.println("Vehicle " + vehicleName + ": Customer " + (currentCustomerIndex + 1) + 
+                                 " of " + currentRoute.size() + " on route");
+                logger.logEvent("ARRIVED at customer " + customer.name + " (ID: " + customer.id + 
+                              ") at (" + currentX + ", " + currentY + ") - Customer " + 
+                              (currentCustomerIndex + 1) + " of " + currentRoute.size());
+                
+                // Notify customer
+                notifyCustomerArrival(customer);
+                
+                // Move to next customer
+                currentCustomerIndex++;
+                if (currentCustomerIndex >= currentRoute.size()) {
+                    // All customers visited, return to depot
+                    System.out.println("\n=== Vehicle " + vehicleName + ": All Customers Visited ===");
+                    System.out.println("Vehicle " + vehicleName + ": All " + currentRoute.size() + 
+                                     " customers delivered. Returning to depot.");
+                    logger.logEvent("All " + currentRoute.size() + " customers visited. Returning to depot.");
+                    currentCustomerIndex = -2;  // Special value to indicate returning to depot
+                    targetX = depotX;
+                    targetY = depotY;
+                    double distanceToDepot = Math.hypot(currentX - depotX, currentY - depotY);
+                    System.out.println("Vehicle " + vehicleName + ": Distance to depot: " + 
+                                     String.format("%.2f", distanceToDepot));
+                    logger.logEvent("Returning to depot. Distance: " + String.format("%.2f", distanceToDepot));
+                } else {
+                    // Move to next customer
+                    CustomerInfo nextCustomer = currentRoute.get(currentCustomerIndex);
+                    targetX = nextCustomer.x;
+                    targetY = nextCustomer.y;
+                    double distanceToNext = Math.hypot(currentX - targetX, currentY - targetY);
+                    System.out.println("Vehicle " + vehicleName + ": Moving to next customer " + nextCustomer.name + 
+                                     " (ID: " + nextCustomer.id + ") at (" + targetX + ", " + targetY + ")");
+                    System.out.println("Vehicle " + vehicleName + ": Distance to next customer: " + 
+                                     String.format("%.2f", distanceToNext));
+                    logger.logEvent("Moving to customer " + nextCustomer.name + " (ID: " + nextCustomer.id + 
+                                  ") at (" + targetX + ", " + targetY + "). Distance: " + 
+                                  String.format("%.2f", distanceToNext));
+                }
+            } else {
+                // Move towards target (10 units per second = 10 units per tick since tick is 1 second)
+                double moveDistance = Math.min(MOVEMENT_SPEED, distance);
+                double ratio = moveDistance / distance;
+                
+                double oldX = currentX;
+                double oldY = currentY;
+                currentX += dx * ratio;
+                currentY += dy * ratio;
+                
+                double actualMovement = Math.hypot(currentX - oldX, currentY - oldY);
+                
+                // Log movement every 5 ticks or on significant movement
+                if (getTickCount() % 5 == 0 || actualMovement > 5.0) {
+                    System.out.println("Vehicle " + vehicleName + ": Moved " + String.format("%.1f", actualMovement) + 
+                                     " units. Position: (" + String.format("%.1f", currentX) + ", " + 
+                                     String.format("%.1f", currentY) + "), Remaining: " + String.format("%.1f", distance - moveDistance));
+                    logger.logEvent("Moving to customer " + customer.name + ": position=(" + 
+                                  String.format("%.2f", currentX) + ", " + String.format("%.2f", currentY) + 
+                                  "), remaining=" + String.format("%.2f", distance - moveDistance));
+                }
+            }
+        }
+        
+        /**
+         * Moves vehicle back to depot
+         */
+        private void returnToDepot() {
+            targetX = depotX;
+            targetY = depotY;
+            
+            // Calculate distance to depot
+            double dx = targetX - currentX;
+            double dy = targetY - currentY;
+            double distance = Math.hypot(dx, dy);
+            
+            if (distance <= ARRIVAL_THRESHOLD) {
+                // Arrived at depot
+                currentX = depotX;
+                currentY = depotY;
+                isMoving = false;
+                state = "free";
+                String completedRouteId = assignedRouteId;
+                assignedRouteId = null;
+                currentRoute = null;
+                currentCustomerIndex = -1;
+                
+                System.out.println("\n=== Vehicle " + vehicleName + ": RETURNED TO DEPOT ===");
+                System.out.println("Vehicle " + vehicleName + ": Arrived at depot at (" + currentX + ", " + currentY + ")");
+                System.out.println("Vehicle " + vehicleName + ": Route " + completedRouteId + " completed");
+                System.out.println("Vehicle " + vehicleName + ": State changed to 'free' - ready for next route");
+                logger.logEvent("RETURNED to depot at (" + currentX + ", " + currentY + 
+                              "). Route " + completedRouteId + " completed. State: free");
+                
+                // Stop movement behavior and remove it
+                stop();
+                if (currentMovementBehaviour != null) {
+                    removeBehaviour(currentMovementBehaviour);
+                    currentMovementBehaviour = null;
+                }
+                System.out.println("Vehicle " + vehicleName + ": MovementBehaviour stopped and removed");
+                logger.logEvent("MovementBehaviour stopped and removed. Vehicle ready for next route assignment");
+            } else {
+                // Move towards depot
+                double moveDistance = Math.min(MOVEMENT_SPEED, distance);
+                double ratio = moveDistance / distance;
+                
+                double oldX = currentX;
+                double oldY = currentY;
+                currentX += dx * ratio;
+                currentY += dy * ratio;
+                
+                // Log position update periodically (every 5 seconds) or on significant movement
+                if (getTickCount() % 5 == 0 || Math.hypot(currentX - oldX, currentY - oldY) > 5.0) {
+                    System.out.println("Vehicle " + vehicleName + ": Returning to depot. Position: (" + 
+                                     String.format("%.2f", currentX) + ", " + String.format("%.2f", currentY) + 
+                                     "), Distance remaining: " + String.format("%.2f", distance - moveDistance) + 
+                                     ", Speed: " + String.format("%.2f", moveDistance) + " units/sec");
+                    logger.logEvent("Returning to depot: position=(" + 
+                                  String.format("%.2f", currentX) + ", " + String.format("%.2f", currentY) + 
+                                  "), remaining=" + String.format("%.2f", distance - moveDistance));
+                }
+            }
+        }
+        
+        /**
+         * Notifies a customer that the vehicle has arrived
+         */
+        private void notifyCustomerArrival(CustomerInfo customer) {
+            try {
+                System.out.println("Vehicle " + vehicleName + ": Attempting to notify customer " + customer.name + 
+                                 " (ID: " + customer.id + ")");
+                logger.logEvent("Attempting to notify customer " + customer.name + " (ID: " + customer.id + ")");
+                
+                // Find customer via DF
+                DFAgentDescription dfd = new DFAgentDescription();
+                ServiceDescription sd = new ServiceDescription();
+                sd.setType("customer-service");
+                dfd.addServices(sd);
+                
+                DFAgentDescription[] results = DFService.search(getAgent(), dfd);
+                
+                System.out.println("Vehicle " + vehicleName + ": Found " + results.length + " customers via DF");
+                logger.logEvent("Found " + results.length + " customers via DF");
+                
+                // Find matching customer
+                // customer.name now contains the actual customer agent ID (e.g., "customer-1", "customer-2")
+                // Customer agents are registered with local name matching this ID
+                AID customerAID = null;
+                
+                // Print all available customers for debugging
+                System.out.println("Vehicle " + vehicleName + ": Available customers via DF:");
+                for (DFAgentDescription result : results) {
+                    String localName = result.getName().getLocalName();
+                    System.out.println("  - " + localName + " (looking for: " + customer.name + ")");
+                    logger.log("  Available customer: " + localName + " (looking for: " + customer.name + ")");
+                }
+                
+                for (DFAgentDescription result : results) {
+                    String localName = result.getName().getLocalName();
+                    
+                    // Try exact match with customer.name (which contains the agent ID)
+                    if (localName.equals(customer.name)) {
+                        customerAID = result.getName();
+                        System.out.println("Vehicle " + vehicleName + ": Found exact match: " + localName);
+                        logger.logEvent("Found exact match for customer: " + localName);
+                        break;
+                    }
+                    
+                    // Fallback 1: Try matching with customer ID (numeric)
+                    // Customer name might be like "customer-1", and local name might be "customer-1" or just "1"
+                    String customerIdStr = String.valueOf(customer.id);
+                    if (localName.equals("customer-" + customerIdStr) || localName.equals(customerIdStr)) {
+                        customerAID = result.getName();
+                        System.out.println("Vehicle " + vehicleName + ": Found match by customer ID: " + localName + " (ID: " + customer.id + ")");
+                        logger.logEvent("Found match by customer ID: " + localName);
+                        break;
+                    }
+                    
+                    // Fallback 2: Try partial match
+                    if (localName.contains(customer.name) || customer.name.contains(localName)) {
+                        customerAID = result.getName();
+                        System.out.println("Vehicle " + vehicleName + ": Found partial match: " + localName + " matches " + customer.name);
+                        logger.logEvent("Found partial match for customer: " + localName + " matches " + customer.name);
+                        break;
+                    }
+                    
+                    // Fallback 3: Try matching customer ID embedded in name
+                    if (localName.contains(customerIdStr) && (localName.contains("customer") || localName.contains("Customer"))) {
+                        customerAID = result.getName();
+                        System.out.println("Vehicle " + vehicleName + ": Found match by embedded customer ID: " + localName);
+                        logger.logEvent("Found match by embedded customer ID: " + localName);
+                        break;
+                    }
+                }
+                
+                if (customerAID != null) {
+                    ACLMessage deliveryMsg = new ACLMessage(ACLMessage.INFORM);
+                    deliveryMsg.addReceiver(customerAID);
+                    deliveryMsg.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+                    String deliveryConversationId = "delivery-" + System.currentTimeMillis();
+                    deliveryMsg.setConversationId(deliveryConversationId);
+                    deliveryMsg.setContent("DELIVERY_COMPLETE:Your order has been delivered by vehicle " + vehicleName + 
+                                         ". Package arrived at (" + String.format("%.2f", currentX) + ", " + 
+                                         String.format("%.2f", currentY) + ")");
+                    
+                    // Log delivery conversation start
+                    logger.logConversationStart(deliveryConversationId, 
+                        "Delivery notification to customer " + customer.name + " (ID: " + customer.id + ")");
+                    
+                    logger.logSent(deliveryMsg);
+                    send(deliveryMsg);
+                    System.out.println("Vehicle " + vehicleName + ": ✓✓✓ NOTIFIED customer " + customer.name + 
+                                     " (ID: " + customer.id + ") about delivery completion");
+                    logger.logEvent("NOTIFIED customer " + customer.name + " (ID: " + customer.id + ") about delivery");
+                } else {
+                    System.out.println("Vehicle " + vehicleName + ": ✗✗✗ ERROR - Could not find customer " + customer.name + 
+                                     " via DF for notification");
+                    logger.log("ERROR: Could not find customer " + customer.name + " via DF for notification");
+                    System.out.println("Vehicle " + vehicleName + ": Customer name from route: '" + customer.name + "'");
+                    System.out.println("Vehicle " + vehicleName + ": Customer ID from route: " + customer.id);
+                }
+            } catch (FIPAException fe) {
+                System.err.println("Vehicle " + vehicleName + ": Error searching DF for customer: " + fe.getMessage());
+                logger.log("ERROR: Failed to search DF for customer: " + fe.getMessage());
+                fe.printStackTrace();
+            }
         }
     }
     
     /**
      * Simulates route completion and returns vehicle to free state
      * Also notifies customers that their goods have arrived
+     * DEPRECATED: Replaced by MovementBehaviour
      */
     private class RouteCompletionBehaviour extends WakerBehaviour {
         private List<String> customerIds;
@@ -891,6 +970,8 @@ public class VehicleAgent extends Agent {
     
     /**
      * Behavior that returns vehicle to depot when free and not at depot
+     * Note: This is a safety mechanism. Real movement is handled by MovementBehaviour.
+     * This only handles edge cases where vehicle is free but not at depot.
      */
     private class ReturnToDepotBehaviour extends CyclicBehaviour {
         private long checkInterval;
@@ -902,15 +983,16 @@ public class VehicleAgent extends Agent {
         
         @Override
         public void action() {
-            // Only return to depot if free and not already at depot
-            if ("free".equals(state)) {
+            // Only return to depot if free, not moving, and not already at depot
+            // MovementBehaviour handles the actual movement when vehicle is on a route
+            if ("free".equals(state) && !isMoving) {
                 double distanceToDepot = Math.hypot(currentX - depotX, currentY - depotY);
-                // If not at depot (within 1 unit tolerance), move back
-                if (distanceToDepot > 1.0) {
+                // If not at depot (within arrival threshold), move back instantly (safety net)
+                if (distanceToDepot > ARRIVAL_THRESHOLD) {
                     currentX = depotX;
                     currentY = depotY;
-                    System.out.println("Vehicle " + vehicleName + ": Returned to depot. Position: (" + currentX + ", " + currentY + ")");
-                    logger.logEvent("Returned to depot. Position: (" + currentX + ", " + currentY + ")");
+                    System.out.println("Vehicle " + vehicleName + ": Returned to depot (safety). Position: (" + currentX + ", " + currentY + ")");
+                    logger.logEvent("Returned to depot (safety). Position: (" + currentX + ", " + currentY + ")");
                 }
             }
             

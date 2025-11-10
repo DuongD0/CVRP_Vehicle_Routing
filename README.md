@@ -146,8 +146,9 @@ The system implements a **decentralized multi-agent architecture** where:
 
 **Key Behaviors:**
 - `QueryHandlerBehaviour` - Responds to state queries from depot
-- `RouteContractNetResponder` - Handles Contract-Net bidding with constraint checks
-- `RouteCompletionBehaviour` - Simulates route completion
+- `VehicleBiddingCoordinator` - Handles vehicle-to-vehicle bidding for routes
+- `MovementBehaviour` - Real movement simulation (10 units/second toward customers)
+- `ReturnToDepotBehaviour` - Safety mechanism to return vehicle to depot when free
 
 **Constraint Checks:**
 - **Capacity Check:** Route demand ≤ vehicle capacity
@@ -243,11 +244,24 @@ The system implements a **decentralized multi-agent architecture** where:
    ├─ Vehicles confirm with INFORM
    └─ Vehicles mark as busy and execute route
 
-5. Route Completion
-   ├─ Vehicle simulates route completion (30 seconds)
-   ├─ Vehicle returns to free state
-   ├─ Vehicle position updated (moves closer to depot)
-   └─ Vehicle notifies customers of delivery completion
+5. Route Execution with Real Movement
+   ├─ Vehicle parses route data and extracts customer information
+   ├─ MovementBehaviour starts (updates position every 1 second)
+   ├─ Vehicle moves toward customers (10 units/second):
+   │  ├─ Position updated every second using linear interpolation
+   │  ├─ Distance calculated and movement interpolated
+   │  └─ Logs position every 5 seconds
+   ├─ When vehicle arrives at customer (within 1 unit threshold):
+   │  ├─ Vehicle notifies customer (DELIVERY_COMPLETE)
+   │  ├─ Vehicle moves to next customer in route
+   │  └─ Repeat for all customers
+   ├─ After all customers visited:
+   │  ├─ Vehicle returns to depot (10 units/second)
+   │  └─ Position updated every second during return
+   └─ When vehicle arrives at depot:
+      ├─ Vehicle state changes to "free"
+      ├─ Vehicle position set to depot (0, 0) exactly
+      └─ MovementBehaviour stops
 ```
 
 ---
@@ -326,9 +340,10 @@ See individual test case files for detailed test steps and expected results.
 
 ### FIPA Protocols Used
 
-1. **FIPA-REQUEST** - Customer → Depot (item requests)
+1. **FIPA-REQUEST** - Customer → Depot (item requests), Vehicle → Customer (delivery notifications)
 2. **FIPA-QUERY** - Depot → Vehicle (state queries)
-3. **FIPA Contract-Net** - Depot → Vehicle (route bidding with constraints)
+3. **FIPA Contract-Net** - Depot → Vehicle (route bidding with constraints) - DEPRECATED
+4. **Vehicle-to-Vehicle Bidding** - Vehicles bid among themselves for routes (custom protocol)
 
 ### Message Formats
 
@@ -354,14 +369,19 @@ QUERY_STATE
 STATE:free|CAPACITY:50|MAX_DISTANCE:1000.0|NAME:Vehicle1|X:10.5|Y:20.3
 ```
 
-**Contract-Net CFP:**
+**Route Announcement (Vehicle-to-Vehicle Bidding):**
 ```
-ROUTE:1|CUSTOMERS:1,2,3|COORDS:100.00,150.00;200.00,100.00|DEMAND:25|DISTANCE:350.0
+ROUTE_ANNOUNCEMENT:ROUTE:1|CUSTOMERS:1,2,3|CUSTOMER_IDS:customer-1,customer-2,customer-3|COORDS:100.00,150.00;200.00,100.00|DEMAND:25|DISTANCE:350.0
 ```
 
-**Contract-Net Proposal:**
+**Route Winner Notification:**
 ```
-COST:450.50|CAPACITY:50|MAX_DISTANCE:1000.0|AVAILABLE:25
+ROUTE_WON:ROUTE:1|VEHICLE:Vehicle1|ROUTE:1|CUSTOMERS:1,2,3|CUSTOMER_IDS:customer-1,customer-2,customer-3|COORDS:...|...
+```
+
+**Delivery Notification:**
+```
+DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1. Package arrived at (100.00, 150.00)
 ```
 
 ### Solver Interface
@@ -409,6 +429,38 @@ public interface VRPSolver {
   1. Distance from vehicle's current position to first customer
   2. Route distance (sum of distances between customers on route)
   3. Distance from last customer back to depot
+
+### Movement Simulation
+
+**Real Movement Implementation:**
+- Vehicles move at **10 units per second** toward customers
+- Position updated every **1 second** (1000ms tick interval)
+- Movement calculated using **linear interpolation** toward target
+- **Arrival threshold:** 1.0 unit distance (vehicle considered arrived)
+
+**Movement Behavior:**
+- `MovementBehaviour` (TickerBehaviour) updates vehicle position every second
+- When moving to customer:
+  - Calculates distance to target customer
+  - Moves 10 units toward target (or remaining distance if less)
+  - Updates `currentX` and `currentY` using linear interpolation
+  - Logs position every 5 seconds
+- When arriving at customer (distance ≤ 1.0 unit):
+  - Sets vehicle position to customer location (exact)
+  - Notifies customer (DELIVERY_COMPLETE message)
+  - Moves to next customer in route
+- When all customers visited:
+  - Vehicle returns to depot (10 units/second)
+  - Position updated every second during return
+- When arriving at depot:
+  - Sets vehicle position to depot (0, 0) exactly
+  - Sets state to "free"
+  - Stops MovementBehaviour
+
+**Starting Position:**
+- All vehicles start at depot coordinates (0, 0) when system starts
+- Vehicle position is tracked continuously during route execution
+- Position is used for distance calculations in bidding phase
 
 ### Agent Discovery (DF Only)
 

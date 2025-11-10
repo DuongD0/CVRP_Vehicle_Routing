@@ -52,6 +52,7 @@ public class Customer extends Agent {
         
         // Initialize logger
         logger = new AgentLogger("Customer-" + customerId);
+        logger.setAgentAID(this);  // Set agent AID for proper logging
         logger.logEvent("Agent started");
         logger.log("Customer name: " + customerName);
         logger.log("Position: (" + x + ", " + y + ")");
@@ -105,6 +106,10 @@ public class Customer extends Agent {
                 request.itemName, request.quantity);
             msg.setContent(content);
             
+            // Log conversation start
+            logger.logConversationStart(msg.getConversationId(), 
+                "Customer request: " + quantity + "x " + itemName + " to " + depotAgent.getLocalName());
+            
             logger.logSent(msg);
             send(msg);
             System.out.println("Customer " + customerName + ": Requested " + quantity + " units of " + itemName);
@@ -131,28 +136,36 @@ public class Customer extends Agent {
                     if (content.startsWith("ITEM_AVAILABLE:")) {
                         System.out.println("Customer " + customerName + ": ✓ Request accepted - " + content.substring("ITEM_AVAILABLE:".length()));
                         logger.logEvent("Request accepted: " + content.substring("ITEM_AVAILABLE:".length()));
+                        logger.logConversationEnd(msg.getConversationId(), "Request accepted - item available");
                     } else if (content.startsWith("ITEM_UNAVAILABLE:")) {
                         System.out.println("Customer " + customerName + ": ✗ Request rejected - " + content.substring("ITEM_UNAVAILABLE:".length()));
                         logger.logEvent("Request rejected: " + content.substring("ITEM_UNAVAILABLE:".length()));
+                        logger.logConversationEnd(msg.getConversationId(), "Request rejected - item unavailable");
                     } else if (content.startsWith("ROUTE_ASSIGNED:")) {
                         System.out.println("Customer " + customerName + ": Route assigned - " + content.substring("ROUTE_ASSIGNED:".length()));
                         logger.logEvent("Route assigned: " + content.substring("ROUTE_ASSIGNED:".length()));
                     } else if (content.startsWith("DELIVERY_COMPLETE:")) {
                         System.out.println("Customer " + customerName + ": ✓✓✓ DELIVERY COMPLETE - " + content.substring("DELIVERY_COMPLETE:".length()));
                         logger.logEvent("DELIVERY COMPLETE: " + content.substring("DELIVERY_COMPLETE:".length()));
+                        // Log delivery conversation if it has a conversation ID
+                        if (msg.getConversationId() != null && msg.getConversationId().startsWith("delivery-")) {
+                            logger.logConversationEnd(msg.getConversationId(), "Delivery completed successfully");
+                        }
                     }
                 } else if (msg.getPerformative() == ACLMessage.REFUSE) {
                     System.out.println("Customer " + customerName + ": Request was refused - " + content);
                     logger.logEvent("Request refused: " + content);
+                    logger.logConversationEnd(msg.getConversationId(), "Request refused");
                 }
             } else {
                 block();
             }
         }
     }
+    // Why only handle responses from Depot but not the Vehicle agent as well (delivered successfully)
     
     /**
-     * Finds Depot agent via DF (Directory Facilitator)
+     * Finds Depot agent via DF
      */
     private AID findDepotViaDF() {
         try {

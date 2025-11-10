@@ -100,7 +100,7 @@ Behavior:
 
 2.1 ROUTE ASSIGNMENT (notifyDepotWinner)
 ----------------------------------------
-Location: src/main/java/project/Agent/VehicleAgent.java (Lines 469-495)
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 480-505)
 
 Trigger: When vehicle wins route in vehicle-to-vehicle bidding
 
@@ -115,101 +115,144 @@ Behavior:
    - Protocol: fipa-request
    - Content Format: "ROUTE_WON:ROUTE:{routeId}|VEHICLE:{vehicleName}|{routeData}"
    
-   Example: "ROUTE_WON:ROUTE:1|VEHICLE:Vehicle1|ROUTE:1|CUSTOMERS:1,2,3|..."
+   Example: "ROUTE_WON:ROUTE:1|VEHICLE:Vehicle1|ROUTE:1|CUSTOMERS:1,2,3|CUSTOMER_IDS:customer-1,customer-2,customer-3|COORDS:...|..."
 
-3. Updates vehicle state:
-   - assignedRouteId = routeId
-   - state = "absent" (vehicle is now delivering)
-
-4. Logs:
-   - Logs sent notification
-   - Logs event: "Notified depot: won route {routeId}"
-   - Prints: "Notified depot - won route {routeId}"
+3. Parses route data and starts movement:
+   - Calls parseRouteAndStartMovement(routeId, routeData)
+   - Updates vehicle state: assignedRouteId = routeId, state = "absent"
+   - Extracts customer information from route data
+   - Starts MovementBehaviour for real movement simulation
 
 
-2.2 ROUTE COMPLETION BEHAVIOUR (RouteCompletionBehaviour)
----------------------------------------------------------
-Location: src/main/java/project/Agent/VehicleAgent.java (Lines 812-836)
+2.2 ROUTE PARSING (parseRouteAndStartMovement)
+-----------------------------------------------
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 507-584)
 
-Type: WakerBehaviour (one-time behavior after timeout)
-
-Timeout: 30000 milliseconds (30 seconds)
-
-Parameters:
-- customerIds: List of customer IDs on the route
-
-Behavior (onWake - after 30 seconds):
--------------------------------------
-1. Updates vehicle state:
-   - state = "free" (vehicle is now available again)
-   - assignedRouteId = null
-   - currentRoute = null
-
-2. Returns vehicle to depot:
-   - currentX = depotX (0.0)
-   - currentY = depotY (0.0)
-   - Position is set directly (no movement simulation)
-
-3. Logs:
-   - Logs event: "Route completed. Returning to depot. Position: (0.0, 0.0)"
-   - Prints: "Route completed. Returning to depot."
-   - Prints: "Position: (0.0, 0.0)"
-
-4. Notifies customers:
-   - Calls notifyCustomersDeliveryComplete(customerIds)
-
-
-2.3 CUSTOMER DELIVERY NOTIFICATION (notifyCustomersDeliveryComplete)
-----------------------------------------------------------------------
-Location: src/main/java/project/Agent/VehicleAgent.java (Lines 841-889)
-
-Trigger: Called by RouteCompletionBehaviour after route completion
+Trigger: Called by notifyDepotWinner after winning route
 
 Behavior:
 ---------
-1. Validates customer IDs:
-   - If customerIds is null or empty, returns immediately
+1. Parses route data:
+   - Format: "ROUTE:routeId|CUSTOMERS:numericId1,numericId2|CUSTOMER_IDS:customer-1,customer-2|COORDS:x1,y1;x2,y2|DEMAND:total|DISTANCE:total"
+   - Extracts numeric customer IDs (from solver)
+   - Extracts actual customer agent IDs (customer-1, customer-2, etc.)
+   - Extracts customer coordinates
 
-2. Finds customers via DF:
+2. Creates CustomerInfo list:
+   - Creates CustomerInfo object for each customer on route
+   - Stores customer coordinates, numeric ID, and agent ID
+   - Stores route in currentRoute
+
+3. Initializes movement state:
+   - currentCustomerIndex = 0 (first customer)
+   - isMoving = true
+   - Sets target to first customer coordinates
+
+4. Starts MovementBehaviour:
+   - Adds MovementBehaviour with 1000ms period (1 second updates)
+   - Movement starts immediately toward first customer
+
+
+2.3 MOVEMENT BEHAVIOUR (MovementBehaviour)
+------------------------------------------
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 895-1111)
+
+Type: TickerBehaviour (periodic behavior, updates every second)
+
+Period: 1000 milliseconds (1 second)
+
+Movement Speed: 10.0 units per second
+Arrival Threshold: 1.0 unit distance
+
+Behavior (onTick - every second):
+---------------------------------
+1. Movement State Check:
+   - Only processes if isMoving = true
+   - Checks if moving to customer or returning to depot
+
+2. Moving to Customer (moveTowardsCustomer):
+   a) Gets current target customer from currentRoute
+   b) Calculates distance to target customer
+   c) If distance <= ARRIVAL_THRESHOLD (1.0 unit):
+      - Sets vehicle position to customer location (exact)
+      - Calls notifyCustomerArrival(customer)
+      - Moves to next customer in route
+      - If no more customers, sets currentCustomerIndex = -2 (return to depot)
+   d) If distance > ARRIVAL_THRESHOLD:
+      - Moves 10 units toward target (or remaining distance if less)
+      - Updates currentX and currentY using linear interpolation
+      - Logs position every 5 seconds
+
+3. Returning to Depot (returnToDepot):
+   a) Sets target to depot coordinates (0, 0)
+   b) Calculates distance to depot
+   c) If distance <= ARRIVAL_THRESHOLD:
+      - Sets vehicle position to depot (exact)
+      - Sets isMoving = false
+      - Sets state = "free"
+      - Clears assignedRouteId and currentRoute
+      - Stops MovementBehaviour
+   d) If distance > ARRIVAL_THRESHOLD:
+      - Moves 10 units toward depot
+      - Updates currentX and currentY
+      - Logs position every 5 seconds
+
+
+2.4 CUSTOMER DELIVERY NOTIFICATION (notifyCustomerArrival)
+----------------------------------------------------------
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 1034-1111)
+
+Trigger: Called by MovementBehaviour when vehicle arrives at customer location
+
+Behavior:
+---------
+1. Finds customer via DF:
    - Searches for "customer-service" type
-   - Creates map of customer IDs to AIDs
-   - Matches customer IDs from route with discovered customers
+   - Matches customer using customer.name (contains actual customer agent ID)
+   - Customer agent IDs format: "customer-1", "customer-2", etc.
 
-3. Sends delivery notification to each customer:
+2. Sends delivery notification:
    - Performative: INFORM
    - Protocol: fipa-request
    - Conversation ID: "delivery-" + System.currentTimeMillis()
-   - Content: "DELIVERY_COMPLETE:Your order has been delivered by vehicle {vehicleName}"
+   - Content: "DELIVERY_COMPLETE:Your order has been delivered by vehicle {vehicleName}. Package arrived at ({x}, {y})"
    
-   Example: "DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1"
+   Example: "DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1. Package arrived at (100.00, 150.00)"
 
-4. Logs:
-   - Logs sent message for each customer
-   - Prints: "Notified customer {customerId} about delivery completion"
-   - If customer not found: "Could not find customer {customerId} via DF for notification"
+3. Logs:
+   - Logs sent message
+   - Prints: "Notified customer {customerName} (ID: {customerId}) about delivery completion"
+   - If customer not found: Prints warning and lists available customers
 
-5. Error handling:
+4. Error handling:
    - Catches FIPAException if DF search fails
    - Logs error message
 
+5. Timing:
+   - Notification is sent ONLY when vehicle actually arrives at customer location
+   - Customers are notified in route order (one at a time)
+   - Each customer receives notification when vehicle reaches their location
+
 
 ================================================================================
-3. CURRENT LIMITATIONS / NOTES
+3. MOVEMENT SIMULATION DETAILS
 ================================================================================
 
-3.1 Movement Simulation:
-------------------------
-- Vehicle position is NOT updated during route execution
-- Vehicle waits 30 seconds, then teleports back to depot
-- No step-by-step movement to customer locations
-- No intermediate position updates during delivery
+3.1 Real Movement Implementation:
+---------------------------------
+- Vehicle position is updated every second during route execution
+- Vehicles move at 10 units per second toward customers
+- Movement is calculated using linear interpolation
+- Position updates are logged every 5 seconds during movement
+- Vehicles visit customers one by one in route order
 
 3.2 Route Execution:
 --------------------
-- Route completion is simulated with a fixed 30-second timeout
-- No actual travel time calculation based on distance
-- No visiting customers one by one
-- Position remains at starting location during entire route
+- Route execution time is calculated based on actual distance
+- Travel time = distance / movement speed (10 units/second)
+- Vehicles visit customers sequentially (not simultaneously)
+- Position is tracked continuously during entire route
+- Vehicles start at depot (0, 0) when system starts
 
 3.3 Customer Request Timing:
 ----------------------------
@@ -219,9 +262,19 @@ Behavior:
 
 3.4 Delivery Notification:
 --------------------------
-- All customers on route are notified simultaneously
-- Notification happens after 30 seconds (not when actually delivered)
-- No individual customer delivery tracking
+- Customers are notified individually when vehicle arrives at their location
+- Notification happens only when vehicle reaches customer (within 1 unit threshold)
+- Customers are notified in route order (one at a time)
+- Each customer receives notification with actual arrival coordinates
+- Notification includes vehicle name and arrival location
+
+3.5 Movement Parameters:
+------------------------
+- Movement Speed: 10.0 units per second
+- Update Frequency: 1000 milliseconds (1 second)
+- Arrival Threshold: 1.0 unit distance
+- Starting Position: Depot (0, 0) for all vehicles
+- Movement Calculation: Linear interpolation toward target
 
 
 ================================================================================
@@ -235,21 +288,37 @@ Customer Request Flow:
 3. [Depot processes batch, solves VRP, announces routes]
 4. [Vehicles bid among themselves]
 5. Winner Vehicle → Depot: INFORM (ROUTE_WON)
-6. [Vehicle executes route - 30 seconds]
-7. Vehicle → Customers: INFORM (DELIVERY_COMPLETE)
-8. Customer receives: DELIVERY_COMPLETE notification
+6. [Vehicle executes route with real movement]
+   - Vehicle moves toward first customer (10 units/second)
+   - Vehicle arrives at customer → Notifies customer
+   - Vehicle moves to next customer → Notifies customer
+   - Repeat for all customers in route
+   - Vehicle returns to depot
+7. Vehicle → Customer: INFORM (DELIVERY_COMPLETE) when arrived
+8. Customer receives: DELIVERY_COMPLETE notification with arrival coordinates
 
 Vehicle Delivery Flow:
 ---------------------
 1. Vehicle wins route in bidding
 2. Vehicle notifies depot (ROUTE_WON)
 3. Vehicle state changes to "absent"
-4. RouteCompletionBehaviour starts (30 second timer)
-5. After 30 seconds:
+4. Vehicle parses route data and extracts customer information
+5. MovementBehaviour starts (updates every 1 second)
+6. Vehicle moves toward first customer (10 units/second):
+   - Position updated every second
+   - Distance calculated and movement interpolated
+   - Logs position every 5 seconds
+7. When vehicle arrives at customer (within 1 unit):
+   - Vehicle notifies customer (DELIVERY_COMPLETE)
+   - Vehicle moves to next customer in route
+8. After all customers visited:
+   - Vehicle returns to depot (10 units/second)
+   - Position updated every second during return
+9. When vehicle arrives at depot:
    - Vehicle state changes to "free"
-   - Vehicle position set to depot (0, 0)
-   - Vehicle notifies all customers on route
-6. Vehicle returns to depot (already there)
+   - Vehicle position set to depot (0, 0) exactly
+   - MovementBehaviour stops
+   - Vehicle is ready for next route
 
 
 ================================================================================

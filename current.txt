@@ -34,4 +34,35 @@
 current bidding system:
 - need to make the bidding more clear
 - need to include a complete scenario in the report
-- 
+
+
+changes:
+- simulate the real movement 
+	- vehicle must actually move to the customers (let say that each second a vehicle move 10 units)
+	- when done moving, they must auto travel back to the depot
+	- starting point of all vehicles (when first start up) is the depot
+
+- communication:
+	- must notify the customer when the package arrived
+
+- must notify customers in turn 
+	- only notify the customer when arrived
+
+
+
+- add more log detail
+
+if the depot receive all vehicle agent information, would the result routes are destined for specific vehicles already ?
+	- if so then remove all the bidding between vehicle agents, just let the depot send routes with vehicle id on it then the vehicle agents will only take the route if they have the corresponding id, else reject (must log that part)
+
+
+- the vehicle agent does not process route, the customer does not receive any package
+
+
+- split the solver into a separate agent to make use of the concurrent feature of jade agents
+- move the if-else part in the initiation of the agents to a txt file. the main is supposed to read input from a website outside, if there is no data from that web then read from the txt file as the sample scenario
+- continue reading all agents for error
+
+
+
+

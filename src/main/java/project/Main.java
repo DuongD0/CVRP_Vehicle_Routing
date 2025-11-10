@@ -5,13 +5,47 @@ import jade.core.ProfileImpl;
 import jade.core.Runtime;
 import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
+import project.Utils.ConfigReader;
+import project.Utils.ConfigReader.AgentConfig;
+import project.Utils.ConfigReader.VehicleConfig;
+import project.Utils.ConfigReader.CustomerConfig;
 
 /**
  * Main entry point for the VRP Multi-Agent System
  * Creates and starts all agents - agents discover each other via DF (Yellow Pages)
+ * Reads configuration from web URL (if available) or local file as fallback
  */
 public class Main {
+    // Configuration: Web URL (set to null to disable) and local file path
+    private static final String CONFIG_WEB_URL = System.getProperty("config.url", ""); // Can be set via -Dconfig.url=...
+    private static final String CONFIG_LOCAL_FILE = "config/scenario_config.txt";
+    
     public static void main(String[] args) {
+        System.out.println("===============================================");
+        System.out.println("  VRP MULTI-AGENT SYSTEM - STARTING");
+        System.out.println("===============================================\n");
+        
+        // Read configuration from web or local file
+        AgentConfig config = ConfigReader.readConfig(CONFIG_WEB_URL, CONFIG_LOCAL_FILE);
+        
+        if (config.vehicles.isEmpty() || config.customers.isEmpty()) {
+            System.err.println("ERROR: Invalid configuration - no vehicles or customers found!");
+            System.err.println("Please check the configuration file: " + CONFIG_LOCAL_FILE);
+            return;
+        }
+        
+        System.out.println("\n=== Configuration Loaded ===");
+        System.out.println("Depot: " + config.depotName);
+        System.out.println("Vehicles: " + config.vehicles.size());
+        for (VehicleConfig v : config.vehicles) {
+            System.out.println("  - " + v.name + " (capacity: " + v.capacity + ", maxDistance: " + v.maxDistance + ")");
+        }
+        System.out.println("Customers: " + config.customers.size());
+        for (CustomerConfig c : config.customers) {
+            System.out.println("  - " + c.id + " (" + c.name + ") at (" + c.x + ", " + c.y + ")");
+        }
+        System.out.println("============================\n");
+        
         // Get the JADE runtime instance
         Runtime rt = Runtime.instance();
         
@@ -27,61 +61,54 @@ public class Main {
         try {
             // Create and start Depot agent
             AgentController depotController = mainContainer.createNewAgent(
-                "depot-agent", 
+                config.depotName, 
                 "project.Agent.Depot", 
                 null
             );
             depotController.start();
-            System.out.println("✓ Depot Agent started: depot-agent");
+            System.out.println("✓ Depot Agent started: " + config.depotName);
             
             // Wait a moment for Depot to initialize and register with DF
             Thread.sleep(1000);
             
-            // Create and start vehicle agents
-            String[] vehicleNames = {"Vehicle1", "Vehicle2", "Vehicle3"};
-            int[] capacities = {50, 40, 30};
-            double[] maxDistances = {1000.0, 800.0, 600.0};  // Maximum distances for each vehicle (Basic Requirement 2)
-            
-            for (int i = 0; i < vehicleNames.length; i++) {
-                Object[] vehicleArgs = new Object[]{vehicleNames[i], capacities[i], maxDistances[i]};
+            // Create and start vehicle agents from configuration
+            for (VehicleConfig vehicleConfig : config.vehicles) {
+                Object[] vehicleArgs = new Object[]{
+                    vehicleConfig.name, 
+                    vehicleConfig.capacity, 
+                    vehicleConfig.maxDistance
+                };
                 AgentController vehicleController = mainContainer.createNewAgent(
-                    "vehicle-" + vehicleNames[i], 
+                    "vehicle-" + vehicleConfig.name, 
                     "project.Agent.VehicleAgent", 
                     vehicleArgs
                 );
                 vehicleController.start();
-                System.out.println("✓ Vehicle Agent started: vehicle-" + vehicleNames[i] + 
-                                 " (capacity: " + capacities[i] + ", maxDistance: " + maxDistances[i] + ")");
+                System.out.println("✓ Vehicle Agent started: vehicle-" + vehicleConfig.name + 
+                                 " (capacity: " + vehicleConfig.capacity + 
+                                 ", maxDistance: " + vehicleConfig.maxDistance + ")");
             }
             
             // Wait for vehicles to initialize and register with DF
             Thread.sleep(2000);
             
-            // Create and start customer agents
-            String[] customerIds = {"customer-1", "customer-2", "customer-3", "customer-4"};
-            String[] customerNames = {"Customer1", "Customer2", "Customer3", "Customer4"};
-            double[][] customerPositions = {
-                {100.0, 150.0},
-                {200.0, 100.0},
-                {150.0, 200.0},
-                {250.0, 180.0}
-            };
-            
-            for (int i = 0; i < customerIds.length; i++) {
+            // Create and start customer agents from configuration
+            for (CustomerConfig customerConfig : config.customers) {
                 Object[] customerArgs = new Object[]{
-                    customerIds[i],
-                    customerNames[i],
-                    customerPositions[i][0],
-                    customerPositions[i][1]
+                    customerConfig.id,
+                    customerConfig.name,
+                    customerConfig.x,
+                    customerConfig.y
                 };
                 AgentController customerController = mainContainer.createNewAgent(
-                    customerIds[i],
+                    customerConfig.id,
                     "project.Agent.Customer",
                     customerArgs
                 );
                 customerController.start();
-                System.out.println("✓ Customer Agent started: " + customerIds[i] + 
-                                 " at (" + customerPositions[i][0] + ", " + customerPositions[i][1] + ")");
+                System.out.println("✓ Customer Agent started: " + customerConfig.id + 
+                                 " (" + customerConfig.name + ") at (" + 
+                                 customerConfig.x + ", " + customerConfig.y + ")");
             }
             
             // Wait for all agents to initialize
@@ -92,7 +119,7 @@ public class Main {
             System.out.println("===============================================");
             System.out.println("Agents:");
             System.out.println("  • Depot Agent: Manages inventory and routes vehicles");
-            System.out.println("  • Vehicle Agents: Independent agents that bid for routes");
+            System.out.println("  • Vehicle Agents: Receive routes directly from depot");
             System.out.println("  • Customer Agents: Send item requests to depot");
             System.out.println("\nDiscovery:");
             System.out.println("  • All agents registered with DF (Yellow Pages)");
@@ -103,15 +130,14 @@ public class Main {
             System.out.println("  3. Depot batches requests and solves VRP with constraints:");
             System.out.println("     - Basic Requirement 1: Prioritizes items delivered over distance");
             System.out.println("     - Basic Requirement 2: Enforces maximum distance per vehicle");
-            System.out.println("  4. Depot finds vehicles via DF and sends routes via Contract-Net");
-            System.out.println("  5. Vehicles bid based on current position, capacity, and max distance");
-            System.out.println("  6. Depot assigns routes to winning vehicles");
-            System.out.println("  7. Vehicles complete routes and return to free state");
+            System.out.println("  4. Depot sends routes directly to vehicles (routes already assigned by solver)");
+            System.out.println("  5. Vehicles accept routes if vehicle ID matches, reject otherwise");
+            System.out.println("  6. Vehicles complete routes with real movement and return to free state");
             System.out.println("\nAll communications follow FIPA protocols");
             System.out.println("===============================================\n");
             
         } catch (Exception e) {
-            System.err.println("Error creating agents: " + e.getMessage());
+            System.err.println("ERROR: Error creating agents: " + e.getMessage());
             e.printStackTrace();
         }
     }
