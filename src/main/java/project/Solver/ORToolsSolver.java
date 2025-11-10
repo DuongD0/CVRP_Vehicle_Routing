@@ -16,27 +16,43 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * OR-Tools implementation of VRPSolver with Time Window support
- * Implements CVRP-TW (Capacitated Vehicle Routing Problem with Time Windows)
+ * OR-Tools implementation of VRPSolver with capacity and maximum distance constraints.
+ * 
+ * Basic Requirement 1: Prioritizes number of items delivered over total travel distance.
+ *   - Uses penalty for unvisited nodes to maximize items delivered
+ *   - Minimizes distance as secondary objective
+ * 
+ * Basic Requirement 2: Enforces maximum distance constraint per vehicle.
+ *   - Adds distance dimension with vehicle-specific maximum distances
  */
 public class ORToolsSolver implements VRPSolver {
     
+    // Large penalty for unvisited nodes to prioritize items delivered over distance
+    // This ensures maximizing items delivered is the primary objective
+    private static final long UNVISITED_NODE_PENALTY = 1000000L;
+    
     @Override
     public SolutionResult solve(int numNodes, int numCustomers, int numVehicles,
-                               int vehicleCapacity, int[] demand, int[][] distance,
-                               int[][] timeWindows, int[] serviceTime, int vehicleSpeed) {
+                               int[] vehicleCapacities, double[] vehicleMaxDistances,
+                               int[] demand, int[][] distance) {
         long startTime = System.currentTimeMillis();
         
         // Load OR-Tools native library
         Loader.loadNativeLibraries();
         
-        System.out.println("=== OR-Tools CVRP-TW Solver ===");
+        System.out.println("=== OR-Tools CVRP Solver (Basic Requirements 1 & 2) ===");
         System.out.println("Nodes: " + numNodes + " (including depot)");
+        System.out.println("Customers: " + numCustomers);
         System.out.println("Vehicles: " + numVehicles);
-        System.out.println("Capacity: " + vehicleCapacity);
-        System.out.println("Vehicle Speed: " + vehicleSpeed + " units/minute");
+        
+        // Calculate total items requested
+        int totalItems = 0;
+        for (int i = 1; i < numNodes; i++) {
+            totalItems += demand[i];
+        }
         
         SolutionResult result = new SolutionResult();
+        result.itemsTotal = totalItems;
         
         try {
             // Create Routing Index Manager
@@ -45,16 +61,26 @@ public class ORToolsSolver implements VRPSolver {
             // Create Routing Model
             RoutingModel routing = new RoutingModel(manager);
             
-            // Create transit callback (distance in time: distance / speed)
+            // Create distance callback
             final int transitCallbackIndex = routing.registerTransitCallback((long fromIndex, long toIndex) -> {
                 int fromNode = manager.indexToNode(fromIndex);
                 int toNode = manager.indexToNode(toIndex);
-                // Convert distance to time (distance / speed)
-                return (long)(distance[fromNode][toNode] / vehicleSpeed);
+                return distance[fromNode][toNode];
             });
             
-            // Set cost of travel
+            // Set arc cost (distance) - this is the secondary objective
             routing.setArcCostEvaluatorOfAllVehicles(transitCallbackIndex);
+            
+            // BASIC REQUIREMENT 1: Prioritize items delivered over distance
+            // Add penalty for unvisited nodes (disallow or heavily penalize)
+            // By setting a large penalty, we prioritize visiting as many nodes as possible
+            // This ensures that maximizing items delivered takes precedence over minimizing distance
+            for (int node = 1; node < numNodes; node++) {
+                long index = manager.nodeToIndex(node);
+                // Add disjunction with large penalty - solver will try to visit all nodes first
+                // before considering distance minimization
+                routing.addDisjunction(new long[]{index}, UNVISITED_NODE_PENALTY);
+            }
             
             // Add capacity constraint
             final int demandCallbackIndex = routing.registerUnaryTransitCallback((long fromIndex) -> {
@@ -62,54 +88,40 @@ public class ORToolsSolver implements VRPSolver {
                 return demand[fromNode];
             });
             
-            // Create vehicle capacity array
-            long[] vehicleCapacities = new long[numVehicles];
+            // Convert vehicle capacities to long array
+            long[] vehicleCapacitiesLong = new long[numVehicles];
             for (int i = 0; i < numVehicles; i++) {
-                vehicleCapacities[i] = vehicleCapacity;
+                vehicleCapacitiesLong[i] = vehicleCapacities[i];
             }
             
             routing.addDimensionWithVehicleCapacity(
                 demandCallbackIndex,
                 0,  // null capacity slack
-                vehicleCapacities,  // vehicle capacities
+                vehicleCapacitiesLong,  // vehicle capacities
                 true,  // start cumul to zero
                 "Capacity"
             );
             
-            // Add time window constraint
-            final int timeCallbackIndex = routing.registerTransitCallback((long fromIndex, long toIndex) -> {
+            // BASIC REQUIREMENT 2: Add maximum distance constraint per vehicle
+            final int distanceCallbackIndex = routing.registerTransitCallback((long fromIndex, long toIndex) -> {
                 int fromNode = manager.indexToNode(fromIndex);
                 int toNode = manager.indexToNode(toIndex);
-                // Travel time + service time at origin
-                long travelTime = (long)(distance[fromNode][toNode] / vehicleSpeed);
-                long service = (fromNode == 0) ? 0 : serviceTime[fromNode];
-                return travelTime + service;
+                return distance[fromNode][toNode];
             });
             
-            routing.addDimension(
-                timeCallbackIndex,
-                Integer.MAX_VALUE,  // Slack max value
-                Integer.MAX_VALUE,  // Vehicle capacity for time
-                false,  // Don't force start cumul to zero
-                "Time"
-            );
-            
-            // Set time windows for each node
-            com.google.ortools.constraintsolver.RoutingDimension timeDimension = routing.getDimensionOrDie("Time");
-            for (int i = 0; i < numNodes; i++) {
-                long index = manager.nodeToIndex(i);
-                if (i == 0) {
-                    // Depot: allow all vehicles to start at time 0
-                    for (int vehicle = 0; vehicle < numVehicles; vehicle++) {
-                        timeDimension.cumulVar(routing.start(vehicle)).setRange(0, Integer.MAX_VALUE);
-                    }
-                } else {
-                    // Customers: set time window
-                    int start = timeWindows[i][0];
-                    int end = timeWindows[i][1];
-                    timeDimension.cumulVar(index).setRange(start, end);
-                }
+            // Convert vehicle max distances to long array (round to nearest integer)
+            long[] vehicleMaxDistancesLong = new long[numVehicles];
+            for (int i = 0; i < numVehicles; i++) {
+                vehicleMaxDistancesLong[i] = Math.round(vehicleMaxDistances[i]);
             }
+            
+            routing.addDimensionWithVehicleCapacity(
+                distanceCallbackIndex,
+                0,  // null distance slack
+                vehicleMaxDistancesLong,  // vehicle maximum distances
+                true,  // start cumul to zero
+                "Distance"
+            );
             
             // Set search parameters
             RoutingSearchParameters searchParameters = main.defaultRoutingSearchParameters()
@@ -119,7 +131,8 @@ public class ORToolsSolver implements VRPSolver {
                 .setTimeLimit(com.google.protobuf.Duration.newBuilder().setSeconds(30).build())
                 .build();
             
-            System.out.println("Solving CVRP with Time Windows...");
+            System.out.println("Solving CVRP with capacity and maximum distance constraints...");
+            System.out.println("Objective: Maximize items delivered (primary), minimize distance (secondary)");
             
             // Solve
             Assignment solution = routing.solveWithParameters(searchParameters);
@@ -129,70 +142,82 @@ public class ORToolsSolver implements VRPSolver {
                 result.solveTimeMs = endTime - startTime;
                 
                 System.out.println("Solution found in " + result.solveTimeMs + " ms!");
-                System.out.println("Objective: " + solution.objectiveValue());
-                
-                result.totalDistance = solution.objectiveValue();
+                System.out.println("Objective value: " + solution.objectiveValue());
                 
                 // Extract routes
+                int totalItemsDelivered = 0;
+                double totalDist = 0.0;
+                
+                // Get distance dimension to extract route distances
+                com.google.ortools.constraintsolver.RoutingDimension distanceDimension = 
+                    routing.getDimensionOrDie("Distance");
+                
                 for (int vehicleId = 0; vehicleId < numVehicles; vehicleId++) {
                     long index = routing.start(vehicleId);
                     RouteInfo routeInfo = new RouteInfo(vehicleId + 1);
                     int routeLoad = 0;
-                    double routeDistance = 0.0;
                     List<Integer> route = new ArrayList<>();
+                    List<Integer> nodeSequence = new ArrayList<>();
                     
+                    // Extract route sequence
                     while (!routing.isEnd(index)) {
                         int nodeIndex = manager.indexToNode(index);
+                        nodeSequence.add(nodeIndex);
                         if (nodeIndex != 0) {  // Skip depot
                             route.add(nodeIndex);
+                            routeLoad += demand[nodeIndex];
                         }
-                        long previousIndex = index;
                         index = solution.value(routing.nextVar(index));
-                        routeDistance += routing.getArcCostForVehicle(previousIndex, index, vehicleId) * vehicleSpeed;
                     }
                     
-                    // Add customers to route (without coordinates - will be added by Depot)
+                    // Calculate route distance from distance dimension
+                    // The distance dimension tracks cumulative distance at each node
+                    long routeDistanceLong = solution.value(
+                        distanceDimension.cumulVar(routing.end(vehicleId))
+                    );
+                    double routeDistance = (double) routeDistanceLong;
+                    
+                    // Add customers to route
                     if (!route.isEmpty()) {
                         for (int nodeIndex : route) {
-                            routeLoad += demand[nodeIndex];
-                            // CustomerInfo will be created by Depot with proper coordinates and time windows
-                            routeInfo.customers.add(new CustomerInfo(nodeIndex, 0, 0, demand[nodeIndex], 
-                                timeWindows[nodeIndex][0], timeWindows[nodeIndex][1], serviceTime[nodeIndex]));
+                            // CustomerInfo will be created by Depot with proper coordinates
+                            routeInfo.customers.add(new CustomerInfo(nodeIndex, 0, 0, demand[nodeIndex]));
                         }
                         routeInfo.totalDemand = routeLoad;
                         routeInfo.totalDistance = routeDistance;
                         result.routes.add(routeInfo);
                         
-                        // Get arrival times
-                        StringBuilder timeInfo = new StringBuilder();
-                        index = routing.start(vehicleId);
-                        while (!routing.isEnd(index)) {
-                            int nodeIndex = manager.indexToNode(index);
-                            if (nodeIndex != 0) {
-                                long arrivalTime = solution.value(timeDimension.cumulVar(index));
-                                timeInfo.append(" C").append(nodeIndex).append("@").append(arrivalTime).append("min");
-                            }
-                            index = solution.value(routing.nextVar(index));
-                        }
+                        totalItemsDelivered += routeLoad;
+                        totalDist += routeDistance;
                         
                         System.out.println("Vehicle " + (vehicleId + 1) + ": " + route + 
-                            " | Load: " + routeLoad + "/" + vehicleCapacity + 
-                            " | Distance: " + String.format("%.2f", routeDistance) +
-                            timeInfo.toString());
+                            " | Items: " + routeLoad + "/" + vehicleCapacities[vehicleId] + 
+                            " | Distance: " + String.format("%.2f", routeDistance) + 
+                            "/" + String.format("%.2f", vehicleMaxDistances[vehicleId]));
                     }
                 }
+                
+                result.totalDistance = totalDist;
+                result.itemsDelivered = totalItemsDelivered;
+                
+                System.out.println("\n=== Solution Summary ===");
+                System.out.println("Total items delivered: " + result.itemsDelivered + "/" + result.itemsTotal);
+                System.out.println("Total distance: " + String.format("%.2f", result.totalDistance));
+                System.out.println("Number of routes: " + result.routes.size());
                 
             } else {
                 long endTime = System.currentTimeMillis();
                 result.solveTimeMs = endTime - startTime;
                 System.out.println("No solution found within time limit.");
                 result.totalDistance = 0.0;
+                result.itemsDelivered = 0;
             }
             
         } catch (Exception e) {
             System.err.println("Error during OR-Tools solving: " + e.getMessage());
             e.printStackTrace();
             result.totalDistance = 0.0;
+            result.itemsDelivered = 0;
         }
         
         System.out.println("=== Solving Complete ===\n");

@@ -40,9 +40,10 @@ public class Main {
             // Create and start vehicle agents
             String[] vehicleNames = {"Vehicle1", "Vehicle2", "Vehicle3"};
             int[] capacities = {50, 40, 30};
+            double[] maxDistances = {1000.0, 800.0, 600.0};  // Maximum distances for each vehicle (Basic Requirement 2)
             
             for (int i = 0; i < vehicleNames.length; i++) {
-                Object[] vehicleArgs = new Object[]{vehicleNames[i], capacities[i]};
+                Object[] vehicleArgs = new Object[]{vehicleNames[i], capacities[i], maxDistances[i]};
                 AgentController vehicleController = mainContainer.createNewAgent(
                     "vehicle-" + vehicleNames[i], 
                     "project.Agent.VehicleAgent", 
@@ -50,7 +51,7 @@ public class Main {
                 );
                 vehicleController.start();
                 System.out.println("✓ Vehicle Agent started: vehicle-" + vehicleNames[i] + 
-                                 " (capacity: " + capacities[i] + ")");
+                                 " (capacity: " + capacities[i] + ", maxDistance: " + maxDistances[i] + ")");
             }
             
             // Wait for vehicles to initialize and register with DF
@@ -99,9 +100,11 @@ public class Main {
             System.out.println("\nWorkflow:");
             System.out.println("  1. Customer agents find depot via DF and send requests");
             System.out.println("  2. Depot checks inventory and queues requests");
-            System.out.println("  3. Depot batches requests and solves VRP");
+            System.out.println("  3. Depot batches requests and solves VRP with constraints:");
+            System.out.println("     - Basic Requirement 1: Prioritizes items delivered over distance");
+            System.out.println("     - Basic Requirement 2: Enforces maximum distance per vehicle");
             System.out.println("  4. Depot finds vehicles via DF and sends routes via Contract-Net");
-            System.out.println("  5. Vehicles bid based on current position and capacity");
+            System.out.println("  5. Vehicles bid based on current position, capacity, and max distance");
             System.out.println("  6. Depot assigns routes to winning vehicles");
             System.out.println("  7. Vehicles complete routes and return to free state");
             System.out.println("\nAll communications follow FIPA protocols");

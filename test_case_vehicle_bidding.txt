@@ -1,0 +1,65 @@
+# Test Case: Vehicle Bidding with Constraints
+
+## Objective
+Verify that vehicles correctly bid on routes while respecting capacity and maximum distance constraints.
+
+## Test Scenario
+- **Vehicles:**
+  - Vehicle1: Capacity 50, MaxDistance 1000, Position (50, 50)
+  - Vehicle2: Capacity 40, MaxDistance 800, Position (100, 100)
+  - Vehicle3: Capacity 30, MaxDistance 600, Position (150, 150)
+- **Route Offered:** 
+  - Customers: [1, 2, 3]
+  - Demand: 35 items
+  - Route Distance: 450.0
+  - Customer Locations: (200, 200), (250, 250), (300, 300)
+
+## Test Steps
+1. Start the system with 3 vehicles
+2. Wait for depot to generate a route via Contract-Net
+3. Observe vehicle bidding behavior
+4. Check which vehicles bid and which refuse
+
+## Expected Results
+- Vehicle1: Should bid (capacity 50 ≥ 35, distance check: 50→200 + 450 + 300→0 = ~800 < 1000)
+- Vehicle2: Should bid (capacity 40 ≥ 35, distance check: 100→200 + 450 + 300→0 = ~750 < 800)
+- Vehicle3: May refuse if total distance exceeds 600
+- Vehicles should check both capacity and distance constraints before bidding
+
+## Verification
+- Check vehicle logs for bidding decisions
+- Verify capacity constraint checks
+- Verify maximum distance constraint checks
+- Confirm that vehicles calculate total route distance correctly (current position → first customer + route + last customer → depot)
+
+## Example Output
+```
+=== Vehicle Vehicle1: Received CFP ===
+Vehicle Vehicle1: Bidding with cost: 785.50
+  Route demand: 35/50
+  Route distance: 450.00
+  Total distance (with travel): 785.50/1000.0
+
+=== Vehicle Vehicle2: Received CFP ===
+Vehicle Vehicle2: Bidding with cost: 745.25
+  Route demand: 35/40
+  Route distance: 450.00
+  Total distance (with travel): 745.25/800.0
+
+=== Vehicle Vehicle3: Received CFP ===
+Vehicle Vehicle3: Route exceeds maximum distance (650.75 > 600.0)
+Vehicle Vehicle3: Refusing route: exceeds maximum distance
+```
+
+## Edge Cases
+- Vehicle at depot (distance to first customer = 0)
+- Vehicle far from customers (may exceed maxDistance)
+- Route demand exactly at capacity (should be accepted)
+- Route demand slightly over capacity (should be refused)
+- Route distance exactly at maxDistance (should be accepted)
+
+## Notes
+- Vehicles calculate total distance as: current position → first customer + route distance + last customer → depot
+- Bidding cost is based on total distance
+- Vehicles refuse routes that violate constraints (capacity or distance)
+

@@ -1,0 +1,45 @@
+# Test Case: Basic Requirement 1 - Prioritize Items Delivered Over Distance
+
+## Objective
+Verify that the system prioritizes the number of items delivered over total travel distance.
+
+## Test Scenario
+- **Total Items Requested:** 100 items
+- **Total Vehicle Capacity:** 80 items (insufficient to deliver all items)
+- **Vehicles:**
+  - Vehicle1: Capacity 50, MaxDistance 1000
+  - Vehicle2: Capacity 30, MaxDistance 800
+- **Expected Behavior:** System should deliver as many items as possible (up to 80 items), even if it results in a longer total distance.
+
+## Test Steps
+1. Start the system with Main.java
+2. Create customer requests totaling 100 items
+3. Wait for batch processing (batch threshold = 5 requests)
+4. Observe solver output
+
+## Expected Results
+- Solver should deliver 80 items (maximum possible given vehicle capacities)
+- Solution should show: `Items delivered: 80/100`
+- Total distance should be minimized as secondary objective
+- Some customers may not receive delivery due to capacity constraints
+
+## Verification
+- Check console output for: "Items delivered: X/100" where X should be maximized
+- Verify that all vehicle capacity is utilized
+- Confirm that solution prioritizes items delivered over distance minimization
+
+## Example Output
+```
+=== Solution Summary ===
+Total items delivered: 80/100
+Total distance: 1250.50
+Number of routes: 2
+Vehicle 1: [1,2,3,4,5] | Items: 50/50 | Distance: 750.25/1000.00
+Vehicle 2: [6,7,8,9] | Items: 30/30 | Distance: 500.25/800.00
+```
+
+## Notes
+- If total capacity < total items, not all items can be delivered
+- System should maximize items delivered first, then minimize distance
+- Unvisited nodes will have penalty applied (handled by OR-Tools disjunction)
+

@@ -1,170 +1,163 @@
-[2025-11-06 10:38:21.798] === Agent Logger Initialized ===
-[2025-11-06 10:38:21.798] Agent: Vehicle-Vehicle1
-[2025-11-06 10:38:21.798] Log file: logs/Vehicle-Vehicle1_conversations.log
-[2025-11-06 10:38:21.798] *** EVENT: Agent started
-[2025-11-06 10:38:21.799] Capacity: 50
-[2025-11-06 10:38:21.800] Initial position: (-7.57136620001846, 58.44360672632473)
-[2025-11-06 10:38:21.805] *** EVENT: DF Registration successful
-[2025-11-06 10:38:21.805] *** EVENT: Registered with DF as 'vehicle-service'
-[2025-11-06 10:39:00.819] <<< RECEIVED MESSAGE
-[2025-11-06 10:39:00.819]   Direction: FROM
-[2025-11-06 10:39:00.819]   To: vehicle-Vehicle1@10.1.2.99:1099/JADE
-[2025-11-06 10:39:00.819]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:00.871]   Performative: QUERY-REF
-[2025-11-06 10:39:00.871]   Protocol: fipa-query
-[2025-11-06 10:39:00.871]   Conversation ID: N/A
-[2025-11-06 10:39:00.871]   Reply With: N/A
-[2025-11-06 10:39:00.871]   In Reply To: N/A
-[2025-11-06 10:39:00.871]   Content: QUERY_STATE
-[2025-11-06 10:39:00.871]   Language: N/A
-[2025-11-06 10:39:00.871]   Ontology: N/A
-[2025-11-06 10:39:00.871] ---
-[2025-11-06 10:39:00.872] >>> SENT MESSAGE
-[2025-11-06 10:39:00.872]   Direction: TO
-[2025-11-06 10:39:00.872]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:00.872]   From: N/A
-[2025-11-06 10:39:00.872]   Performative: INFORM
-[2025-11-06 10:39:00.872]   Protocol: fipa-query
-[2025-11-06 10:39:00.872]   Conversation ID: N/A
-[2025-11-06 10:39:00.872]   Reply With: depot-agent@10.1.2.99:1099/JADE1762400340871
-[2025-11-06 10:39:00.872]   In Reply To: N/A
-[2025-11-06 10:39:00.872]   Content: STATE:free|CAPACITY:50|NAME:Vehicle1|X:-7.57136620001846|Y:58.44360672632473
-[2025-11-06 10:39:00.872]   Language: N/A
-[2025-11-06 10:39:00.872]   Ontology: N/A
-[2025-11-06 10:39:00.872] ---
-[2025-11-06 10:39:33.023] <<< RECEIVED MESSAGE
-[2025-11-06 10:39:33.023]   Direction: FROM
-[2025-11-06 10:39:33.023]   To: vehicle-Vehicle1@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.023]   To (additional): vehicle-Vehicle3@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.023]   To (additional): vehicle-Vehicle2@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.023]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.023]   Performative: CFP
-[2025-11-06 10:39:33.023]   Protocol: fipa-contract-net
-[2025-11-06 10:39:33.023]   Conversation ID: cn-1762400373018-0
-[2025-11-06 10:39:33.023]   Reply With: N/A
-[2025-11-06 10:39:33.023]   In Reply To: N/A
-[2025-11-06 10:39:33.023]   Content: ROUTE:1|CUSTOMERS:1,2,4,3|COORDS:100.00,150.00;150.00,200.00;200.00,100.00;250.00,180.00|DEMAND:27|DISTANCE:755.0|TW:69-256,52-172,131-323,443-636
-[2025-11-06 10:39:33.023]   Language: N/A
-[2025-11-06 10:39:33.023]   Ontology: N/A
-[2025-11-06 10:39:33.023] ---
-[2025-11-06 10:39:33.024] *** EVENT: Bidding for route: cost=1080.54, demand=27/50
-[2025-11-06 10:39:33.024] >>> SENT MESSAGE
-[2025-11-06 10:39:33.024]   Direction: TO
-[2025-11-06 10:39:33.024]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.024]   From: N/A
-[2025-11-06 10:39:33.024]   Performative: PROPOSE
-[2025-11-06 10:39:33.024]   Protocol: fipa-contract-net
-[2025-11-06 10:39:33.025]   Conversation ID: cn-1762400373018-0
-[2025-11-06 10:39:33.025]   Reply With: depot-agent@10.1.2.99:1099/JADE1762400373024
-[2025-11-06 10:39:33.025]   In Reply To: N/A
-[2025-11-06 10:39:33.025]   Content: COST:1080.54|CAPACITY:50|AVAILABLE:23
-[2025-11-06 10:39:33.025]   Language: N/A
-[2025-11-06 10:39:33.025]   Ontology: N/A
-[2025-11-06 10:39:33.025] ---
-[2025-11-06 10:40:43.050] <<< RECEIVED MESSAGE
-[2025-11-06 10:40:43.050]   Direction: FROM
-[2025-11-06 10:40:43.050]   To: vehicle-Vehicle1@10.1.2.99:1099/JADE
-[2025-11-06 10:40:43.050]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:40:43.050]   Performative: QUERY-REF
-[2025-11-06 10:40:43.050]   Protocol: fipa-query
-[2025-11-06 10:40:43.050]   Conversation ID: N/A
-[2025-11-06 10:40:43.050]   Reply With: N/A
-[2025-11-06 10:40:43.050]   In Reply To: N/A
-[2025-11-06 10:40:43.050]   Content: QUERY_STATE
-[2025-11-06 10:40:43.050]   Language: N/A
-[2025-11-06 10:40:43.050]   Ontology: N/A
-[2025-11-06 10:40:43.050] ---
-[2025-11-06 10:40:43.051] >>> SENT MESSAGE
-[2025-11-06 10:40:43.051]   Direction: TO
-[2025-11-06 10:40:43.051]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:40:43.051]   From: N/A
-[2025-11-06 10:40:43.051]   Performative: INFORM
-[2025-11-06 10:40:43.051]   Protocol: fipa-query
-[2025-11-06 10:40:43.051]   Conversation ID: N/A
-[2025-11-06 10:40:43.051]   Reply With: depot-agent@10.1.2.99:1099/JADE1762400443050
-[2025-11-06 10:40:43.051]   In Reply To: N/A
-[2025-11-06 10:40:43.051]   Content: STATE:free|CAPACITY:50|NAME:Vehicle1|X:-7.57136620001846|Y:58.44360672632473
-[2025-11-06 10:40:43.051]   Language: N/A
-[2025-11-06 10:40:43.051]   Ontology: N/A
-[2025-11-06 10:40:43.051] ---
-[2025-11-06 10:42:33.692] <<< RECEIVED MESSAGE
-[2025-11-06 10:42:33.692]   Direction: FROM
-[2025-11-06 10:42:33.692]   To: vehicle-Vehicle1@10.1.2.99:1099/JADE
-[2025-11-06 10:42:33.692]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:42:33.692]   Performative: QUERY-REF
-[2025-11-06 10:42:33.692]   Protocol: fipa-query
-[2025-11-06 10:42:33.692]   Conversation ID: N/A
-[2025-11-06 10:42:33.692]   Reply With: N/A
-[2025-11-06 10:42:33.692]   In Reply To: N/A
-[2025-11-06 10:42:33.692]   Content: QUERY_STATE
-[2025-11-06 10:42:33.692]   Language: N/A
-[2025-11-06 10:42:33.692]   Ontology: N/A
-[2025-11-06 10:42:33.692] ---
-[2025-11-06 10:42:33.692] >>> SENT MESSAGE
-[2025-11-06 10:42:33.692]   Direction: TO
-[2025-11-06 10:42:33.692]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:42:33.692]   From: N/A
-[2025-11-06 10:42:33.692]   Performative: INFORM
-[2025-11-06 10:42:33.692]   Protocol: fipa-query
-[2025-11-06 10:42:33.692]   Conversation ID: N/A
-[2025-11-06 10:42:33.692]   Reply With: depot-agent@10.1.2.99:1099/JADE1762400553692
-[2025-11-06 10:42:33.692]   In Reply To: N/A
-[2025-11-06 10:42:33.692]   Content: STATE:free|CAPACITY:50|NAME:Vehicle1|X:-7.57136620001846|Y:58.44360672632473
-[2025-11-06 10:42:33.692]   Language: N/A
-[2025-11-06 10:42:33.692]   Ontology: N/A
-[2025-11-06 10:42:33.692] ---
-[2025-11-06 10:44:44.366] <<< RECEIVED MESSAGE
-[2025-11-06 10:44:44.366]   Direction: FROM
-[2025-11-06 10:44:44.366]   To: vehicle-Vehicle1@10.1.2.99:1099/JADE
-[2025-11-06 10:44:44.366]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:44:44.366]   Performative: QUERY-REF
-[2025-11-06 10:44:44.366]   Protocol: fipa-query
-[2025-11-06 10:44:44.366]   Conversation ID: N/A
-[2025-11-06 10:44:44.366]   Reply With: N/A
-[2025-11-06 10:44:44.366]   In Reply To: N/A
-[2025-11-06 10:44:44.366]   Content: QUERY_STATE
-[2025-11-06 10:44:44.366]   Language: N/A
-[2025-11-06 10:44:44.366]   Ontology: N/A
-[2025-11-06 10:44:44.366] ---
-[2025-11-06 10:44:44.367] >>> SENT MESSAGE
-[2025-11-06 10:44:44.367]   Direction: TO
-[2025-11-06 10:44:44.367]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:44:44.367]   From: N/A
-[2025-11-06 10:44:44.367]   Performative: INFORM
-[2025-11-06 10:44:44.367]   Protocol: fipa-query
-[2025-11-06 10:44:44.367]   Conversation ID: N/A
-[2025-11-06 10:44:44.367]   Reply With: depot-agent@10.1.2.99:1099/JADE1762400684367
-[2025-11-06 10:44:44.367]   In Reply To: N/A
-[2025-11-06 10:44:44.367]   Content: STATE:free|CAPACITY:50|NAME:Vehicle1|X:-7.57136620001846|Y:58.44360672632473
-[2025-11-06 10:44:44.367]   Language: N/A
-[2025-11-06 10:44:44.367]   Ontology: N/A
-[2025-11-06 10:44:44.367] ---
-[2025-11-06 10:47:45.043] <<< RECEIVED MESSAGE
-[2025-11-06 10:47:45.043]   Direction: FROM
-[2025-11-06 10:47:45.043]   To: vehicle-Vehicle1@10.1.2.99:1099/JADE
-[2025-11-06 10:47:45.043]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:47:45.043]   Performative: QUERY-REF
-[2025-11-06 10:47:45.043]   Protocol: fipa-query
-[2025-11-06 10:47:45.043]   Conversation ID: N/A
-[2025-11-06 10:47:45.043]   Reply With: N/A
-[2025-11-06 10:47:45.043]   In Reply To: N/A
-[2025-11-06 10:47:45.043]   Content: QUERY_STATE
-[2025-11-06 10:47:45.043]   Language: N/A
-[2025-11-06 10:47:45.043]   Ontology: N/A
-[2025-11-06 10:47:45.043] ---
-[2025-11-06 10:47:45.043] >>> SENT MESSAGE
-[2025-11-06 10:47:45.043]   Direction: TO
-[2025-11-06 10:47:45.043]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:47:45.043]   From: N/A
-[2025-11-06 10:47:45.043]   Performative: INFORM
-[2025-11-06 10:47:45.043]   Protocol: fipa-query
-[2025-11-06 10:47:45.043]   Conversation ID: N/A
-[2025-11-06 10:47:45.043]   Reply With: depot-agent@10.1.2.99:1099/JADE1762400865043
-[2025-11-06 10:47:45.043]   In Reply To: N/A
-[2025-11-06 10:47:45.043]   Content: STATE:free|CAPACITY:50|NAME:Vehicle1|X:-7.57136620001846|Y:58.44360672632473
-[2025-11-06 10:47:45.043]   Language: N/A
-[2025-11-06 10:47:45.043]   Ontology: N/A
-[2025-11-06 10:47:45.043] ---
-[2025-11-06 11:00:06.345] *** EVENT: Agent terminating
-[2025-11-06 11:00:06.347] *** EVENT: Deregistered from DF
-[2025-11-06 11:00:06.347] === Agent Logger Closed ===
+[2025-11-10 01:00:02.506] === Agent Logger Initialized ===
+[2025-11-10 01:00:02.506] Agent: Vehicle-Vehicle1
+[2025-11-10 01:00:02.506] Log file: logs/Vehicle-Vehicle1_conversations.log
+[2025-11-10 01:00:02.506] *** EVENT: Agent started
+[2025-11-10 01:00:02.506] Capacity: 50, Max Distance: 1000.0
+[2025-11-10 01:00:02.506] Initial position: (-21.715899098114903, -9.001817009980641)
+[2025-11-10 01:00:02.508] *** EVENT: DF Registration successful
+[2025-11-10 01:00:02.508] *** EVENT: Registered with DF as 'vehicle-service'
+[2025-11-10 01:01:11.587] <<< RECEIVED MESSAGE
+[2025-11-10 01:01:11.587]   Direction: FROM
+[2025-11-10 01:01:11.587]   To: vehicle-Vehicle1@192.168.1.33:1099/JADE
+[2025-11-10 01:01:11.588]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:11.588]   Performative: QUERY-REF
+[2025-11-10 01:01:11.588]   Protocol: fipa-query
+[2025-11-10 01:01:11.588]   Conversation ID: N/A
+[2025-11-10 01:01:11.588]   Reply With: N/A
+[2025-11-10 01:01:11.588]   In Reply To: N/A
+[2025-11-10 01:01:11.588]   Content: QUERY_STATE
+[2025-11-10 01:01:11.588]   Language: N/A
+[2025-11-10 01:01:11.588]   Ontology: N/A
+[2025-11-10 01:01:11.588] ---
+[2025-11-10 01:01:11.588] >>> SENT MESSAGE
+[2025-11-10 01:01:11.588]   Direction: TO
+[2025-11-10 01:01:11.588]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:11.588]   From: N/A
+[2025-11-10 01:01:11.588]   Performative: INFORM
+[2025-11-10 01:01:11.588]   Protocol: fipa-query
+[2025-11-10 01:01:11.588]   Conversation ID: N/A
+[2025-11-10 01:01:11.588]   Reply With: depot-agent@192.168.1.33:1099/JADE1762711271588
+[2025-11-10 01:01:11.588]   In Reply To: N/A
+[2025-11-10 01:01:11.588]   Content: STATE:free|CAPACITY:50|MAX_DISTANCE:1000.0|NAME:Vehicle1|X:-21.715899098114903|Y:-9.001817009980641
+[2025-11-10 01:01:11.588]   Language: N/A
+[2025-11-10 01:01:11.588]   Ontology: N/A
+[2025-11-10 01:01:11.588] ---
+[2025-11-10 01:01:42.733] <<< RECEIVED MESSAGE
+[2025-11-10 01:01:42.733]   Direction: FROM
+[2025-11-10 01:01:42.734]   To: vehicle-Vehicle1@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   To (additional): vehicle-Vehicle3@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   To (additional): vehicle-Vehicle2@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   Performative: CFP
+[2025-11-10 01:01:42.734]   Protocol: fipa-contract-net
+[2025-11-10 01:01:42.734]   Conversation ID: cn-1762711302729-0
+[2025-11-10 01:01:42.734]   Reply With: N/A
+[2025-11-10 01:01:42.734]   In Reply To: N/A
+[2025-11-10 01:01:42.734]   Content: ROUTE:1|CUSTOMERS:2,6,1,4|COORDS:150.00,200.00;250.00,180.00;250.00,180.00;200.00,100.00|DEMAND:37|DISTANCE:670.00
+[2025-11-10 01:01:42.734]   Language: N/A
+[2025-11-10 01:01:42.734]   Ontology: N/A
+[2025-11-10 01:01:42.734] ---
+[2025-11-10 01:01:42.734] *** EVENT: Refusing route: exceeds maximum distance (1164.10 > 1000.0)
+[2025-11-10 01:01:42.734] >>> SENT MESSAGE
+[2025-11-10 01:01:42.734]   Direction: TO
+[2025-11-10 01:01:42.734]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   From: N/A
+[2025-11-10 01:01:42.734]   Performative: REFUSE
+[2025-11-10 01:01:42.734]   Protocol: fipa-contract-net
+[2025-11-10 01:01:42.734]   Conversation ID: cn-1762711302729-0
+[2025-11-10 01:01:42.734]   Reply With: depot-agent@192.168.1.33:1099/JADE1762711302734
+[2025-11-10 01:01:42.734]   In Reply To: N/A
+[2025-11-10 01:01:42.734]   Content: Route exceeds maximum distance
+[2025-11-10 01:01:42.734]   Language: N/A
+[2025-11-10 01:01:42.734]   Ontology: N/A
+[2025-11-10 01:01:42.734] ---
+[2025-11-10 01:01:42.735] <<< RECEIVED MESSAGE
+[2025-11-10 01:01:42.735]   Direction: FROM
+[2025-11-10 01:01:42.735]   To: vehicle-Vehicle1@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.735]   To (additional): vehicle-Vehicle3@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.735]   To (additional): vehicle-Vehicle2@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.735]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.735]   Performative: CFP
+[2025-11-10 01:01:42.735]   Protocol: fipa-contract-net
+[2025-11-10 01:01:42.735]   Conversation ID: cn-1762711302731-1
+[2025-11-10 01:01:42.735]   Reply With: N/A
+[2025-11-10 01:01:42.735]   In Reply To: N/A
+[2025-11-10 01:01:42.735]   Content: ROUTE:2|CUSTOMERS:5,3|COORDS:100.00,150.00;100.00,150.00|DEMAND:23|DISTANCE:360.00
+[2025-11-10 01:01:42.735]   Language: N/A
+[2025-11-10 01:01:42.735]   Ontology: N/A
+[2025-11-10 01:01:42.735] ---
+[2025-11-10 01:01:42.735] *** EVENT: Bidding for route: cost=740.52, demand=23/50, totalDistance=740.52/1000.0
+[2025-11-10 01:01:42.735] >>> SENT MESSAGE
+[2025-11-10 01:01:42.735]   Direction: TO
+[2025-11-10 01:01:42.735]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.735]   From: N/A
+[2025-11-10 01:01:42.735]   Performative: PROPOSE
+[2025-11-10 01:01:42.735]   Protocol: fipa-contract-net
+[2025-11-10 01:01:42.735]   Conversation ID: cn-1762711302731-1
+[2025-11-10 01:01:42.735]   Reply With: depot-agent@192.168.1.33:1099/JADE1762711302735
+[2025-11-10 01:01:42.735]   In Reply To: N/A
+[2025-11-10 01:01:42.735]   Content: COST:740.52|CAPACITY:50|MAX_DISTANCE:1000.0|AVAILABLE:27
+[2025-11-10 01:01:42.735]   Language: N/A
+[2025-11-10 01:01:42.735]   Ontology: N/A
+[2025-11-10 01:01:42.735] ---
+[2025-11-10 01:01:42.740] <<< RECEIVED MESSAGE
+[2025-11-10 01:01:42.740]   Direction: FROM
+[2025-11-10 01:01:42.740]   To: vehicle-Vehicle1@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.740]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.740]   Performative: ACCEPT-PROPOSAL
+[2025-11-10 01:01:42.740]   Protocol: fipa-contract-net
+[2025-11-10 01:01:42.740]   Conversation ID: cn-1762711302731-1
+[2025-11-10 01:01:42.740]   Reply With: vehicle-Vehicle1@192.168.1.33:1099/JADE1762711302736
+[2025-11-10 01:01:42.740]   In Reply To: depot-agent@192.168.1.33:1099/JADE1762711302735
+[2025-11-10 01:01:42.740]   Content: ROUTE_ASSIGNED:2
+[2025-11-10 01:01:42.740]   Language: N/A
+[2025-11-10 01:01:42.740]   Ontology: N/A
+[2025-11-10 01:01:42.740] ---
+[2025-11-10 01:01:42.740] *** EVENT: Route accepted via Contract-Net
+[2025-11-10 01:01:42.740] *** EVENT: State changed to 'absent' - starting delivery
+[2025-11-10 01:01:42.740] >>> SENT MESSAGE
+[2025-11-10 01:01:42.740]   Direction: TO
+[2025-11-10 01:01:42.740]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.740]   From: N/A
+[2025-11-10 01:01:42.740]   Performative: INFORM
+[2025-11-10 01:01:42.740]   Protocol: fipa-contract-net
+[2025-11-10 01:01:42.740]   Conversation ID: cn-1762711302731-1
+[2025-11-10 01:01:42.740]   Reply With: depot-agent@192.168.1.33:1099/JADE1762711302740
+[2025-11-10 01:01:42.740]   In Reply To: vehicle-Vehicle1@192.168.1.33:1099/JADE1762711302736
+[2025-11-10 01:01:42.740]   Content: ROUTE_ACCEPTED:2|VEHICLE:Vehicle1
+[2025-11-10 01:01:42.740]   Language: N/A
+[2025-11-10 01:01:42.740]   Ontology: N/A
+[2025-11-10 01:01:42.740] ---
+[2025-11-10 01:02:02.749] <<< RECEIVED MESSAGE
+[2025-11-10 01:02:02.749]   Direction: FROM
+[2025-11-10 01:02:02.749]   To: vehicle-Vehicle1@192.168.1.33:1099/JADE
+[2025-11-10 01:02:02.749]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:02:02.749]   Performative: QUERY-REF
+[2025-11-10 01:02:02.749]   Protocol: fipa-query
+[2025-11-10 01:02:02.749]   Conversation ID: N/A
+[2025-11-10 01:02:02.749]   Reply With: N/A
+[2025-11-10 01:02:02.749]   In Reply To: N/A
+[2025-11-10 01:02:02.749]   Content: QUERY_STATE
+[2025-11-10 01:02:02.749]   Language: N/A
+[2025-11-10 01:02:02.749]   Ontology: N/A
+[2025-11-10 01:02:02.749] ---
+[2025-11-10 01:02:02.749] >>> SENT MESSAGE
+[2025-11-10 01:02:02.749]   Direction: TO
+[2025-11-10 01:02:02.749]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:02:02.749]   From: N/A
+[2025-11-10 01:02:02.749]   Performative: INFORM
+[2025-11-10 01:02:02.749]   Protocol: fipa-query
+[2025-11-10 01:02:02.749]   Conversation ID: N/A
+[2025-11-10 01:02:02.749]   Reply With: depot-agent@192.168.1.33:1099/JADE1762711322749
+[2025-11-10 01:02:02.749]   In Reply To: N/A
+[2025-11-10 01:02:02.749]   Content: STATE:absent|CAPACITY:50|MAX_DISTANCE:1000.0|NAME:Vehicle1|X:24.517225261046093|Y:-13.62779016665565
+[2025-11-10 01:02:02.749]   Language: N/A
+[2025-11-10 01:02:02.749]   Ontology: N/A
+[2025-11-10 01:02:02.749] ---
+[2025-11-10 01:02:12.747] *** EVENT: Route completed. Returning to free state. New position: (29.787766515424252, 1.2267678541609115)
+[2025-11-10 01:02:12.749] >>> SENT MESSAGE
+[2025-11-10 01:02:12.749]   Direction: TO
+[2025-11-10 01:02:12.749]   To: customer-3@192.168.1.33:1099/JADE
+[2025-11-10 01:02:12.749]   From: N/A
+[2025-11-10 01:02:12.749]   Performative: INFORM
+[2025-11-10 01:02:12.749]   Protocol: fipa-request
+[2025-11-10 01:02:12.749]   Conversation ID: delivery-1762711332749
+[2025-11-10 01:02:12.749]   Reply With: N/A
+[2025-11-10 01:02:12.749]   In Reply To: N/A
+[2025-11-10 01:02:12.749]   Content: DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1
+[2025-11-10 01:02:12.749]   Language: N/A
+[2025-11-10 01:02:12.749]   Ontology: N/A
+[2025-11-10 01:02:12.749] ---
+[2025-11-10 01:02:25.578] *** EVENT: Agent terminating
+[2025-11-10 01:02:25.579] *** EVENT: Deregistered from DF
+[2025-11-10 01:02:25.579] === Agent Logger Closed ===

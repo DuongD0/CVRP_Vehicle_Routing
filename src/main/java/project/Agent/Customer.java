@@ -79,18 +79,11 @@ public class Customer extends Agent {
         
         @Override
         protected void onTick() {
-            // Generate random request with time window
+            // Generate random request
             String itemName = ITEMS[random.nextInt(ITEMS.length)];
-            int quantity = 5 + random.nextInt(5); // 5-10 units
+            int quantity = 5 + random.nextInt(10); // 5-15 units
             
-            // Generate time window: start time (0-480 minutes = 0-8 hours), duration (60-240 minutes = 1-4 hours)
-            int timeWindowStart = random.nextInt(480);  // 0 to 480 minutes (8 hours)
-            int timeWindowDuration = 60 + random.nextInt(180);  // 60 to 240 minutes (1-4 hours)
-            int timeWindowEnd = timeWindowStart + timeWindowDuration;
-            int serviceTime = 5 + random.nextInt(10);  // 5-15 minutes service time
-            
-            CustomerRequest request = new CustomerRequest(customerId, customerName, x, y, itemName, quantity,
-                timeWindowStart, timeWindowEnd, serviceTime);
+            CustomerRequest request = new CustomerRequest(customerId, customerName, x, y, itemName, quantity);
             
             // Find Depot via DF
             AID depotAgent = findDepotViaDF();
@@ -106,21 +99,18 @@ public class Customer extends Agent {
             msg.setConversationId("req-" + request.requestId);
             msg.setReplyWith("rw-" + System.currentTimeMillis());
             
-            // Format: REQUEST:customerId|customerName|x|y|itemName|quantity|twStart|twEnd|serviceTime
-            String content = String.format("REQUEST:%s|%s|%.2f|%.2f|%s|%d|%d|%d|%d",
+            // Format: REQUEST:customerId|customerName|x|y|itemName|quantity
+            String content = String.format("REQUEST:%s|%s|%.2f|%.2f|%s|%d",
                 request.customerId, request.customerName, request.x, request.y,
-                request.itemName, request.quantity, request.timeWindowStart, 
-                request.timeWindowEnd, request.serviceTime);
+                request.itemName, request.quantity);
             msg.setContent(content);
             
             logger.logSent(msg);
             send(msg);
-            System.out.println("Customer " + customerName + ": Requested " + quantity + " units of " + itemName + 
-                             " (TW: " + timeWindowStart + "-" + timeWindowEnd + " min)");
-            logger.logEvent("Sent request: " + quantity + " units of " + itemName + 
-                          " (TW: " + timeWindowStart + "-" + timeWindowEnd + " min)");
+            System.out.println("Customer " + customerName + ": Requested " + quantity + " units of " + itemName);
+            logger.logEvent("Sent request: " + quantity + " units of " + itemName);
             
-            // Reset period for next request (increased to 30-60 seconds)
+            // Reset period for next request
             reset(30000 + random.nextInt(30000));
         }
     }

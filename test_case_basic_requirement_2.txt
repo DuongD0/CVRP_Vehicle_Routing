@@ -1,0 +1,52 @@
+# Test Case: Basic Requirement 2 - Maximum Distance Constraint
+
+## Objective
+Verify that each vehicle respects its maximum distance constraint (dv).
+
+## Test Scenario
+- **Vehicles:**
+  - Vehicle1: Capacity 50, MaxDistance 500.0
+  - Vehicle2: Capacity 40, MaxDistance 400.0
+  - Vehicle3: Capacity 30, MaxDistance 300.0
+- **Customers:** 10 customers with varying distances from depot
+- **Expected Behavior:** No vehicle should be assigned a route that exceeds its maximum distance.
+
+## Test Steps
+1. Start the system with vehicles having different max distances
+2. Create customer requests that would require long routes
+3. Wait for batch processing
+4. Observe route assignments and distance calculations
+
+## Expected Results
+- Each vehicle's route distance should be ≤ vehicle's maxDistance
+- Vehicles should refuse routes that exceed their maxDistance during bidding
+- Solver should enforce maximum distance constraint per vehicle
+- Console output should show: `Distance: X.XX/MAX_DISTANCE`
+
+## Verification
+- Check vehicle bidding logs for distance constraint checks
+- Verify solver output shows routes within distance limits
+- Confirm that vehicles refuse routes exceeding maxDistance
+- Check that total route distance (including travel to/from depot) ≤ maxDistance
+
+## Example Output
+```
+Vehicle Vehicle1: Route exceeds maximum distance (550.25 > 500.0)
+Vehicle Vehicle1: Refusing route: exceeds maximum distance
+
+Vehicle 1: [1,2,3] | Items: 30/50 | Distance: 450.00/500.00
+Vehicle 2: [4,5,6] | Items: 25/40 | Distance: 380.50/400.00
+Vehicle 3: [7,8] | Items: 20/30 | Distance: 280.75/300.00
+```
+
+## Edge Cases
+- Route distance exactly at maxDistance (should be accepted)
+- Route distance slightly over maxDistance (should be refused)
+- Multiple vehicles with different maxDistances
+- Routes that would be feasible if maxDistance was higher
+
+## Notes
+- Maximum distance includes: travel to first customer + route distance + return to depot
+- Vehicle agents check distance constraint during bidding phase
+- Solver enforces distance constraint during optimization
+

@@ -1,0 +1,50 @@
+# Test Case: Insufficient Total Capacity
+
+## Objective
+Verify that the system handles cases where total vehicle capacity is less than total items requested.
+
+## Test Scenario
+- **Total Items Requested:** 150 items
+- **Total Vehicle Capacity:** 120 items (50 + 40 + 30)
+- **Vehicles:**
+  - Vehicle1: Capacity 50, MaxDistance 1000
+  - Vehicle2: Capacity 40, MaxDistance 800
+  - Vehicle3: Capacity 30, MaxDistance 600
+- **Expected Behavior:** System should deliver maximum possible items (120 items) and handle undelivered items appropriately.
+
+## Test Steps
+1. Start the system
+2. Create customer requests totaling 150 items
+3. Wait for batch processing
+4. Observe which items are delivered and which are not
+
+## Expected Results
+- System should deliver 120 items (maximum possible)
+- 30 items should remain undelivered (queued for next batch or rejected)
+- Solution should prioritize items delivered (120) over distance minimization
+- All vehicle capacity should be utilized
+
+## Verification
+- Check console output for: "Items delivered: 120/150"
+- Verify that all vehicles are at capacity
+- Confirm that some customers did not receive delivery
+- Check that system handles undelivered items (queued or notified)
+
+## Example Output
+```
+=== Solution Summary ===
+Total items delivered: 120/150
+Total distance: 1850.75
+Number of routes: 3
+Vehicle 1: [1,2,3,4,5] | Items: 50/50 | Distance: 650.25/1000.00
+Vehicle 2: [6,7,8,9] | Items: 40/40 | Distance: 600.50/800.00
+Vehicle 3: [10,11,12] | Items: 30/30 | Distance: 600.00/600.00
+
+Depot: 30 items remain undelivered (queued for next batch)
+```
+
+## Notes
+- Basic Requirement 1 states: "You cannot assume that the total capacity of all vehicles is equal or more than the number of items to be delivered"
+- System must work when total capacity < total items
+- Undelivered items should be handled (queued, prioritized, or customer notified)
+

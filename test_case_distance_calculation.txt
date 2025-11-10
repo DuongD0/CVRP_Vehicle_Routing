@@ -1,0 +1,73 @@
+# Test Case: Distance Calculation and Constraints
+
+## Objective
+Verify that distance calculations are correct and maximum distance constraints are properly enforced.
+
+## Test Scenario
+- **Depot Location:** (0, 0)
+- **Vehicle:** Vehicle1 at position (50, 50), Capacity 50, MaxDistance 500.0
+- **Route:** 
+  - Customer1 at (100, 100) - demand 10
+  - Customer2 at (200, 200) - demand 15
+  - Customer3 at (300, 300) - demand 20
+- **Distance Calculations:**
+  - Depot to Customer1: sqrt(100^2 + 100^2) = 141.42
+  - Customer1 to Customer2: sqrt(100^2 + 100^2) = 141.42
+  - Customer2 to Customer3: sqrt(100^2 + 100^2) = 141.42
+  - Customer3 to Depot: sqrt(300^2 + 300^2) = 424.26
+  - **Total Route Distance:** 848.52
+  - **Vehicle Position to Customer1:** sqrt(50^2 + 50^2) = 70.71
+  - **Total Distance for Vehicle:** 70.71 + 848.52 = 919.23
+
+## Test Steps
+1. Start system with Vehicle1 at position (50, 50)
+2. Create route with customers at specified locations
+3. Observe distance calculations in vehicle bidding
+4. Verify that vehicle refuses route if total distance > maxDistance
+
+## Expected Results
+- Vehicle should calculate: current position → first customer + route distance + last customer → depot
+- Total distance: 919.23 > 500.0 (maxDistance)
+- Vehicle should refuse the route
+- Console should show distance calculation details
+
+## Verification
+- Check vehicle logs for distance calculations
+- Verify straight-line distance calculation (Euclidean distance)
+- Confirm that total distance includes travel to first customer and return to depot
+- Verify that vehicle refuses route when distance constraint violated
+
+## Example Output
+```
+=== Vehicle Vehicle1: Received CFP ===
+CFP: ROUTE:1|CUSTOMERS:1,2,3|COORDS:100.00,100.00;200.00,200.00;300.00,300.00|DEMAND:45|DISTANCE:848.52
+
+Vehicle Vehicle1: Calculating route distance...
+  Current position: (50.0, 50.0)
+  First customer: (100.0, 100.0)
+  Distance to first customer: 70.71
+  Route distance: 848.52
+  Last customer: (300.0, 300.0)
+  Distance from last customer to depot: 424.26
+  Total distance: 919.23
+
+Vehicle Vehicle1: Route exceeds maximum distance (919.23 > 500.0)
+Vehicle Vehicle1: Refusing route: exceeds maximum distance
+```
+
+## Edge Cases
+- Vehicle at depot (distance to first customer = depot to first customer)
+- Vehicle at first customer location (distance to first customer = 0)
+- Single customer route (route distance = depot → customer → depot)
+- Multiple customers on same route
+- Route that exactly meets maxDistance (should be accepted)
+
+## Notes
+- Distance is calculated using Euclidean distance: sqrt((x1-x2)^2 + (y1-y2)^2)
+- Total route distance for vehicle includes:
+  1. Distance from vehicle's current position to first customer
+  2. Route distance (sum of distances between customers on route)
+  3. Distance from last customer back to depot
+- Maximum distance constraint is checked during vehicle bidding phase
+- Solver also enforces distance constraint during optimization
+

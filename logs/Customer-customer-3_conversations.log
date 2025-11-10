@@ -1,894 +1,126 @@
-[2025-11-06 10:38:23.904] === Agent Logger Initialized ===
-[2025-11-06 10:38:23.911] Agent: Customer-customer-3
-[2025-11-06 10:38:23.911] Log file: logs/Customer-customer-3_conversations.log
-[2025-11-06 10:38:23.911] *** EVENT: Agent started
-[2025-11-06 10:38:23.911] Customer name: Customer3
-[2025-11-06 10:38:23.911] Position: (150.0, 200.0)
-[2025-11-06 10:38:23.926] *** EVENT: DF Registration successful
-[2025-11-06 10:38:23.926] *** EVENT: Registered with DF as 'customer-service'
-[2025-11-06 10:38:31.602] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:38:31.602] >>> SENT MESSAGE
-[2025-11-06 10:38:31.603]   Direction: TO
-[2025-11-06 10:38:31.603]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:38:31.655]   From: N/A
-[2025-11-06 10:38:31.655]   Performative: REQUEST
-[2025-11-06 10:38:31.655]   Protocol: fipa-request
-[2025-11-06 10:38:31.655]   Conversation ID: req-customer-3_1762400311600
-[2025-11-06 10:38:31.655]   Reply With: rw-1762400311602
-[2025-11-06 10:38:31.655]   In Reply To: N/A
-[2025-11-06 10:38:31.656]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|9|52|172|9
-[2025-11-06 10:38:31.656]   Language: N/A
-[2025-11-06 10:38:31.656]   Ontology: N/A
-[2025-11-06 10:38:31.656] ---
-[2025-11-06 10:38:31.656] *** EVENT: Sent request: 9 units of ItemD (TW: 52-172 min)
-[2025-11-06 10:38:31.658] <<< RECEIVED MESSAGE
-[2025-11-06 10:38:31.658]   Direction: FROM
-[2025-11-06 10:38:31.658]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:38:31.658]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:38:31.658]   Performative: INFORM
-[2025-11-06 10:38:31.658]   Protocol: fipa-request
-[2025-11-06 10:38:31.658]   Conversation ID: req-customer-3_1762400311600
-[2025-11-06 10:38:31.658]   Reply With: customer-3@10.1.2.99:1099/JADE1762400311657
-[2025-11-06 10:38:31.658]   In Reply To: rw-1762400311602
-[2025-11-06 10:38:31.658]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:38:31.658]   Language: N/A
-[2025-11-06 10:38:31.658]   Ontology: N/A
-[2025-11-06 10:38:31.658] ---
-[2025-11-06 10:38:31.658] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:39:29.156] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:39:29.157] >>> SENT MESSAGE
-[2025-11-06 10:39:29.157]   Direction: TO
-[2025-11-06 10:39:29.157]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:29.157]   From: N/A
-[2025-11-06 10:39:29.157]   Performative: REQUEST
-[2025-11-06 10:39:29.157]   Protocol: fipa-request
-[2025-11-06 10:39:29.157]   Conversation ID: req-customer-3_1762400369154
-[2025-11-06 10:39:29.157]   Reply With: rw-1762400369156
-[2025-11-06 10:39:29.157]   In Reply To: N/A
-[2025-11-06 10:39:29.157]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|7|15|126|9
-[2025-11-06 10:39:29.157]   Language: N/A
-[2025-11-06 10:39:29.157]   Ontology: N/A
-[2025-11-06 10:39:29.157] ---
-[2025-11-06 10:39:29.157] *** EVENT: Sent request: 7 units of ItemA (TW: 15-126 min)
-[2025-11-06 10:39:33.039] <<< RECEIVED MESSAGE
-[2025-11-06 10:39:33.039]   Direction: FROM
-[2025-11-06 10:39:33.039]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.039]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:33.039]   Performative: INFORM
-[2025-11-06 10:39:33.039]   Protocol: fipa-request
-[2025-11-06 10:39:33.039]   Conversation ID: req-customer-3_1762400369154
-[2025-11-06 10:39:33.039]   Reply With: customer-3@10.1.2.99:1099/JADE1762400373038
-[2025-11-06 10:39:33.039]   In Reply To: rw-1762400369156
-[2025-11-06 10:39:33.039]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:39:33.039]   Language: N/A
-[2025-11-06 10:39:33.039]   Ontology: N/A
-[2025-11-06 10:39:33.039] ---
-[2025-11-06 10:39:33.039] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:39:59.916] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:39:59.916] >>> SENT MESSAGE
-[2025-11-06 10:39:59.916]   Direction: TO
-[2025-11-06 10:39:59.916]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:59.916]   From: N/A
-[2025-11-06 10:39:59.916]   Performative: REQUEST
-[2025-11-06 10:39:59.916]   Protocol: fipa-request
-[2025-11-06 10:39:59.916]   Conversation ID: req-customer-3_1762400399908
-[2025-11-06 10:39:59.916]   Reply With: rw-1762400399916
-[2025-11-06 10:39:59.916]   In Reply To: N/A
-[2025-11-06 10:39:59.916]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|6|381|581|11
-[2025-11-06 10:39:59.916]   Language: N/A
-[2025-11-06 10:39:59.916]   Ontology: N/A
-[2025-11-06 10:39:59.916] ---
-[2025-11-06 10:39:59.916] *** EVENT: Sent request: 6 units of ItemD (TW: 381-581 min)
-[2025-11-06 10:39:59.919] <<< RECEIVED MESSAGE
-[2025-11-06 10:39:59.919]   Direction: FROM
-[2025-11-06 10:39:59.919]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:39:59.919]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:39:59.919]   Performative: INFORM
-[2025-11-06 10:39:59.919]   Protocol: fipa-request
-[2025-11-06 10:39:59.919]   Conversation ID: req-customer-3_1762400399908
-[2025-11-06 10:39:59.919]   Reply With: customer-3@10.1.2.99:1099/JADE1762400399918
-[2025-11-06 10:39:59.919]   In Reply To: rw-1762400399916
-[2025-11-06 10:39:59.919]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:39:59.919]   Language: N/A
-[2025-11-06 10:39:59.919]   Ontology: N/A
-[2025-11-06 10:39:59.919] ---
-[2025-11-06 10:39:59.919] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:40:03.041] <<< RECEIVED MESSAGE
-[2025-11-06 10:40:03.041]   Direction: FROM
-[2025-11-06 10:40:03.041]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:40:03.041]   From: vehicle-Vehicle2@10.1.2.99:1099/JADE
-[2025-11-06 10:40:03.041]   Performative: INFORM
-[2025-11-06 10:40:03.041]   Protocol: fipa-request
-[2025-11-06 10:40:03.041]   Conversation ID: delivery-1762400403040
-[2025-11-06 10:40:03.041]   Reply With: N/A
-[2025-11-06 10:40:03.041]   In Reply To: N/A
-[2025-11-06 10:40:03.041]   Content: DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle2
-[2025-11-06 10:40:03.041]   Language: N/A
-[2025-11-06 10:40:03.041]   Ontology: N/A
-[2025-11-06 10:40:03.041] ---
-[2025-11-06 10:40:03.041] *** EVENT: DELIVERY COMPLETE: Your order has been delivered by vehicle Vehicle2
-[2025-11-06 10:40:59.899] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:40:59.899] >>> SENT MESSAGE
-[2025-11-06 10:40:59.899]   Direction: TO
-[2025-11-06 10:40:59.899]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:40:59.899]   From: N/A
-[2025-11-06 10:40:59.899]   Performative: REQUEST
-[2025-11-06 10:40:59.899]   Protocol: fipa-request
-[2025-11-06 10:40:59.899]   Conversation ID: req-customer-3_1762400459897
-[2025-11-06 10:40:59.899]   Reply With: rw-1762400459899
-[2025-11-06 10:40:59.899]   In Reply To: N/A
-[2025-11-06 10:40:59.899]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|9|121|208|11
-[2025-11-06 10:40:59.899]   Language: N/A
-[2025-11-06 10:40:59.899]   Ontology: N/A
-[2025-11-06 10:40:59.899] ---
-[2025-11-06 10:40:59.900] *** EVENT: Sent request: 9 units of ItemA (TW: 121-208 min)
-[2025-11-06 10:41:13.667] <<< RECEIVED MESSAGE
-[2025-11-06 10:41:13.667]   Direction: FROM
-[2025-11-06 10:41:13.667]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:41:13.667]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:41:13.667]   Performative: INFORM
-[2025-11-06 10:41:13.667]   Protocol: fipa-request
-[2025-11-06 10:41:13.667]   Conversation ID: req-customer-3_1762400459897
-[2025-11-06 10:41:13.667]   Reply With: customer-3@10.1.2.99:1099/JADE1762400473667
-[2025-11-06 10:41:13.667]   In Reply To: rw-1762400459899
-[2025-11-06 10:41:13.667]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:41:13.667]   Language: N/A
-[2025-11-06 10:41:13.667]   Ontology: N/A
-[2025-11-06 10:41:13.667] ---
-[2025-11-06 10:41:13.667] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:41:31.552] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:41:31.552] >>> SENT MESSAGE
-[2025-11-06 10:41:31.552]   Direction: TO
-[2025-11-06 10:41:31.552]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:41:31.552]   From: N/A
-[2025-11-06 10:41:31.552]   Performative: REQUEST
-[2025-11-06 10:41:31.552]   Protocol: fipa-request
-[2025-11-06 10:41:31.552]   Conversation ID: req-customer-3_1762400491550
-[2025-11-06 10:41:31.552]   Reply With: rw-1762400491552
-[2025-11-06 10:41:31.552]   In Reply To: N/A
-[2025-11-06 10:41:31.552]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|9|353|551|10
-[2025-11-06 10:41:31.552]   Language: N/A
-[2025-11-06 10:41:31.553]   Ontology: N/A
-[2025-11-06 10:41:31.553] ---
-[2025-11-06 10:41:31.553] *** EVENT: Sent request: 9 units of ItemD (TW: 353-551 min)
-[2025-11-06 10:41:31.554] <<< RECEIVED MESSAGE
-[2025-11-06 10:41:31.554]   Direction: FROM
-[2025-11-06 10:41:31.554]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:41:31.554]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:41:31.554]   Performative: INFORM
-[2025-11-06 10:41:31.554]   Protocol: fipa-request
-[2025-11-06 10:41:31.554]   Conversation ID: req-customer-3_1762400491550
-[2025-11-06 10:41:31.554]   Reply With: customer-3@10.1.2.99:1099/JADE1762400491554
-[2025-11-06 10:41:31.554]   In Reply To: rw-1762400491552
-[2025-11-06 10:41:31.554]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:41:31.554]   Language: N/A
-[2025-11-06 10:41:31.554]   Ontology: N/A
-[2025-11-06 10:41:31.554] ---
-[2025-11-06 10:41:31.554] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:41:43.673] <<< RECEIVED MESSAGE
-[2025-11-06 10:41:43.673]   Direction: FROM
-[2025-11-06 10:41:43.673]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:41:43.673]   From: vehicle-Vehicle2@10.1.2.99:1099/JADE
-[2025-11-06 10:41:43.673]   Performative: INFORM
-[2025-11-06 10:41:43.673]   Protocol: fipa-request
-[2025-11-06 10:41:43.673]   Conversation ID: delivery-1762400503669
-[2025-11-06 10:41:43.673]   Reply With: N/A
-[2025-11-06 10:41:43.673]   In Reply To: N/A
-[2025-11-06 10:41:43.673]   Content: DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle2
-[2025-11-06 10:41:43.673]   Language: N/A
-[2025-11-06 10:41:43.673]   Ontology: N/A
-[2025-11-06 10:41:43.673] ---
-[2025-11-06 10:41:43.673] *** EVENT: DELIVERY COMPLETE: Your order has been delivered by vehicle Vehicle2
-[2025-11-06 10:42:17.417] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:42:17.418] >>> SENT MESSAGE
-[2025-11-06 10:42:17.418]   Direction: TO
-[2025-11-06 10:42:17.418]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:42:17.418]   From: N/A
-[2025-11-06 10:42:17.418]   Performative: REQUEST
-[2025-11-06 10:42:17.418]   Protocol: fipa-request
-[2025-11-06 10:42:17.418]   Conversation ID: req-customer-3_1762400537416
-[2025-11-06 10:42:17.418]   Reply With: rw-1762400537418
-[2025-11-06 10:42:17.418]   In Reply To: N/A
-[2025-11-06 10:42:17.418]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|7|224|345|7
-[2025-11-06 10:42:17.418]   Language: N/A
-[2025-11-06 10:42:17.418]   Ontology: N/A
-[2025-11-06 10:42:17.418] ---
-[2025-11-06 10:42:17.418] *** EVENT: Sent request: 7 units of ItemD (TW: 224-345 min)
-[2025-11-06 10:42:17.420] <<< RECEIVED MESSAGE
-[2025-11-06 10:42:17.420]   Direction: FROM
-[2025-11-06 10:42:17.420]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:42:17.420]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:42:17.420]   Performative: INFORM
-[2025-11-06 10:42:17.420]   Protocol: fipa-request
-[2025-11-06 10:42:17.420]   Conversation ID: req-customer-3_1762400537416
-[2025-11-06 10:42:17.420]   Reply With: customer-3@10.1.2.99:1099/JADE1762400537419
-[2025-11-06 10:42:17.420]   In Reply To: rw-1762400537418
-[2025-11-06 10:42:17.420]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:42:17.420]   Language: N/A
-[2025-11-06 10:42:17.420]   Ontology: N/A
-[2025-11-06 10:42:17.420] ---
-[2025-11-06 10:42:17.420] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:42:56.704] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:42:56.704] >>> SENT MESSAGE
-[2025-11-06 10:42:56.705]   Direction: TO
-[2025-11-06 10:42:56.705]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:42:56.705]   From: N/A
-[2025-11-06 10:42:56.705]   Performative: REQUEST
-[2025-11-06 10:42:56.705]   Protocol: fipa-request
-[2025-11-06 10:42:56.705]   Conversation ID: req-customer-3_1762400576702
-[2025-11-06 10:42:56.705]   Reply With: rw-1762400576704
-[2025-11-06 10:42:56.705]   In Reply To: N/A
-[2025-11-06 10:42:56.705]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|6|109|223|14
-[2025-11-06 10:42:56.705]   Language: N/A
-[2025-11-06 10:42:56.705]   Ontology: N/A
-[2025-11-06 10:42:56.705] ---
-[2025-11-06 10:42:56.705] *** EVENT: Sent request: 6 units of ItemD (TW: 109-223 min)
-[2025-11-06 10:43:04.317] <<< RECEIVED MESSAGE
-[2025-11-06 10:43:04.317]   Direction: FROM
-[2025-11-06 10:43:04.317]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:43:04.317]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:43:04.317]   Performative: INFORM
-[2025-11-06 10:43:04.317]   Protocol: fipa-request
-[2025-11-06 10:43:04.318]   Conversation ID: req-customer-3_1762400576702
-[2025-11-06 10:43:04.318]   Reply With: customer-3@10.1.2.99:1099/JADE1762400584316
-[2025-11-06 10:43:04.318]   In Reply To: rw-1762400576704
-[2025-11-06 10:43:04.318]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:43:04.318]   Language: N/A
-[2025-11-06 10:43:04.318]   Ontology: N/A
-[2025-11-06 10:43:04.318] ---
-[2025-11-06 10:43:04.318] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:43:34.322] <<< RECEIVED MESSAGE
-[2025-11-06 10:43:34.322]   Direction: FROM
-[2025-11-06 10:43:34.322]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:43:34.322]   From: vehicle-Vehicle2@10.1.2.99:1099/JADE
-[2025-11-06 10:43:34.322]   Performative: INFORM
-[2025-11-06 10:43:34.322]   Protocol: fipa-request
-[2025-11-06 10:43:34.322]   Conversation ID: delivery-1762400614322
-[2025-11-06 10:43:34.322]   Reply With: N/A
-[2025-11-06 10:43:34.322]   In Reply To: N/A
-[2025-11-06 10:43:34.322]   Content: DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle2
-[2025-11-06 10:43:34.322]   Language: N/A
-[2025-11-06 10:43:34.322]   Ontology: N/A
-[2025-11-06 10:43:34.322] ---
-[2025-11-06 10:43:34.322] *** EVENT: DELIVERY COMPLETE: Your order has been delivered by vehicle Vehicle2
-[2025-11-06 10:43:47.683] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:43:47.684] >>> SENT MESSAGE
-[2025-11-06 10:43:47.684]   Direction: TO
-[2025-11-06 10:43:47.684]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:43:47.684]   From: N/A
-[2025-11-06 10:43:47.684]   Performative: REQUEST
-[2025-11-06 10:43:47.684]   Protocol: fipa-request
-[2025-11-06 10:43:47.684]   Conversation ID: req-customer-3_1762400627681
-[2025-11-06 10:43:47.684]   Reply With: rw-1762400627683
-[2025-11-06 10:43:47.684]   In Reply To: N/A
-[2025-11-06 10:43:47.684]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|8|326|461|12
-[2025-11-06 10:43:47.684]   Language: N/A
-[2025-11-06 10:43:47.684]   Ontology: N/A
-[2025-11-06 10:43:47.684] ---
-[2025-11-06 10:43:47.684] *** EVENT: Sent request: 8 units of ItemB (TW: 326-461 min)
-[2025-11-06 10:43:47.685] <<< RECEIVED MESSAGE
-[2025-11-06 10:43:47.685]   Direction: FROM
-[2025-11-06 10:43:47.685]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:43:47.685]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:43:47.686]   Performative: INFORM
-[2025-11-06 10:43:47.686]   Protocol: fipa-request
-[2025-11-06 10:43:47.686]   Conversation ID: req-customer-3_1762400627681
-[2025-11-06 10:43:47.686]   Reply With: customer-3@10.1.2.99:1099/JADE1762400627685
-[2025-11-06 10:43:47.686]   In Reply To: rw-1762400627683
-[2025-11-06 10:43:47.686]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:43:47.686]   Language: N/A
-[2025-11-06 10:43:47.686]   Ontology: N/A
-[2025-11-06 10:43:47.686] ---
-[2025-11-06 10:43:47.686] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:44:42.092] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:44:42.092] >>> SENT MESSAGE
-[2025-11-06 10:44:42.092]   Direction: TO
-[2025-11-06 10:44:42.092]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:44:42.092]   From: N/A
-[2025-11-06 10:44:42.092]   Performative: REQUEST
-[2025-11-06 10:44:42.092]   Protocol: fipa-request
-[2025-11-06 10:44:42.092]   Conversation ID: req-customer-3_1762400682090
-[2025-11-06 10:44:42.092]   Reply With: rw-1762400682092
-[2025-11-06 10:44:42.092]   In Reply To: N/A
-[2025-11-06 10:44:42.092]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemC|8|369|606|12
-[2025-11-06 10:44:42.092]   Language: N/A
-[2025-11-06 10:44:42.092]   Ontology: N/A
-[2025-11-06 10:44:42.092] ---
-[2025-11-06 10:44:42.093] *** EVENT: Sent request: 8 units of ItemC (TW: 369-606 min)
-[2025-11-06 10:44:42.094] <<< RECEIVED MESSAGE
-[2025-11-06 10:44:42.094]   Direction: FROM
-[2025-11-06 10:44:42.094]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:44:42.094]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:44:42.094]   Performative: INFORM
-[2025-11-06 10:44:42.094]   Protocol: fipa-request
-[2025-11-06 10:44:42.094]   Conversation ID: req-customer-3_1762400682090
-[2025-11-06 10:44:42.094]   Reply With: customer-3@10.1.2.99:1099/JADE1762400682093
-[2025-11-06 10:44:42.094]   In Reply To: rw-1762400682092
-[2025-11-06 10:44:42.095]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:44:42.095]   Language: N/A
-[2025-11-06 10:44:42.095]   Ontology: N/A
-[2025-11-06 10:44:42.095] ---
-[2025-11-06 10:44:42.095] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:45:14.478] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:45:14.479] >>> SENT MESSAGE
-[2025-11-06 10:45:14.479]   Direction: TO
-[2025-11-06 10:45:14.479]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:45:14.479]   From: N/A
-[2025-11-06 10:45:14.479]   Performative: REQUEST
-[2025-11-06 10:45:14.479]   Protocol: fipa-request
-[2025-11-06 10:45:14.479]   Conversation ID: req-customer-3_1762400714476
-[2025-11-06 10:45:14.479]   Reply With: rw-1762400714478
-[2025-11-06 10:45:14.479]   In Reply To: N/A
-[2025-11-06 10:45:14.479]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|7|27|87|14
-[2025-11-06 10:45:14.479]   Language: N/A
-[2025-11-06 10:45:14.479]   Ontology: N/A
-[2025-11-06 10:45:14.479] ---
-[2025-11-06 10:45:14.479] *** EVENT: Sent request: 7 units of ItemB (TW: 27-87 min)
-[2025-11-06 10:45:14.984] <<< RECEIVED MESSAGE
-[2025-11-06 10:45:14.984]   Direction: FROM
-[2025-11-06 10:45:14.984]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:45:14.984]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:45:14.984]   Performative: INFORM
-[2025-11-06 10:45:14.984]   Protocol: fipa-request
-[2025-11-06 10:45:14.984]   Conversation ID: req-customer-3_1762400714476
-[2025-11-06 10:45:14.984]   Reply With: customer-3@10.1.2.99:1099/JADE1762400714984
-[2025-11-06 10:45:14.984]   In Reply To: rw-1762400714478
-[2025-11-06 10:45:14.984]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:45:14.984]   Language: N/A
-[2025-11-06 10:45:14.984]   Ontology: N/A
-[2025-11-06 10:45:14.984] ---
-[2025-11-06 10:45:14.985] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:46:10.399] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:46:10.399] >>> SENT MESSAGE
-[2025-11-06 10:46:10.399]   Direction: TO
-[2025-11-06 10:46:10.399]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:46:10.399]   From: N/A
-[2025-11-06 10:46:10.399]   Performative: REQUEST
-[2025-11-06 10:46:10.399]   Protocol: fipa-request
-[2025-11-06 10:46:10.399]   Conversation ID: req-customer-3_1762400770397
-[2025-11-06 10:46:10.399]   Reply With: rw-1762400770399
-[2025-11-06 10:46:10.399]   In Reply To: N/A
-[2025-11-06 10:46:10.399]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|9|278|362|14
-[2025-11-06 10:46:10.399]   Language: N/A
-[2025-11-06 10:46:10.399]   Ontology: N/A
-[2025-11-06 10:46:10.399] ---
-[2025-11-06 10:46:10.399] *** EVENT: Sent request: 9 units of ItemD (TW: 278-362 min)
-[2025-11-06 10:46:10.402] <<< RECEIVED MESSAGE
-[2025-11-06 10:46:10.402]   Direction: FROM
-[2025-11-06 10:46:10.402]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:46:10.402]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:46:10.402]   Performative: INFORM
-[2025-11-06 10:46:10.402]   Protocol: fipa-request
-[2025-11-06 10:46:10.402]   Conversation ID: req-customer-3_1762400770397
-[2025-11-06 10:46:10.402]   Reply With: customer-3@10.1.2.99:1099/JADE1762400770400
-[2025-11-06 10:46:10.402]   In Reply To: rw-1762400770399
-[2025-11-06 10:46:10.402]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 5, Requested: 9
-[2025-11-06 10:46:10.402]   Language: N/A
-[2025-11-06 10:46:10.402]   Ontology: N/A
-[2025-11-06 10:46:10.402] ---
-[2025-11-06 10:46:10.402] *** EVENT: Request rejected: Insufficient inventory. Available: 5, Requested: 9
-[2025-11-06 10:47:01.405] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:47:01.406] >>> SENT MESSAGE
-[2025-11-06 10:47:01.406]   Direction: TO
-[2025-11-06 10:47:01.406]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:47:01.406]   From: N/A
-[2025-11-06 10:47:01.406]   Performative: REQUEST
-[2025-11-06 10:47:01.406]   Protocol: fipa-request
-[2025-11-06 10:47:01.406]   Conversation ID: req-customer-3_1762400821403
-[2025-11-06 10:47:01.406]   Reply With: rw-1762400821405
-[2025-11-06 10:47:01.406]   In Reply To: N/A
-[2025-11-06 10:47:01.406]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|7|389|541|13
-[2025-11-06 10:47:01.406]   Language: N/A
-[2025-11-06 10:47:01.406]   Ontology: N/A
-[2025-11-06 10:47:01.406] ---
-[2025-11-06 10:47:01.406] *** EVENT: Sent request: 7 units of ItemB (TW: 389-541 min)
-[2025-11-06 10:47:01.407] <<< RECEIVED MESSAGE
-[2025-11-06 10:47:01.407]   Direction: FROM
-[2025-11-06 10:47:01.407]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:47:01.407]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:47:01.407]   Performative: INFORM
-[2025-11-06 10:47:01.407]   Protocol: fipa-request
-[2025-11-06 10:47:01.407]   Conversation ID: req-customer-3_1762400821403
-[2025-11-06 10:47:01.407]   Reply With: customer-3@10.1.2.99:1099/JADE1762400821407
-[2025-11-06 10:47:01.407]   In Reply To: rw-1762400821405
-[2025-11-06 10:47:01.407]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:47:01.407]   Language: N/A
-[2025-11-06 10:47:01.407]   Ontology: N/A
-[2025-11-06 10:47:01.407] ---
-[2025-11-06 10:47:01.407] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:47:50.829] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:47:50.829] >>> SENT MESSAGE
-[2025-11-06 10:47:50.829]   Direction: TO
-[2025-11-06 10:47:50.829]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:47:50.829]   From: N/A
-[2025-11-06 10:47:50.829]   Performative: REQUEST
-[2025-11-06 10:47:50.829]   Protocol: fipa-request
-[2025-11-06 10:47:50.829]   Conversation ID: req-customer-3_1762400870827
-[2025-11-06 10:47:50.829]   Reply With: rw-1762400870829
-[2025-11-06 10:47:50.829]   In Reply To: N/A
-[2025-11-06 10:47:50.829]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|7|163|397|8
-[2025-11-06 10:47:50.829]   Language: N/A
-[2025-11-06 10:47:50.829]   Ontology: N/A
-[2025-11-06 10:47:50.829] ---
-[2025-11-06 10:47:50.829] *** EVENT: Sent request: 7 units of ItemB (TW: 163-397 min)
-[2025-11-06 10:48:15.667] <<< RECEIVED MESSAGE
-[2025-11-06 10:48:15.667]   Direction: FROM
-[2025-11-06 10:48:15.667]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:48:15.667]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:48:15.667]   Performative: INFORM
-[2025-11-06 10:48:15.667]   Protocol: fipa-request
-[2025-11-06 10:48:15.667]   Conversation ID: req-customer-3_1762400870827
-[2025-11-06 10:48:15.667]   Reply With: customer-3@10.1.2.99:1099/JADE1762400895665
-[2025-11-06 10:48:15.667]   In Reply To: rw-1762400870829
-[2025-11-06 10:48:15.667]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 3, Requested: 7
-[2025-11-06 10:48:15.667]   Language: N/A
-[2025-11-06 10:48:15.667]   Ontology: N/A
-[2025-11-06 10:48:15.667] ---
-[2025-11-06 10:48:15.668] *** EVENT: Request rejected: Insufficient inventory. Available: 3, Requested: 7
-[2025-11-06 10:48:36.905] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:48:36.905] >>> SENT MESSAGE
-[2025-11-06 10:48:36.905]   Direction: TO
-[2025-11-06 10:48:36.905]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:48:36.905]   From: N/A
-[2025-11-06 10:48:36.905]   Performative: REQUEST
-[2025-11-06 10:48:36.905]   Protocol: fipa-request
-[2025-11-06 10:48:36.905]   Conversation ID: req-customer-3_1762400916905
-[2025-11-06 10:48:36.905]   Reply With: rw-1762400916905
-[2025-11-06 10:48:36.905]   In Reply To: N/A
-[2025-11-06 10:48:36.905]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemC|7|208|411|13
-[2025-11-06 10:48:36.905]   Language: N/A
-[2025-11-06 10:48:36.905]   Ontology: N/A
-[2025-11-06 10:48:36.905] ---
-[2025-11-06 10:48:36.905] *** EVENT: Sent request: 7 units of ItemC (TW: 208-411 min)
-[2025-11-06 10:48:36.905] <<< RECEIVED MESSAGE
-[2025-11-06 10:48:36.905]   Direction: FROM
-[2025-11-06 10:48:36.905]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:48:36.905]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:48:36.905]   Performative: INFORM
-[2025-11-06 10:48:36.905]   Protocol: fipa-request
-[2025-11-06 10:48:36.905]   Conversation ID: req-customer-3_1762400916905
-[2025-11-06 10:48:36.905]   Reply With: customer-3@10.1.2.99:1099/JADE1762400916905
-[2025-11-06 10:48:36.905]   In Reply To: rw-1762400916905
-[2025-11-06 10:48:36.905]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:48:36.905]   Language: N/A
-[2025-11-06 10:48:36.905]   Ontology: N/A
-[2025-11-06 10:48:36.905] ---
-[2025-11-06 10:48:36.905] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-06 10:49:26.110] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:49:26.110] >>> SENT MESSAGE
-[2025-11-06 10:49:26.110]   Direction: TO
-[2025-11-06 10:49:26.110]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:49:26.110]   From: N/A
-[2025-11-06 10:49:26.110]   Performative: REQUEST
-[2025-11-06 10:49:26.110]   Protocol: fipa-request
-[2025-11-06 10:49:26.110]   Conversation ID: req-customer-3_1762400966108
-[2025-11-06 10:49:26.110]   Reply With: rw-1762400966110
-[2025-11-06 10:49:26.110]   In Reply To: N/A
-[2025-11-06 10:49:26.110]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|6|372|459|14
-[2025-11-06 10:49:26.110]   Language: N/A
-[2025-11-06 10:49:26.110]   Ontology: N/A
-[2025-11-06 10:49:26.110] ---
-[2025-11-06 10:49:26.110] *** EVENT: Sent request: 6 units of ItemB (TW: 372-459 min)
-[2025-11-06 10:49:26.112] <<< RECEIVED MESSAGE
-[2025-11-06 10:49:26.112]   Direction: FROM
-[2025-11-06 10:49:26.112]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:49:26.112]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:49:26.112]   Performative: INFORM
-[2025-11-06 10:49:26.112]   Protocol: fipa-request
-[2025-11-06 10:49:26.112]   Conversation ID: req-customer-3_1762400966108
-[2025-11-06 10:49:26.112]   Reply With: customer-3@10.1.2.99:1099/JADE1762400966111
-[2025-11-06 10:49:26.112]   In Reply To: rw-1762400966110
-[2025-11-06 10:49:26.112]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 3, Requested: 6
-[2025-11-06 10:49:26.112]   Language: N/A
-[2025-11-06 10:49:26.112]   Ontology: N/A
-[2025-11-06 10:49:26.112] ---
-[2025-11-06 10:49:26.112] *** EVENT: Request rejected: Insufficient inventory. Available: 3, Requested: 6
-[2025-11-06 10:50:12.613] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:50:12.614] >>> SENT MESSAGE
-[2025-11-06 10:50:12.614]   Direction: TO
-[2025-11-06 10:50:12.614]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:50:12.614]   From: N/A
-[2025-11-06 10:50:12.614]   Performative: REQUEST
-[2025-11-06 10:50:12.614]   Protocol: fipa-request
-[2025-11-06 10:50:12.614]   Conversation ID: req-customer-3_1762401012612
-[2025-11-06 10:50:12.614]   Reply With: rw-1762401012613
-[2025-11-06 10:50:12.614]   In Reply To: N/A
-[2025-11-06 10:50:12.614]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|8|90|309|6
-[2025-11-06 10:50:12.614]   Language: N/A
-[2025-11-06 10:50:12.614]   Ontology: N/A
-[2025-11-06 10:50:12.614] ---
-[2025-11-06 10:50:12.614] *** EVENT: Sent request: 8 units of ItemB (TW: 90-309 min)
-[2025-11-06 10:50:12.616] <<< RECEIVED MESSAGE
-[2025-11-06 10:50:12.616]   Direction: FROM
-[2025-11-06 10:50:12.616]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:50:12.616]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:50:12.616]   Performative: INFORM
-[2025-11-06 10:50:12.616]   Protocol: fipa-request
-[2025-11-06 10:50:12.616]   Conversation ID: req-customer-3_1762401012612
-[2025-11-06 10:50:12.616]   Reply With: customer-3@10.1.2.99:1099/JADE1762401012615
-[2025-11-06 10:50:12.616]   In Reply To: rw-1762401012613
-[2025-11-06 10:50:12.616]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 3, Requested: 8
-[2025-11-06 10:50:12.616]   Language: N/A
-[2025-11-06 10:50:12.616]   Ontology: N/A
-[2025-11-06 10:50:12.616] ---
-[2025-11-06 10:50:12.616] *** EVENT: Request rejected: Insufficient inventory. Available: 3, Requested: 8
-[2025-11-06 10:51:03.217] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:51:03.217] >>> SENT MESSAGE
-[2025-11-06 10:51:03.217]   Direction: TO
-[2025-11-06 10:51:03.217]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:51:03.217]   From: N/A
-[2025-11-06 10:51:03.217]   Performative: REQUEST
-[2025-11-06 10:51:03.217]   Protocol: fipa-request
-[2025-11-06 10:51:03.217]   Conversation ID: req-customer-3_1762401063216
-[2025-11-06 10:51:03.217]   Reply With: rw-1762401063217
-[2025-11-06 10:51:03.217]   In Reply To: N/A
-[2025-11-06 10:51:03.217]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|7|350|502|7
-[2025-11-06 10:51:03.217]   Language: N/A
-[2025-11-06 10:51:03.217]   Ontology: N/A
-[2025-11-06 10:51:03.217] ---
-[2025-11-06 10:51:03.217] *** EVENT: Sent request: 7 units of ItemA (TW: 350-502 min)
-[2025-11-06 10:51:03.218] <<< RECEIVED MESSAGE
-[2025-11-06 10:51:03.218]   Direction: FROM
-[2025-11-06 10:51:03.218]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:51:03.218]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:51:03.218]   Performative: INFORM
-[2025-11-06 10:51:03.218]   Protocol: fipa-request
-[2025-11-06 10:51:03.218]   Conversation ID: req-customer-3_1762401063216
-[2025-11-06 10:51:03.218]   Reply With: customer-3@10.1.2.99:1099/JADE1762401063218
-[2025-11-06 10:51:03.218]   In Reply To: rw-1762401063217
-[2025-11-06 10:51:03.218]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 0, Requested: 7
-[2025-11-06 10:51:03.218]   Language: N/A
-[2025-11-06 10:51:03.218]   Ontology: N/A
-[2025-11-06 10:51:03.218] ---
-[2025-11-06 10:51:03.218] *** EVENT: Request rejected: Insufficient inventory. Available: 0, Requested: 7
-[2025-11-06 10:51:47.322] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:51:47.322] >>> SENT MESSAGE
-[2025-11-06 10:51:47.322]   Direction: TO
-[2025-11-06 10:51:47.323]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:51:47.323]   From: N/A
-[2025-11-06 10:51:47.323]   Performative: REQUEST
-[2025-11-06 10:51:47.323]   Protocol: fipa-request
-[2025-11-06 10:51:47.323]   Conversation ID: req-customer-3_1762401107321
-[2025-11-06 10:51:47.323]   Reply With: rw-1762401107322
-[2025-11-06 10:51:47.323]   In Reply To: N/A
-[2025-11-06 10:51:47.323]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|9|134|299|8
-[2025-11-06 10:51:47.323]   Language: N/A
-[2025-11-06 10:51:47.323]   Ontology: N/A
-[2025-11-06 10:51:47.323] ---
-[2025-11-06 10:51:47.323] *** EVENT: Sent request: 9 units of ItemD (TW: 134-299 min)
-[2025-11-06 10:51:47.324] <<< RECEIVED MESSAGE
-[2025-11-06 10:51:47.324]   Direction: FROM
-[2025-11-06 10:51:47.324]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:51:47.324]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:51:47.324]   Performative: INFORM
-[2025-11-06 10:51:47.324]   Protocol: fipa-request
-[2025-11-06 10:51:47.324]   Conversation ID: req-customer-3_1762401107321
-[2025-11-06 10:51:47.324]   Reply With: customer-3@10.1.2.99:1099/JADE1762401107324
-[2025-11-06 10:51:47.324]   In Reply To: rw-1762401107322
-[2025-11-06 10:51:47.324]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 5, Requested: 9
-[2025-11-06 10:51:47.324]   Language: N/A
-[2025-11-06 10:51:47.324]   Ontology: N/A
-[2025-11-06 10:51:47.324] ---
-[2025-11-06 10:51:47.325] *** EVENT: Request rejected: Insufficient inventory. Available: 5, Requested: 9
-[2025-11-06 10:52:18.708] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:52:18.708] >>> SENT MESSAGE
-[2025-11-06 10:52:18.708]   Direction: TO
-[2025-11-06 10:52:18.708]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:52:18.708]   From: N/A
-[2025-11-06 10:52:18.708]   Performative: REQUEST
-[2025-11-06 10:52:18.708]   Protocol: fipa-request
-[2025-11-06 10:52:18.708]   Conversation ID: req-customer-3_1762401138706
-[2025-11-06 10:52:18.708]   Reply With: rw-1762401138708
-[2025-11-06 10:52:18.708]   In Reply To: N/A
-[2025-11-06 10:52:18.708]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemC|8|298|404|5
-[2025-11-06 10:52:18.708]   Language: N/A
-[2025-11-06 10:52:18.708]   Ontology: N/A
-[2025-11-06 10:52:18.708] ---
-[2025-11-06 10:52:18.708] *** EVENT: Sent request: 8 units of ItemC (TW: 298-404 min)
-[2025-11-06 10:52:18.709] <<< RECEIVED MESSAGE
-[2025-11-06 10:52:18.709]   Direction: FROM
-[2025-11-06 10:52:18.709]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:52:18.709]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:52:18.709]   Performative: INFORM
-[2025-11-06 10:52:18.709]   Protocol: fipa-request
-[2025-11-06 10:52:18.709]   Conversation ID: req-customer-3_1762401138706
-[2025-11-06 10:52:18.709]   Reply With: customer-3@10.1.2.99:1099/JADE1762401138709
-[2025-11-06 10:52:18.709]   In Reply To: rw-1762401138708
-[2025-11-06 10:52:18.709]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 4, Requested: 8
-[2025-11-06 10:52:18.709]   Language: N/A
-[2025-11-06 10:52:18.709]   Ontology: N/A
-[2025-11-06 10:52:18.709] ---
-[2025-11-06 10:52:18.709] *** EVENT: Request rejected: Insufficient inventory. Available: 4, Requested: 8
-[2025-11-06 10:53:15.521] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:53:15.522] >>> SENT MESSAGE
-[2025-11-06 10:53:15.522]   Direction: TO
-[2025-11-06 10:53:15.522]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:53:15.522]   From: N/A
-[2025-11-06 10:53:15.522]   Performative: REQUEST
-[2025-11-06 10:53:15.522]   Protocol: fipa-request
-[2025-11-06 10:53:15.522]   Conversation ID: req-customer-3_1762401195520
-[2025-11-06 10:53:15.522]   Reply With: rw-1762401195521
-[2025-11-06 10:53:15.522]   In Reply To: N/A
-[2025-11-06 10:53:15.522]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|6|131|338|13
-[2025-11-06 10:53:15.522]   Language: N/A
-[2025-11-06 10:53:15.522]   Ontology: N/A
-[2025-11-06 10:53:15.522] ---
-[2025-11-06 10:53:15.522] *** EVENT: Sent request: 6 units of ItemA (TW: 131-338 min)
-[2025-11-06 10:53:15.523] <<< RECEIVED MESSAGE
-[2025-11-06 10:53:15.523]   Direction: FROM
-[2025-11-06 10:53:15.523]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:53:15.523]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:53:15.523]   Performative: INFORM
-[2025-11-06 10:53:15.523]   Protocol: fipa-request
-[2025-11-06 10:53:15.523]   Conversation ID: req-customer-3_1762401195520
-[2025-11-06 10:53:15.523]   Reply With: customer-3@10.1.2.99:1099/JADE1762401195522
-[2025-11-06 10:53:15.523]   In Reply To: rw-1762401195521
-[2025-11-06 10:53:15.523]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 0, Requested: 6
-[2025-11-06 10:53:15.523]   Language: N/A
-[2025-11-06 10:53:15.523]   Ontology: N/A
-[2025-11-06 10:53:15.523] ---
-[2025-11-06 10:53:15.523] *** EVENT: Request rejected: Insufficient inventory. Available: 0, Requested: 6
-[2025-11-06 10:54:04.589] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:54:04.589] >>> SENT MESSAGE
-[2025-11-06 10:54:04.589]   Direction: TO
-[2025-11-06 10:54:04.589]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:54:04.589]   From: N/A
-[2025-11-06 10:54:04.589]   Performative: REQUEST
-[2025-11-06 10:54:04.589]   Protocol: fipa-request
-[2025-11-06 10:54:04.589]   Conversation ID: req-customer-3_1762401244588
-[2025-11-06 10:54:04.589]   Reply With: rw-1762401244589
-[2025-11-06 10:54:04.589]   In Reply To: N/A
-[2025-11-06 10:54:04.589]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|6|244|383|12
-[2025-11-06 10:54:04.589]   Language: N/A
-[2025-11-06 10:54:04.589]   Ontology: N/A
-[2025-11-06 10:54:04.589] ---
-[2025-11-06 10:54:04.589] *** EVENT: Sent request: 6 units of ItemA (TW: 244-383 min)
-[2025-11-06 10:54:04.590] <<< RECEIVED MESSAGE
-[2025-11-06 10:54:04.590]   Direction: FROM
-[2025-11-06 10:54:04.590]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:54:04.590]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:54:04.590]   Performative: INFORM
-[2025-11-06 10:54:04.590]   Protocol: fipa-request
-[2025-11-06 10:54:04.590]   Conversation ID: req-customer-3_1762401244588
-[2025-11-06 10:54:04.590]   Reply With: customer-3@10.1.2.99:1099/JADE1762401244590
-[2025-11-06 10:54:04.590]   In Reply To: rw-1762401244589
-[2025-11-06 10:54:04.590]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 0, Requested: 6
-[2025-11-06 10:54:04.590]   Language: N/A
-[2025-11-06 10:54:04.590]   Ontology: N/A
-[2025-11-06 10:54:04.590] ---
-[2025-11-06 10:54:04.590] *** EVENT: Request rejected: Insufficient inventory. Available: 0, Requested: 6
-[2025-11-06 10:54:48.544] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:54:48.545] >>> SENT MESSAGE
-[2025-11-06 10:54:48.545]   Direction: TO
-[2025-11-06 10:54:48.545]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:54:48.545]   From: N/A
-[2025-11-06 10:54:48.545]   Performative: REQUEST
-[2025-11-06 10:54:48.545]   Protocol: fipa-request
-[2025-11-06 10:54:48.545]   Conversation ID: req-customer-3_1762401288543
-[2025-11-06 10:54:48.545]   Reply With: rw-1762401288545
-[2025-11-06 10:54:48.545]   In Reply To: N/A
-[2025-11-06 10:54:48.545]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemC|9|96|255|13
-[2025-11-06 10:54:48.545]   Language: N/A
-[2025-11-06 10:54:48.545]   Ontology: N/A
-[2025-11-06 10:54:48.545] ---
-[2025-11-06 10:54:48.545] *** EVENT: Sent request: 9 units of ItemC (TW: 96-255 min)
-[2025-11-06 10:54:48.547] <<< RECEIVED MESSAGE
-[2025-11-06 10:54:48.547]   Direction: FROM
-[2025-11-06 10:54:48.547]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:54:48.547]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:54:48.547]   Performative: INFORM
-[2025-11-06 10:54:48.547]   Protocol: fipa-request
-[2025-11-06 10:54:48.547]   Conversation ID: req-customer-3_1762401288543
-[2025-11-06 10:54:48.547]   Reply With: customer-3@10.1.2.99:1099/JADE1762401288546
-[2025-11-06 10:54:48.547]   In Reply To: rw-1762401288545
-[2025-11-06 10:54:48.547]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 4, Requested: 9
-[2025-11-06 10:54:48.547]   Language: N/A
-[2025-11-06 10:54:48.547]   Ontology: N/A
-[2025-11-06 10:54:48.547] ---
-[2025-11-06 10:54:48.547] *** EVENT: Request rejected: Insufficient inventory. Available: 4, Requested: 9
-[2025-11-06 10:55:36.666] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:55:36.666] >>> SENT MESSAGE
-[2025-11-06 10:55:36.666]   Direction: TO
-[2025-11-06 10:55:36.666]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:55:36.666]   From: N/A
-[2025-11-06 10:55:36.666]   Performative: REQUEST
-[2025-11-06 10:55:36.666]   Protocol: fipa-request
-[2025-11-06 10:55:36.666]   Conversation ID: req-customer-3_1762401336663
-[2025-11-06 10:55:36.666]   Reply With: rw-1762401336666
-[2025-11-06 10:55:36.666]   In Reply To: N/A
-[2025-11-06 10:55:36.666]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|7|9|153|12
-[2025-11-06 10:55:36.666]   Language: N/A
-[2025-11-06 10:55:36.666]   Ontology: N/A
-[2025-11-06 10:55:36.666] ---
-[2025-11-06 10:55:36.666] *** EVENT: Sent request: 7 units of ItemA (TW: 9-153 min)
-[2025-11-06 10:55:36.668] <<< RECEIVED MESSAGE
-[2025-11-06 10:55:36.668]   Direction: FROM
-[2025-11-06 10:55:36.668]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:55:36.668]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:55:36.668]   Performative: INFORM
-[2025-11-06 10:55:36.668]   Protocol: fipa-request
-[2025-11-06 10:55:36.668]   Conversation ID: req-customer-3_1762401336663
-[2025-11-06 10:55:36.668]   Reply With: customer-3@10.1.2.99:1099/JADE1762401336667
-[2025-11-06 10:55:36.668]   In Reply To: rw-1762401336666
-[2025-11-06 10:55:36.668]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 0, Requested: 7
-[2025-11-06 10:55:36.668]   Language: N/A
-[2025-11-06 10:55:36.668]   Ontology: N/A
-[2025-11-06 10:55:36.668] ---
-[2025-11-06 10:55:36.668] *** EVENT: Request rejected: Insufficient inventory. Available: 0, Requested: 7
-[2025-11-06 10:56:09.356] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:56:09.356] >>> SENT MESSAGE
-[2025-11-06 10:56:09.356]   Direction: TO
-[2025-11-06 10:56:09.356]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:56:09.356]   From: N/A
-[2025-11-06 10:56:09.356]   Performative: REQUEST
-[2025-11-06 10:56:09.356]   Protocol: fipa-request
-[2025-11-06 10:56:09.356]   Conversation ID: req-customer-3_1762401369354
-[2025-11-06 10:56:09.356]   Reply With: rw-1762401369356
-[2025-11-06 10:56:09.356]   In Reply To: N/A
-[2025-11-06 10:56:09.356]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemC|8|119|214|12
-[2025-11-06 10:56:09.356]   Language: N/A
-[2025-11-06 10:56:09.356]   Ontology: N/A
-[2025-11-06 10:56:09.356] ---
-[2025-11-06 10:56:09.356] *** EVENT: Sent request: 8 units of ItemC (TW: 119-214 min)
-[2025-11-06 10:56:09.357] <<< RECEIVED MESSAGE
-[2025-11-06 10:56:09.357]   Direction: FROM
-[2025-11-06 10:56:09.357]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:56:09.357]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:56:09.357]   Performative: INFORM
-[2025-11-06 10:56:09.357]   Protocol: fipa-request
-[2025-11-06 10:56:09.357]   Conversation ID: req-customer-3_1762401369354
-[2025-11-06 10:56:09.357]   Reply With: customer-3@10.1.2.99:1099/JADE1762401369357
-[2025-11-06 10:56:09.357]   In Reply To: rw-1762401369356
-[2025-11-06 10:56:09.357]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 4, Requested: 8
-[2025-11-06 10:56:09.357]   Language: N/A
-[2025-11-06 10:56:09.357]   Ontology: N/A
-[2025-11-06 10:56:09.357] ---
-[2025-11-06 10:56:09.357] *** EVENT: Request rejected: Insufficient inventory. Available: 4, Requested: 8
-[2025-11-06 10:56:41.776] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:56:41.776] >>> SENT MESSAGE
-[2025-11-06 10:56:41.776]   Direction: TO
-[2025-11-06 10:56:41.776]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:56:41.776]   From: N/A
-[2025-11-06 10:56:41.776]   Performative: REQUEST
-[2025-11-06 10:56:41.776]   Protocol: fipa-request
-[2025-11-06 10:56:41.776]   Conversation ID: req-customer-3_1762401401774
-[2025-11-06 10:56:41.776]   Reply With: rw-1762401401776
-[2025-11-06 10:56:41.776]   In Reply To: N/A
-[2025-11-06 10:56:41.776]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|7|450|619|9
-[2025-11-06 10:56:41.776]   Language: N/A
-[2025-11-06 10:56:41.776]   Ontology: N/A
-[2025-11-06 10:56:41.776] ---
-[2025-11-06 10:56:41.777] *** EVENT: Sent request: 7 units of ItemA (TW: 450-619 min)
-[2025-11-06 10:56:41.777] <<< RECEIVED MESSAGE
-[2025-11-06 10:56:41.777]   Direction: FROM
-[2025-11-06 10:56:41.777]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:56:41.778]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:56:41.778]   Performative: INFORM
-[2025-11-06 10:56:41.778]   Protocol: fipa-request
-[2025-11-06 10:56:41.778]   Conversation ID: req-customer-3_1762401401774
-[2025-11-06 10:56:41.778]   Reply With: customer-3@10.1.2.99:1099/JADE1762401401777
-[2025-11-06 10:56:41.778]   In Reply To: rw-1762401401776
-[2025-11-06 10:56:41.778]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 0, Requested: 7
-[2025-11-06 10:56:41.778]   Language: N/A
-[2025-11-06 10:56:41.778]   Ontology: N/A
-[2025-11-06 10:56:41.778] ---
-[2025-11-06 10:56:41.778] *** EVENT: Request rejected: Insufficient inventory. Available: 0, Requested: 7
-[2025-11-06 10:57:30.998] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:57:30.998] >>> SENT MESSAGE
-[2025-11-06 10:57:30.998]   Direction: TO
-[2025-11-06 10:57:30.998]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:57:30.998]   From: N/A
-[2025-11-06 10:57:30.998]   Performative: REQUEST
-[2025-11-06 10:57:30.998]   Protocol: fipa-request
-[2025-11-06 10:57:30.998]   Conversation ID: req-customer-3_1762401450998
-[2025-11-06 10:57:30.998]   Reply With: rw-1762401450998
-[2025-11-06 10:57:30.998]   In Reply To: N/A
-[2025-11-06 10:57:30.998]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|5|314|391|11
-[2025-11-06 10:57:30.998]   Language: N/A
-[2025-11-06 10:57:30.998]   Ontology: N/A
-[2025-11-06 10:57:30.998] ---
-[2025-11-06 10:57:30.998] *** EVENT: Sent request: 5 units of ItemB (TW: 314-391 min)
-[2025-11-06 10:57:30.998] <<< RECEIVED MESSAGE
-[2025-11-06 10:57:30.998]   Direction: FROM
-[2025-11-06 10:57:30.998]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:57:30.998]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:57:30.998]   Performative: INFORM
-[2025-11-06 10:57:30.998]   Protocol: fipa-request
-[2025-11-06 10:57:30.998]   Conversation ID: req-customer-3_1762401450998
-[2025-11-06 10:57:30.998]   Reply With: customer-3@10.1.2.99:1099/JADE1762401450998
-[2025-11-06 10:57:30.998]   In Reply To: rw-1762401450998
-[2025-11-06 10:57:30.998]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 3, Requested: 5
-[2025-11-06 10:57:30.998]   Language: N/A
-[2025-11-06 10:57:30.998]   Ontology: N/A
-[2025-11-06 10:57:30.998] ---
-[2025-11-06 10:57:30.998] *** EVENT: Request rejected: Insufficient inventory. Available: 3, Requested: 5
-[2025-11-06 10:58:30.130] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:58:30.131] >>> SENT MESSAGE
-[2025-11-06 10:58:30.131]   Direction: TO
-[2025-11-06 10:58:30.131]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:58:30.131]   From: N/A
-[2025-11-06 10:58:30.131]   Performative: REQUEST
-[2025-11-06 10:58:30.131]   Protocol: fipa-request
-[2025-11-06 10:58:30.131]   Conversation ID: req-customer-3_1762401510129
-[2025-11-06 10:58:30.131]   Reply With: rw-1762401510130
-[2025-11-06 10:58:30.131]   In Reply To: N/A
-[2025-11-06 10:58:30.131]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|5|9|77|8
-[2025-11-06 10:58:30.131]   Language: N/A
-[2025-11-06 10:58:30.131]   Ontology: N/A
-[2025-11-06 10:58:30.131] ---
-[2025-11-06 10:58:30.131] *** EVENT: Sent request: 5 units of ItemB (TW: 9-77 min)
-[2025-11-06 10:58:30.132] <<< RECEIVED MESSAGE
-[2025-11-06 10:58:30.132]   Direction: FROM
-[2025-11-06 10:58:30.132]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:58:30.132]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:58:30.132]   Performative: INFORM
-[2025-11-06 10:58:30.132]   Protocol: fipa-request
-[2025-11-06 10:58:30.132]   Conversation ID: req-customer-3_1762401510129
-[2025-11-06 10:58:30.132]   Reply With: customer-3@10.1.2.99:1099/JADE1762401510132
-[2025-11-06 10:58:30.132]   In Reply To: rw-1762401510130
-[2025-11-06 10:58:30.132]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 3, Requested: 5
-[2025-11-06 10:58:30.132]   Language: N/A
-[2025-11-06 10:58:30.132]   Ontology: N/A
-[2025-11-06 10:58:30.132] ---
-[2025-11-06 10:58:30.132] *** EVENT: Request rejected: Insufficient inventory. Available: 3, Requested: 5
-[2025-11-06 10:59:09.481] DF Search: Found depot via 'depot-service'
-[2025-11-06 10:59:09.482] >>> SENT MESSAGE
-[2025-11-06 10:59:09.482]   Direction: TO
-[2025-11-06 10:59:09.482]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:59:09.482]   From: N/A
-[2025-11-06 10:59:09.482]   Performative: REQUEST
-[2025-11-06 10:59:09.482]   Protocol: fipa-request
-[2025-11-06 10:59:09.482]   Conversation ID: req-customer-3_1762401549479
-[2025-11-06 10:59:09.482]   Reply With: rw-1762401549481
-[2025-11-06 10:59:09.482]   In Reply To: N/A
-[2025-11-06 10:59:09.482]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemB|5|327|500|13
-[2025-11-06 10:59:09.482]   Language: N/A
-[2025-11-06 10:59:09.482]   Ontology: N/A
-[2025-11-06 10:59:09.482] ---
-[2025-11-06 10:59:09.482] *** EVENT: Sent request: 5 units of ItemB (TW: 327-500 min)
-[2025-11-06 10:59:09.483] <<< RECEIVED MESSAGE
-[2025-11-06 10:59:09.483]   Direction: FROM
-[2025-11-06 10:59:09.483]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 10:59:09.483]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 10:59:09.483]   Performative: INFORM
-[2025-11-06 10:59:09.483]   Protocol: fipa-request
-[2025-11-06 10:59:09.483]   Conversation ID: req-customer-3_1762401549479
-[2025-11-06 10:59:09.483]   Reply With: customer-3@10.1.2.99:1099/JADE1762401549482
-[2025-11-06 10:59:09.483]   In Reply To: rw-1762401549481
-[2025-11-06 10:59:09.483]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 3, Requested: 5
-[2025-11-06 10:59:09.483]   Language: N/A
-[2025-11-06 10:59:09.483]   Ontology: N/A
-[2025-11-06 10:59:09.483] ---
-[2025-11-06 10:59:09.483] *** EVENT: Request rejected: Insufficient inventory. Available: 3, Requested: 5
-[2025-11-06 11:00:01.479] DF Search: Found depot via 'depot-service'
-[2025-11-06 11:00:01.479] >>> SENT MESSAGE
-[2025-11-06 11:00:01.479]   Direction: TO
-[2025-11-06 11:00:01.479]   To: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 11:00:01.479]   From: N/A
-[2025-11-06 11:00:01.479]   Performative: REQUEST
-[2025-11-06 11:00:01.479]   Protocol: fipa-request
-[2025-11-06 11:00:01.479]   Conversation ID: req-customer-3_1762401601471
-[2025-11-06 11:00:01.479]   Reply With: rw-1762401601479
-[2025-11-06 11:00:01.479]   In Reply To: N/A
-[2025-11-06 11:00:01.479]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|5|366|558|12
-[2025-11-06 11:00:01.479]   Language: N/A
-[2025-11-06 11:00:01.479]   Ontology: N/A
-[2025-11-06 11:00:01.479] ---
-[2025-11-06 11:00:01.479] *** EVENT: Sent request: 5 units of ItemD (TW: 366-558 min)
-[2025-11-06 11:00:01.497] <<< RECEIVED MESSAGE
-[2025-11-06 11:00:01.497]   Direction: FROM
-[2025-11-06 11:00:01.497]   To: customer-3@10.1.2.99:1099/JADE
-[2025-11-06 11:00:01.497]   From: depot-agent@10.1.2.99:1099/JADE
-[2025-11-06 11:00:01.497]   Performative: INFORM
-[2025-11-06 11:00:01.497]   Protocol: fipa-request
-[2025-11-06 11:00:01.497]   Conversation ID: req-customer-3_1762401601471
-[2025-11-06 11:00:01.497]   Reply With: customer-3@10.1.2.99:1099/JADE1762401601480
-[2025-11-06 11:00:01.497]   In Reply To: rw-1762401601479
-[2025-11-06 11:00:01.497]   Content: ITEM_UNAVAILABLE:Insufficient inventory. Available: 0, Requested: 5
-[2025-11-06 11:00:01.497]   Language: N/A
-[2025-11-06 11:00:01.497]   Ontology: N/A
-[2025-11-06 11:00:01.497] ---
-[2025-11-06 11:00:01.498] *** EVENT: Request rejected: Insufficient inventory. Available: 0, Requested: 5
-[2025-11-06 11:00:06.342] *** EVENT: Agent terminating
-[2025-11-06 11:00:06.343] *** EVENT: Deregistered from DF
-[2025-11-06 11:00:06.343] === Agent Logger Closed ===
+[2025-11-10 01:00:04.509] === Agent Logger Initialized ===
+[2025-11-10 01:00:04.509] Agent: Customer-customer-3
+[2025-11-10 01:00:04.510] Log file: logs/Customer-customer-3_conversations.log
+[2025-11-10 01:00:04.510] *** EVENT: Agent started
+[2025-11-10 01:00:04.510] Customer name: Customer3
+[2025-11-10 01:00:04.510] Position: (150.0, 200.0)
+[2025-11-10 01:00:04.512] *** EVENT: DF Registration successful
+[2025-11-10 01:00:04.512] *** EVENT: Registered with DF as 'customer-service'
+[2025-11-10 01:00:15.529] DF Search: Found depot via 'depot-service'
+[2025-11-10 01:00:15.530] >>> SENT MESSAGE
+[2025-11-10 01:00:15.530]   Direction: TO
+[2025-11-10 01:00:15.530]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:00:15.530]   From: N/A
+[2025-11-10 01:00:15.530]   Performative: REQUEST
+[2025-11-10 01:00:15.530]   Protocol: fipa-request
+[2025-11-10 01:00:15.530]   Conversation ID: req-customer-3_1762711215528
+[2025-11-10 01:00:15.530]   Reply With: rw-1762711215529
+[2025-11-10 01:00:15.530]   In Reply To: N/A
+[2025-11-10 01:00:15.530]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|9
+[2025-11-10 01:00:15.530]   Language: N/A
+[2025-11-10 01:00:15.530]   Ontology: N/A
+[2025-11-10 01:00:15.530] ---
+[2025-11-10 01:00:15.530] *** EVENT: Sent request: 9 units of ItemA
+[2025-11-10 01:00:15.531] <<< RECEIVED MESSAGE
+[2025-11-10 01:00:15.531]   Direction: FROM
+[2025-11-10 01:00:15.531]   To: customer-3@192.168.1.33:1099/JADE
+[2025-11-10 01:00:15.531]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:00:15.531]   Performative: INFORM
+[2025-11-10 01:00:15.531]   Protocol: fipa-request
+[2025-11-10 01:00:15.531]   Conversation ID: req-customer-3_1762711215528
+[2025-11-10 01:00:15.531]   Reply With: customer-3@192.168.1.33:1099/JADE1762711215531
+[2025-11-10 01:00:15.531]   In Reply To: rw-1762711215529
+[2025-11-10 01:00:15.531]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 01:00:15.531]   Language: N/A
+[2025-11-10 01:00:15.531]   Ontology: N/A
+[2025-11-10 01:00:15.531] ---
+[2025-11-10 01:00:15.531] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 01:01:12.802] DF Search: Found depot via 'depot-service'
+[2025-11-10 01:01:12.803] >>> SENT MESSAGE
+[2025-11-10 01:01:12.803]   Direction: TO
+[2025-11-10 01:01:12.803]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:12.803]   From: N/A
+[2025-11-10 01:01:12.803]   Performative: REQUEST
+[2025-11-10 01:01:12.803]   Protocol: fipa-request
+[2025-11-10 01:01:12.803]   Conversation ID: req-customer-3_1762711272801
+[2025-11-10 01:01:12.803]   Reply With: rw-1762711272802
+[2025-11-10 01:01:12.803]   In Reply To: N/A
+[2025-11-10 01:01:12.803]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemA|5
+[2025-11-10 01:01:12.803]   Language: N/A
+[2025-11-10 01:01:12.803]   Ontology: N/A
+[2025-11-10 01:01:12.803] ---
+[2025-11-10 01:01:12.803] *** EVENT: Sent request: 5 units of ItemA
+[2025-11-10 01:01:42.734] <<< RECEIVED MESSAGE
+[2025-11-10 01:01:42.734]   Direction: FROM
+[2025-11-10 01:01:42.734]   To: customer-3@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:01:42.734]   Performative: INFORM
+[2025-11-10 01:01:42.734]   Protocol: fipa-request
+[2025-11-10 01:01:42.734]   Conversation ID: req-customer-3_1762711272801
+[2025-11-10 01:01:42.734]   Reply With: customer-3@192.168.1.33:1099/JADE1762711302734
+[2025-11-10 01:01:42.734]   In Reply To: rw-1762711272802
+[2025-11-10 01:01:42.734]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 01:01:42.734]   Language: N/A
+[2025-11-10 01:01:42.734]   Ontology: N/A
+[2025-11-10 01:01:42.734] ---
+[2025-11-10 01:01:42.734] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 01:02:01.939] DF Search: Found depot via 'depot-service'
+[2025-11-10 01:02:01.940] >>> SENT MESSAGE
+[2025-11-10 01:02:01.940]   Direction: TO
+[2025-11-10 01:02:01.940]   To: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:02:01.940]   From: N/A
+[2025-11-10 01:02:01.940]   Performative: REQUEST
+[2025-11-10 01:02:01.940]   Protocol: fipa-request
+[2025-11-10 01:02:01.940]   Conversation ID: req-customer-3_1762711321938
+[2025-11-10 01:02:01.940]   Reply With: rw-1762711321939
+[2025-11-10 01:02:01.940]   In Reply To: N/A
+[2025-11-10 01:02:01.940]   Content: REQUEST:customer-3|Customer3|150.00|200.00|ItemD|13
+[2025-11-10 01:02:01.940]   Language: N/A
+[2025-11-10 01:02:01.940]   Ontology: N/A
+[2025-11-10 01:02:01.940] ---
+[2025-11-10 01:02:01.940] *** EVENT: Sent request: 13 units of ItemD
+[2025-11-10 01:02:01.940] <<< RECEIVED MESSAGE
+[2025-11-10 01:02:01.940]   Direction: FROM
+[2025-11-10 01:02:01.940]   To: customer-3@192.168.1.33:1099/JADE
+[2025-11-10 01:02:01.940]   From: depot-agent@192.168.1.33:1099/JADE
+[2025-11-10 01:02:01.940]   Performative: INFORM
+[2025-11-10 01:02:01.940]   Protocol: fipa-request
+[2025-11-10 01:02:01.940]   Conversation ID: req-customer-3_1762711321938
+[2025-11-10 01:02:01.940]   Reply With: customer-3@192.168.1.33:1099/JADE1762711321940
+[2025-11-10 01:02:01.940]   In Reply To: rw-1762711321939
+[2025-11-10 01:02:01.940]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 01:02:01.940]   Language: N/A
+[2025-11-10 01:02:01.940]   Ontology: N/A
+[2025-11-10 01:02:01.940] ---
+[2025-11-10 01:02:01.941] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 01:02:12.749] <<< RECEIVED MESSAGE
+[2025-11-10 01:02:12.749]   Direction: FROM
+[2025-11-10 01:02:12.749]   To: customer-3@192.168.1.33:1099/JADE
+[2025-11-10 01:02:12.749]   From: vehicle-Vehicle1@192.168.1.33:1099/JADE
+[2025-11-10 01:02:12.749]   Performative: INFORM
+[2025-11-10 01:02:12.749]   Protocol: fipa-request
+[2025-11-10 01:02:12.749]   Conversation ID: delivery-1762711332749
+[2025-11-10 01:02:12.749]   Reply With: N/A
+[2025-11-10 01:02:12.749]   In Reply To: N/A
+[2025-11-10 01:02:12.749]   Content: DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1
+[2025-11-10 01:02:12.749]   Language: N/A
+[2025-11-10 01:02:12.749]   Ontology: N/A
+[2025-11-10 01:02:12.749] ---
+[2025-11-10 01:02:12.749] *** EVENT: DELIVERY COMPLETE: Your order has been delivered by vehicle Vehicle1
+[2025-11-10 01:02:12.749] <<< RECEIVED MESSAGE
+[2025-11-10 01:02:12.749]   Direction: FROM
+[2025-11-10 01:02:12.749]   To: customer-3@192.168.1.33:1099/JADE
+[2025-11-10 01:02:12.749]   From: vehicle-Vehicle2@192.168.1.33:1099/JADE
+[2025-11-10 01:02:12.749]   Performative: INFORM
+[2025-11-10 01:02:12.749]   Protocol: fipa-request
+[2025-11-10 01:02:12.749]   Conversation ID: delivery-1762711332749
+[2025-11-10 01:02:12.749]   Reply With: N/A
+[2025-11-10 01:02:12.749]   In Reply To: N/A
+[2025-11-10 01:02:12.749]   Content: DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle2
+[2025-11-10 01:02:12.749]   Language: N/A
+[2025-11-10 01:02:12.749]   Ontology: N/A
+[2025-11-10 01:02:12.749] ---
+[2025-11-10 01:02:12.749] *** EVENT: DELIVERY COMPLETE: Your order has been delivered by vehicle Vehicle2
+[2025-11-10 01:02:25.576] *** EVENT: Agent terminating
+[2025-11-10 01:02:25.576] *** EVENT: Deregistered from DF
+[2025-11-10 01:02:25.576] === Agent Logger Closed ===

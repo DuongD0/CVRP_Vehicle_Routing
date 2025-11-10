@@ -26,6 +26,7 @@ import java.util.ArrayList;
 public class VehicleAgent extends Agent {
     private String vehicleName;
     private int capacity;
+    private double maxDistance;  // Maximum distance vehicle can travel (Basic Requirement 2)
     private String state; // "free", "absent", "busy"
     private Random random;
     
@@ -45,12 +46,14 @@ public class VehicleAgent extends Agent {
     @Override
     protected void setup() {
         Object[] args = getArguments();
-        if (args != null && args.length >= 2) {
+        if (args != null && args.length >= 3) {
             this.vehicleName = (String) args[0];
             this.capacity = (Integer) args[1];
+            this.maxDistance = (Double) args[2];
         } else {
             this.vehicleName = getLocalName();
             this.capacity = 30; // Default capacity
+            this.maxDistance = 1000.0; // Default max distance
         }
         
         // Initialize position (random starting location)
@@ -65,22 +68,20 @@ public class VehicleAgent extends Agent {
         this.currentRoute = null;
         
         System.out.println("Vehicle Agent " + vehicleName + " started:");
-        System.out.println("  Capacity: " + capacity);
+        System.out.println("  Capacity: " + capacity + " items");
+        System.out.println("  Max Distance: " + maxDistance);
         System.out.println("  Initial position: (" + currentX + ", " + currentY + ")");
         System.out.println("  Depot: (" + depotX + ", " + depotY + ")");
         
         // Initialize logger
         logger = new AgentLogger("Vehicle-" + vehicleName);
         logger.logEvent("Agent started");
-        logger.log("Capacity: " + capacity);
+        logger.log("Capacity: " + capacity + ", Max Distance: " + maxDistance);
         logger.log("Initial position: (" + currentX + ", " + currentY + ")");
         
         // Register with DF (Yellow Pages)
         registerWithDF();
         logger.logEvent("Registered with DF as 'vehicle-service'");
-        
-        // State changes only occur when accepting routes (absent) and completing routes (free)
-        // Removed random state change behavior
         
         // Add behavior to handle state queries
         addBehaviour(new QueryHandlerBehaviour());
@@ -107,12 +108,13 @@ public class VehicleAgent extends Agent {
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
                     reply.setProtocol(FIPANames.InteractionProtocol.FIPA_QUERY);
-                    reply.setContent("STATE:" + state + "|CAPACITY:" + capacity + "|NAME:" + vehicleName + 
-                                   "|X:" + currentX + "|Y:" + currentY);
+                    reply.setContent("STATE:" + state + "|CAPACITY:" + capacity + "|MAX_DISTANCE:" + maxDistance + 
+                                   "|NAME:" + vehicleName + "|X:" + currentX + "|Y:" + currentY);
                     logger.logSent(reply);
                     send(reply);
                     System.out.println("Vehicle " + vehicleName + " reported state: " + state + 
-                                     " at (" + currentX + ", " + currentY + ")");
+                                     " at (" + currentX + ", " + currentY + "), " +
+                                     "capacity: " + capacity + ", maxDistance: " + maxDistance);
                 }
             } else {
                 block();
@@ -151,10 +153,10 @@ public class VehicleAgent extends Agent {
             
             // Parse route information
             String content = cfp.getContent();
-            // Format: ROUTE:routeId|CUSTOMERS:customerId1,customerId2|COORDS:x1,y1;x2,y2|DEMAND:total|DISTANCE:total|TW:start1-end1,start2-end2
+            // Format: ROUTE:routeId|CUSTOMERS:customerId1,customerId2|COORDS:x1,y1;x2,y2|DEMAND:total|DISTANCE:total
             
             String[] parts = content.split("\\|");
-            if (parts.length < 6) {
+            if (parts.length < 5) {
                 ACLMessage refuse = cfp.createReply();
                 refuse.setPerformative(ACLMessage.REFUSE);
                 refuse.setContent("Invalid route format");
@@ -164,9 +166,7 @@ public class VehicleAgent extends Agent {
             int routeDemand = 0;
             double routeDistance = 0.0;
             double[] firstCustomerPos = null;
-            int firstCustomerTWStart = -1;
-            int firstCustomerTWEnd = -1;
-            int vehicleSpeed = 5;  // 5 units per minute (matches depot configuration)
+            double[] lastCustomerPos = null;
             
             try {
                 for (String part : parts) {
@@ -175,34 +175,32 @@ public class VehicleAgent extends Agent {
                     } else if (part.startsWith("DISTANCE:")) {
                         routeDistance = Double.parseDouble(part.substring("DISTANCE:".length()));
                     } else if (part.startsWith("COORDS:")) {
-                        // Parse actual customer coordinates from depot
+                        // Parse customer coordinates from depot
                         String coordsString = part.substring("COORDS:".length());
                         if (!coordsString.isEmpty()) {
-                            // Format: x1,y1;x2,y2 (first customer is first coordinate pair)
+                            // Format: x1,y1;x2,y2
                             String[] coordPairs = coordsString.split(";");
                             if (coordPairs.length > 0) {
+                                // First customer
                                 String[] firstCoords = coordPairs[0].split(",");
                                 if (firstCoords.length == 2) {
                                     firstCustomerPos = new double[]{
                                         Double.parseDouble(firstCoords[0]),
                                         Double.parseDouble(firstCoords[1])
                                     };
-                                    System.out.println("Vehicle " + vehicleName + ": First customer coordinates: (" + 
-                                                     firstCustomerPos[0] + ", " + firstCustomerPos[1] + ")");
                                 }
-                            }
-                        }
-                    } else if (part.startsWith("TW:")) {
-                        // Parse time windows: TW:start1-end1,start2-end2
-                        String twString = part.substring("TW:".length());
-                        if (!twString.isEmpty()) {
-                            String[] twParts = twString.split(",");
-                            if (twParts.length > 0) {
-                                // Get first customer time window
-                                String[] firstTW = twParts[0].split("-");
-                                if (firstTW.length == 2) {
-                                    firstCustomerTWStart = Integer.parseInt(firstTW[0]);
-                                    firstCustomerTWEnd = Integer.parseInt(firstTW[1]);
+                                // Last customer
+                                if (coordPairs.length > 1) {
+                                    String[] lastCoords = coordPairs[coordPairs.length - 1].split(",");
+                                    if (lastCoords.length == 2) {
+                                        lastCustomerPos = new double[]{
+                                            Double.parseDouble(lastCoords[0]),
+                                            Double.parseDouble(lastCoords[1])
+                                        };
+                                    }
+                                } else if (coordPairs.length == 1) {
+                                    // Only one customer, so last customer is same as first
+                                    lastCustomerPos = firstCustomerPos;
                                 }
                             }
                         }
@@ -216,7 +214,7 @@ public class VehicleAgent extends Agent {
                 return refuse;
             }
             
-            // Vehicle can refuse route if the demand is greater than the capacity
+            // BASIC REQUIREMENT: Check capacity constraint
             if (routeDemand > capacity) {
                 System.out.println("Vehicle " + vehicleName + ": Insufficient capacity (" + 
                                  routeDemand + " > " + capacity + ")");
@@ -228,76 +226,55 @@ public class VehicleAgent extends Agent {
                 return refuse;
             }
             
-            // Check time window feasibility
-            if (firstCustomerPos != null && firstCustomerTWStart >= 0) {
-                // Calculate travel time from current position to first customer
-                double distanceToFirst = Math.hypot(
-                    currentX - firstCustomerPos[0],
-                    currentY - firstCustomerPos[1]
-                );
-                int travelTime = (int)Math.ceil(distanceToFirst / vehicleSpeed);
-                int estimatedArrival = travelTime;  // Assuming vehicle can start immediately
-                
-                if (estimatedArrival > firstCustomerTWEnd) {
-                    System.out.println("Vehicle " + vehicleName + ": Cannot meet time window (" + 
-                                     estimatedArrival + " > " + firstCustomerTWEnd + ")");
-                    logger.logEvent("Refusing route: time window infeasible (arrival: " + estimatedArrival + 
-                                  " > window end: " + firstCustomerTWEnd + ")");
-                    ACLMessage refuse = cfp.createReply();
-                    refuse.setPerformative(ACLMessage.REFUSE);
-                    refuse.setContent("Time window infeasible");
-                    logger.logSent(refuse);
-                    return refuse;
-                }
-            }
-            
-            // Calculate bid cost based on:
-            // 1. Distance from current position to first customer
-            // 2. Route distance itself
-            // 3. Distance from last customer back to depot
-            // 4. Time window penalty (if arrival is early, add waiting time penalty)
-            double bidCost = routeDistance;
-            
+            // BASIC REQUIREMENT 2: Check maximum distance constraint
+            // Calculate total distance: from current position to first customer + route distance + return to depot
+            double totalRouteDistance = routeDistance;
             if (firstCustomerPos != null) {
-                // Add distance from current position to first customer
+                // Distance from current position to first customer
                 double toFirstCustomer = Math.hypot(
                     currentX - firstCustomerPos[0],
                     currentY - firstCustomerPos[1]
                 );
-                bidCost += toFirstCustomer;
-                
-                // Estimate return to depot (simplified)
-                double toDepot = Math.hypot(
-                    firstCustomerPos[0] - depotX,
-                    firstCustomerPos[1] - depotY
-                );
-                bidCost += toDepot;
-                
-                // Add time window penalty if early arrival
-                if (firstCustomerTWStart >= 0) {
-                    double distanceToFirst = Math.hypot(
-                        currentX - firstCustomerPos[0],
-                        currentY - firstCustomerPos[1]
-                    );
-                    int travelTime = (int)Math.ceil(distanceToFirst / vehicleSpeed);
-                    if (travelTime < firstCustomerTWStart) {
-                        // Early arrival penalty (waiting time)
-                        bidCost += (firstCustomerTWStart - travelTime) * 0.1;  // Small penalty for waiting
-                    }
-                }
+                totalRouteDistance += toFirstCustomer;
             }
+            if (lastCustomerPos != null) {
+                // Distance from last customer back to depot
+                double toDepot = Math.hypot(
+                    lastCustomerPos[0] - depotX,
+                    lastCustomerPos[1] - depotY
+                );
+                totalRouteDistance += toDepot;
+            }
+            
+            if (totalRouteDistance > maxDistance) {
+                System.out.println("Vehicle " + vehicleName + ": Route exceeds maximum distance (" + 
+                                 String.format("%.2f", totalRouteDistance) + " > " + maxDistance + ")");
+                logger.logEvent("Refusing route: exceeds maximum distance (" + 
+                              String.format("%.2f", totalRouteDistance) + " > " + maxDistance + ")");
+                ACLMessage refuse = cfp.createReply();
+                refuse.setPerformative(ACLMessage.REFUSE);
+                refuse.setContent("Route exceeds maximum distance");
+                logger.logSent(refuse);
+                return refuse;
+            }
+            
+            // Calculate bid cost based on total distance
+            double bidCost = totalRouteDistance;
             
             System.out.println("Vehicle " + vehicleName + ": Bidding with cost: " + String.format("%.2f", bidCost));
             System.out.println("  Route demand: " + routeDemand + "/" + capacity);
             System.out.println("  Route distance: " + String.format("%.2f", routeDistance));
+            System.out.println("  Total distance (with travel): " + String.format("%.2f", totalRouteDistance) + "/" + maxDistance);
             logger.logEvent("Bidding for route: cost=" + String.format("%.2f", bidCost) + 
-                          ", demand=" + routeDemand + "/" + capacity);
+                          ", demand=" + routeDemand + "/" + capacity +
+                          ", totalDistance=" + String.format("%.2f", totalRouteDistance) + "/" + maxDistance);
             
             // Create proposal
             ACLMessage propose = cfp.createReply();
             propose.setPerformative(ACLMessage.PROPOSE);
             propose.setContent("COST:" + String.format("%.2f", bidCost) + 
                             "|CAPACITY:" + capacity + 
+                            "|MAX_DISTANCE:" + maxDistance +
                             "|AVAILABLE:" + (capacity - routeDemand));
             logger.logSent(propose);
             

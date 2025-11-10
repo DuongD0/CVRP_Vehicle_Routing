@@ -4,25 +4,28 @@ import project.General.SolutionResult;
 
 /**
  * Abstract interface for VRP solvers.
- * Allows swapping between different solver implementations (OR-Tools, CPLEX, custom heuristics, etc.)
+ * Solves Capacitated Vehicle Routing Problem with maximum distance constraints.
+ * Prioritizes number of items delivered over total travel distance (Basic Requirement 1).
+ * Enforces maximum distance constraint per vehicle (Basic Requirement 2).
  */
 public interface VRPSolver {
     /**
-     * Solves a CVRP with Time Windows problem
+     * Solves a CVRP problem with capacity and maximum distance constraints.
+     * 
+     * Objective: Maximize number of items delivered (primary), minimize total distance (secondary)
+     * Constraints: Vehicle capacity, maximum distance per vehicle
      * 
      * @param numNodes Number of nodes (customers + depot)
      * @param numCustomers Number of customers (excluding depot)
      * @param numVehicles Number of available vehicles
-     * @param vehicleCapacity Capacity of each vehicle
+     * @param vehicleCapacities Array of capacities for each vehicle (number of items)
+     * @param vehicleMaxDistances Array of maximum distances for each vehicle
      * @param demand Array of demands for each node (index 0 is depot, demand=0)
-     * @param distance Distance matrix between nodes
-     * @param timeWindows Array of [start, end] time windows for each node (index 0 is depot)
-     * @param serviceTime Array of service times for each node (index 0 is depot, serviceTime=0)
-     * @param vehicleSpeed Speed of vehicles (distance units per minute)
-     * @return SolutionResult containing routes and total distance
+     * @param distance Distance matrix between nodes (straight-line distance)
+     * @return SolutionResult containing routes, total distance, and number of items delivered
      */
     SolutionResult solve(int numNodes, int numCustomers, int numVehicles, 
-                       int vehicleCapacity, int[] demand, int[][] distance,
-                       int[][] timeWindows, int[] serviceTime, int vehicleSpeed);
+                       int[] vehicleCapacities, double[] vehicleMaxDistances,
+                       int[] demand, int[][] distance);
 }
 
