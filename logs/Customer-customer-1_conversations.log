@@ -1,98 +1,185 @@
-[2025-11-10 01:00:04.509] === Agent Logger Initialized ===
-[2025-11-10 01:00:04.509] Agent: Customer-customer-1
-[2025-11-10 01:00:04.509] Log file: logs/Customer-customer-1_conversations.log
-[2025-11-10 01:00:04.509] *** EVENT: Agent started
-[2025-11-10 01:00:04.509] Customer name: Customer1
-[2025-11-10 01:00:04.509] Position: (100.0, 150.0)
-[2025-11-10 01:00:04.511] *** EVENT: DF Registration successful
-[2025-11-10 01:00:04.511] *** EVENT: Registered with DF as 'customer-service'
-[2025-11-10 01:00:17.215] DF Search: Found depot via 'depot-service'
-[2025-11-10 01:00:17.216] >>> SENT MESSAGE
-[2025-11-10 01:00:17.216]   Direction: TO
-[2025-11-10 01:00:17.216]   To: depot-agent@192.168.1.33:1099/JADE
-[2025-11-10 01:00:17.216]   From: N/A
-[2025-11-10 01:00:17.216]   Performative: REQUEST
-[2025-11-10 01:00:17.216]   Protocol: fipa-request
-[2025-11-10 01:00:17.216]   Conversation ID: req-customer-1_1762711217214
-[2025-11-10 01:00:17.216]   Reply With: rw-1762711217216
-[2025-11-10 01:00:17.216]   In Reply To: N/A
-[2025-11-10 01:00:17.216]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemB|9
-[2025-11-10 01:00:17.216]   Language: N/A
-[2025-11-10 01:00:17.216]   Ontology: N/A
-[2025-11-10 01:00:17.216] ---
-[2025-11-10 01:00:17.217] *** EVENT: Sent request: 9 units of ItemB
-[2025-11-10 01:00:17.218] <<< RECEIVED MESSAGE
-[2025-11-10 01:00:17.218]   Direction: FROM
-[2025-11-10 01:00:17.218]   To: customer-1@192.168.1.33:1099/JADE
-[2025-11-10 01:00:17.218]   From: depot-agent@192.168.1.33:1099/JADE
-[2025-11-10 01:00:17.218]   Performative: INFORM
-[2025-11-10 01:00:17.218]   Protocol: fipa-request
-[2025-11-10 01:00:17.218]   Conversation ID: req-customer-1_1762711217214
-[2025-11-10 01:00:17.218]   Reply With: customer-1@192.168.1.33:1099/JADE1762711217217
-[2025-11-10 01:00:17.218]   In Reply To: rw-1762711217216
-[2025-11-10 01:00:17.218]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-10 01:00:17.218]   Language: N/A
-[2025-11-10 01:00:17.218]   Ontology: N/A
-[2025-11-10 01:00:17.218] ---
-[2025-11-10 01:00:17.218] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-10 01:01:06.902] DF Search: Found depot via 'depot-service'
-[2025-11-10 01:01:06.903] >>> SENT MESSAGE
-[2025-11-10 01:01:06.903]   Direction: TO
-[2025-11-10 01:01:06.903]   To: depot-agent@192.168.1.33:1099/JADE
-[2025-11-10 01:01:06.903]   From: N/A
-[2025-11-10 01:01:06.903]   Performative: REQUEST
-[2025-11-10 01:01:06.903]   Protocol: fipa-request
-[2025-11-10 01:01:06.903]   Conversation ID: req-customer-1_1762711266899
-[2025-11-10 01:01:06.903]   Reply With: rw-1762711266902
-[2025-11-10 01:01:06.903]   In Reply To: N/A
-[2025-11-10 01:01:06.903]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemA|14
-[2025-11-10 01:01:06.903]   Language: N/A
-[2025-11-10 01:01:06.903]   Ontology: N/A
-[2025-11-10 01:01:06.903] ---
-[2025-11-10 01:01:06.903] *** EVENT: Sent request: 14 units of ItemA
-[2025-11-10 01:01:06.904] <<< RECEIVED MESSAGE
-[2025-11-10 01:01:06.904]   Direction: FROM
-[2025-11-10 01:01:06.904]   To: customer-1@192.168.1.33:1099/JADE
-[2025-11-10 01:01:06.904]   From: depot-agent@192.168.1.33:1099/JADE
-[2025-11-10 01:01:06.904]   Performative: INFORM
-[2025-11-10 01:01:06.904]   Protocol: fipa-request
-[2025-11-10 01:01:06.904]   Conversation ID: req-customer-1_1762711266899
-[2025-11-10 01:01:06.904]   Reply With: customer-1@192.168.1.33:1099/JADE1762711266904
-[2025-11-10 01:01:06.904]   In Reply To: rw-1762711266902
-[2025-11-10 01:01:06.904]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-10 01:01:06.904]   Language: N/A
-[2025-11-10 01:01:06.904]   Ontology: N/A
-[2025-11-10 01:01:06.904] ---
-[2025-11-10 01:01:06.904] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-10 01:01:48.018] DF Search: Found depot via 'depot-service'
-[2025-11-10 01:01:48.018] >>> SENT MESSAGE
-[2025-11-10 01:01:48.018]   Direction: TO
-[2025-11-10 01:01:48.018]   To: depot-agent@192.168.1.33:1099/JADE
-[2025-11-10 01:01:48.018]   From: N/A
-[2025-11-10 01:01:48.018]   Performative: REQUEST
-[2025-11-10 01:01:48.018]   Protocol: fipa-request
-[2025-11-10 01:01:48.018]   Conversation ID: req-customer-1_1762711308017
-[2025-11-10 01:01:48.018]   Reply With: rw-1762711308018
-[2025-11-10 01:01:48.018]   In Reply To: N/A
-[2025-11-10 01:01:48.018]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemA|13
-[2025-11-10 01:01:48.018]   Language: N/A
-[2025-11-10 01:01:48.018]   Ontology: N/A
-[2025-11-10 01:01:48.018] ---
-[2025-11-10 01:01:48.019] *** EVENT: Sent request: 13 units of ItemA
-[2025-11-10 01:01:48.019] <<< RECEIVED MESSAGE
-[2025-11-10 01:01:48.019]   Direction: FROM
-[2025-11-10 01:01:48.019]   To: customer-1@192.168.1.33:1099/JADE
-[2025-11-10 01:01:48.019]   From: depot-agent@192.168.1.33:1099/JADE
-[2025-11-10 01:01:48.019]   Performative: INFORM
-[2025-11-10 01:01:48.019]   Protocol: fipa-request
-[2025-11-10 01:01:48.019]   Conversation ID: req-customer-1_1762711308017
-[2025-11-10 01:01:48.019]   Reply With: customer-1@192.168.1.33:1099/JADE1762711308019
-[2025-11-10 01:01:48.019]   In Reply To: rw-1762711308018
-[2025-11-10 01:01:48.019]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
-[2025-11-10 01:01:48.019]   Language: N/A
-[2025-11-10 01:01:48.019]   Ontology: N/A
-[2025-11-10 01:01:48.019] ---
-[2025-11-10 01:01:48.019] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
-[2025-11-10 01:02:25.579] *** EVENT: Agent terminating
-[2025-11-10 01:02:25.579] *** EVENT: Deregistered from DF
-[2025-11-10 01:02:25.579] === Agent Logger Closed ===
+[2025-11-10 10:12:35.369] === Agent Logger Initialized ===
+[2025-11-10 10:12:35.370] Agent: Customer-customer-1
+[2025-11-10 10:12:35.370] Log file: logs/Customer-customer-1_conversations.log
+[2025-11-10 10:12:35.370] *** EVENT: Agent started
+[2025-11-10 10:12:35.370] Customer name: Customer1
+[2025-11-10 10:12:35.371] Position: (100.0, 150.0)
+[2025-11-10 10:12:35.374] *** EVENT: DF Registration successful
+[2025-11-10 10:12:35.374] *** EVENT: Registered with DF as 'customer-service'
+[2025-11-10 10:12:48.029] DF Search: Found depot via 'depot-service'
+[2025-11-10 10:12:48.031] >>> SENT MESSAGE
+[2025-11-10 10:12:48.031]   Direction: TO
+[2025-11-10 10:12:48.031]   To: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:12:48.084]   From: N/A
+[2025-11-10 10:12:48.084]   Performative: REQUEST
+[2025-11-10 10:12:48.084]   Protocol: fipa-request
+[2025-11-10 10:12:48.084]   Conversation ID: req-customer-1_1762744368022
+[2025-11-10 10:12:48.084]   Reply With: rw-1762744368029
+[2025-11-10 10:12:48.084]   In Reply To: N/A
+[2025-11-10 10:12:48.084]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemB|12
+[2025-11-10 10:12:48.084]   Language: N/A
+[2025-11-10 10:12:48.084]   Ontology: N/A
+[2025-11-10 10:12:48.084] ---
+[2025-11-10 10:12:48.085] *** EVENT: Sent request: 12 units of ItemB
+[2025-11-10 10:12:48.087] <<< RECEIVED MESSAGE
+[2025-11-10 10:12:48.088]   Direction: FROM
+[2025-11-10 10:12:48.088]   To: customer-1@192.168.1.42:1099/JADE
+[2025-11-10 10:12:48.088]   From: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:12:48.088]   Performative: INFORM
+[2025-11-10 10:12:48.088]   Protocol: fipa-request
+[2025-11-10 10:12:48.088]   Conversation ID: req-customer-1_1762744368022
+[2025-11-10 10:12:48.088]   Reply With: customer-1@192.168.1.42:1099/JADE1762744368086
+[2025-11-10 10:12:48.088]   In Reply To: rw-1762744368029
+[2025-11-10 10:12:48.088]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:12:48.088]   Language: N/A
+[2025-11-10 10:12:48.088]   Ontology: N/A
+[2025-11-10 10:12:48.088] ---
+[2025-11-10 10:12:48.088] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:13:47.200] DF Search: Found depot via 'depot-service'
+[2025-11-10 10:13:47.200] >>> SENT MESSAGE
+[2025-11-10 10:13:47.200]   Direction: TO
+[2025-11-10 10:13:47.200]   To: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:13:47.200]   From: N/A
+[2025-11-10 10:13:47.200]   Performative: REQUEST
+[2025-11-10 10:13:47.200]   Protocol: fipa-request
+[2025-11-10 10:13:47.200]   Conversation ID: req-customer-1_1762744427198
+[2025-11-10 10:13:47.200]   Reply With: rw-1762744427200
+[2025-11-10 10:13:47.200]   In Reply To: N/A
+[2025-11-10 10:13:47.200]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemA|9
+[2025-11-10 10:13:47.200]   Language: N/A
+[2025-11-10 10:13:47.200]   Ontology: N/A
+[2025-11-10 10:13:47.200] ---
+[2025-11-10 10:13:47.201] *** EVENT: Sent request: 9 units of ItemA
+[2025-11-10 10:14:04.554] <<< RECEIVED MESSAGE
+[2025-11-10 10:14:04.554]   Direction: FROM
+[2025-11-10 10:14:04.554]   To: customer-1@192.168.1.42:1099/JADE
+[2025-11-10 10:14:04.554]   From: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:14:04.554]   Performative: INFORM
+[2025-11-10 10:14:04.554]   Protocol: fipa-request
+[2025-11-10 10:14:04.554]   Conversation ID: req-customer-1_1762744427198
+[2025-11-10 10:14:04.554]   Reply With: customer-1@192.168.1.42:1099/JADE1762744444554
+[2025-11-10 10:14:04.554]   In Reply To: rw-1762744427200
+[2025-11-10 10:14:04.554]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:14:04.554]   Language: N/A
+[2025-11-10 10:14:04.554]   Ontology: N/A
+[2025-11-10 10:14:04.554] ---
+[2025-11-10 10:14:04.554] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:14:26.025] DF Search: Found depot via 'depot-service'
+[2025-11-10 10:14:26.025] >>> SENT MESSAGE
+[2025-11-10 10:14:26.025]   Direction: TO
+[2025-11-10 10:14:26.025]   To: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:14:26.025]   From: N/A
+[2025-11-10 10:14:26.025]   Performative: REQUEST
+[2025-11-10 10:14:26.025]   Protocol: fipa-request
+[2025-11-10 10:14:26.025]   Conversation ID: req-customer-1_1762744466025
+[2025-11-10 10:14:26.025]   Reply With: rw-1762744466025
+[2025-11-10 10:14:26.025]   In Reply To: N/A
+[2025-11-10 10:14:26.025]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemA|11
+[2025-11-10 10:14:26.025]   Language: N/A
+[2025-11-10 10:14:26.025]   Ontology: N/A
+[2025-11-10 10:14:26.025] ---
+[2025-11-10 10:14:26.025] *** EVENT: Sent request: 11 units of ItemA
+[2025-11-10 10:14:55.216] <<< RECEIVED MESSAGE
+[2025-11-10 10:14:55.216]   Direction: FROM
+[2025-11-10 10:14:55.216]   To: customer-1@192.168.1.42:1099/JADE
+[2025-11-10 10:14:55.216]   From: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:14:55.216]   Performative: INFORM
+[2025-11-10 10:14:55.216]   Protocol: fipa-request
+[2025-11-10 10:14:55.216]   Conversation ID: req-customer-1_1762744466025
+[2025-11-10 10:14:55.216]   Reply With: customer-1@192.168.1.42:1099/JADE1762744495216
+[2025-11-10 10:14:55.216]   In Reply To: rw-1762744466025
+[2025-11-10 10:14:55.216]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:14:55.216]   Language: N/A
+[2025-11-10 10:14:55.216]   Ontology: N/A
+[2025-11-10 10:14:55.216] ---
+[2025-11-10 10:14:55.216] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:15:01.461] DF Search: Found depot via 'depot-service'
+[2025-11-10 10:15:01.461] >>> SENT MESSAGE
+[2025-11-10 10:15:01.461]   Direction: TO
+[2025-11-10 10:15:01.461]   To: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:15:01.461]   From: N/A
+[2025-11-10 10:15:01.461]   Performative: REQUEST
+[2025-11-10 10:15:01.461]   Protocol: fipa-request
+[2025-11-10 10:15:01.461]   Conversation ID: req-customer-1_1762744501461
+[2025-11-10 10:15:01.461]   Reply With: rw-1762744501461
+[2025-11-10 10:15:01.461]   In Reply To: N/A
+[2025-11-10 10:15:01.461]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemB|5
+[2025-11-10 10:15:01.461]   Language: N/A
+[2025-11-10 10:15:01.461]   Ontology: N/A
+[2025-11-10 10:15:01.461] ---
+[2025-11-10 10:15:01.461] *** EVENT: Sent request: 5 units of ItemB
+[2025-11-10 10:15:01.461] <<< RECEIVED MESSAGE
+[2025-11-10 10:15:01.461]   Direction: FROM
+[2025-11-10 10:15:01.461]   To: customer-1@192.168.1.42:1099/JADE
+[2025-11-10 10:15:01.461]   From: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:15:01.461]   Performative: INFORM
+[2025-11-10 10:15:01.461]   Protocol: fipa-request
+[2025-11-10 10:15:01.461]   Conversation ID: req-customer-1_1762744501461
+[2025-11-10 10:15:01.461]   Reply With: customer-1@192.168.1.42:1099/JADE1762744501461
+[2025-11-10 10:15:01.461]   In Reply To: rw-1762744501461
+[2025-11-10 10:15:01.461]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:15:01.461]   Language: N/A
+[2025-11-10 10:15:01.461]   Ontology: N/A
+[2025-11-10 10:15:01.461] ---
+[2025-11-10 10:15:01.461] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:15:33.428] DF Search: Found depot via 'depot-service'
+[2025-11-10 10:15:33.428] >>> SENT MESSAGE
+[2025-11-10 10:15:33.428]   Direction: TO
+[2025-11-10 10:15:33.428]   To: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:15:33.428]   From: N/A
+[2025-11-10 10:15:33.428]   Performative: REQUEST
+[2025-11-10 10:15:33.428]   Protocol: fipa-request
+[2025-11-10 10:15:33.428]   Conversation ID: req-customer-1_1762744533428
+[2025-11-10 10:15:33.428]   Reply With: rw-1762744533428
+[2025-11-10 10:15:33.428]   In Reply To: N/A
+[2025-11-10 10:15:33.428]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemB|7
+[2025-11-10 10:15:33.428]   Language: N/A
+[2025-11-10 10:15:33.428]   Ontology: N/A
+[2025-11-10 10:15:33.428] ---
+[2025-11-10 10:15:33.428] *** EVENT: Sent request: 7 units of ItemB
+[2025-11-10 10:15:45.851] <<< RECEIVED MESSAGE
+[2025-11-10 10:15:45.851]   Direction: FROM
+[2025-11-10 10:15:45.851]   To: customer-1@192.168.1.42:1099/JADE
+[2025-11-10 10:15:45.851]   From: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:15:45.851]   Performative: INFORM
+[2025-11-10 10:15:45.851]   Protocol: fipa-request
+[2025-11-10 10:15:45.851]   Conversation ID: req-customer-1_1762744533428
+[2025-11-10 10:15:45.851]   Reply With: customer-1@192.168.1.42:1099/JADE1762744545851
+[2025-11-10 10:15:45.851]   In Reply To: rw-1762744533428
+[2025-11-10 10:15:45.851]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:15:45.851]   Language: N/A
+[2025-11-10 10:15:45.851]   Ontology: N/A
+[2025-11-10 10:15:45.851] ---
+[2025-11-10 10:15:45.851] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:16:05.475] DF Search: Found depot via 'depot-service'
+[2025-11-10 10:16:05.475] >>> SENT MESSAGE
+[2025-11-10 10:16:05.475]   Direction: TO
+[2025-11-10 10:16:05.475]   To: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:16:05.475]   From: N/A
+[2025-11-10 10:16:05.475]   Performative: REQUEST
+[2025-11-10 10:16:05.475]   Protocol: fipa-request
+[2025-11-10 10:16:05.475]   Conversation ID: req-customer-1_1762744565475
+[2025-11-10 10:16:05.475]   Reply With: rw-1762744565475
+[2025-11-10 10:16:05.475]   In Reply To: N/A
+[2025-11-10 10:16:05.475]   Content: REQUEST:customer-1|Customer1|100.00|150.00|ItemB|7
+[2025-11-10 10:16:05.475]   Language: N/A
+[2025-11-10 10:16:05.475]   Ontology: N/A
+[2025-11-10 10:16:05.475] ---
+[2025-11-10 10:16:05.475] *** EVENT: Sent request: 7 units of ItemB
+[2025-11-10 10:16:26.487] <<< RECEIVED MESSAGE
+[2025-11-10 10:16:26.487]   Direction: FROM
+[2025-11-10 10:16:26.487]   To: customer-1@192.168.1.42:1099/JADE
+[2025-11-10 10:16:26.487]   From: depot-agent@192.168.1.42:1099/JADE
+[2025-11-10 10:16:26.487]   Performative: INFORM
+[2025-11-10 10:16:26.487]   Protocol: fipa-request
+[2025-11-10 10:16:26.487]   Conversation ID: req-customer-1_1762744565475
+[2025-11-10 10:16:26.487]   Reply With: customer-1@192.168.1.42:1099/JADE1762744586487
+[2025-11-10 10:16:26.487]   In Reply To: rw-1762744565475
+[2025-11-10 10:16:26.487]   Content: ITEM_AVAILABLE:Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:16:26.487]   Language: N/A
+[2025-11-10 10:16:26.487]   Ontology: N/A
+[2025-11-10 10:16:26.487] ---
+[2025-11-10 10:16:26.487] *** EVENT: Request accepted: Request accepted. Item will be delivered in next batch.
+[2025-11-10 10:16:38.907] *** EVENT: Agent terminating
+[2025-11-10 10:16:38.910] *** EVENT: Deregistered from DF
+[2025-11-10 10:16:38.910] === Agent Logger Closed ===

@@ -421,15 +421,14 @@ public class Depot extends Agent {
     }
     
     /**
-     * Assigns routes to vehicles using FIPA Contract-Net protocol
+     * Assigns routes to vehicles via vehicle-to-vehicle bidding
+     * Sends route announcements to all vehicles, one route at a time
      */
     private void assignRoutesViaContractNet(SolutionResult result, List<VehicleInfo> availableVehicles) {
-        System.out.println("\n=== Depot: Contract-Net Route Assignment ===");
+        System.out.println("\n=== Depot: Vehicle-to-Vehicle Route Bidding ===");
         
-        // Create CFP (Call for Proposal) messages for each route
-        List<ACLMessage> cfps = new ArrayList<>();
-        
-        for (int i = 0; i < result.routes.size() && i < availableVehicles.size(); i++) {
+        // Process routes one at a time
+        for (int i = 0; i < result.routes.size(); i++) {
             RouteInfo route = result.routes.get(i);
             
             // Update route with proper customer coordinates
@@ -445,120 +444,136 @@ public class Depot extends Agent {
                 }
             }
             
-            // Create CFP for this route
-            ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-            cfp.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
-            cfp.setConversationId("cn-" + System.currentTimeMillis() + "-" + i);
-            
-            // Format: ROUTE:routeId|CUSTOMERS:customerId1,customerId2|COORDS:x1,y1;x2,y2|DEMAND:total|DISTANCE:total|MAX_DISTANCE:maxDist
-            StringBuilder content = new StringBuilder();
-            content.append("ROUTE:").append(i + 1).append("|");
-            content.append("CUSTOMERS:");
+            // Create route announcement
+            StringBuilder routeContent = new StringBuilder();
+            routeContent.append("ROUTE:").append(i + 1).append("|");
+            routeContent.append("CUSTOMERS:");
             for (int j = 0; j < route.customers.size(); j++) {
-                if (j > 0) content.append(",");
-                content.append(route.customers.get(j).id);
+                if (j > 0) routeContent.append(",");
+                routeContent.append(route.customers.get(j).id);
             }
-            content.append("|COORDS:");
+            routeContent.append("|COORDS:");
             for (int j = 0; j < route.customers.size(); j++) {
-                if (j > 0) content.append(";");
+                if (j > 0) routeContent.append(";");
                 CustomerInfo customer = route.customers.get(j);
-                content.append(String.format("%.2f", customer.x)).append(",").append(String.format("%.2f", customer.y));
+                routeContent.append(String.format("%.2f", customer.x)).append(",").append(String.format("%.2f", customer.y));
             }
-            content.append("|DEMAND:").append(route.totalDemand);
-            content.append("|DISTANCE:").append(String.format("%.2f", route.totalDistance));
+            routeContent.append("|DEMAND:").append(route.totalDemand);
+            routeContent.append("|DISTANCE:").append(String.format("%.2f", route.totalDistance));
             
-            cfp.setContent(content.toString());
-            
-            // Send to all available vehicles via DF (they will bid)
+            // Send route announcement to all vehicles
             List<AID> vehicleAIDs = findVehiclesViaDF();
+            ACLMessage announcement = new ACLMessage(ACLMessage.INFORM);
+            announcement.setContent("ROUTE_ANNOUNCEMENT:" + routeContent.toString());
+            announcement.setConversationId("route-" + (i + 1) + "-" + System.currentTimeMillis());
+            
             for (AID vehicleAID : vehicleAIDs) {
-                String vehicleIdentifier = vehicleAID.getLocalName();
-                for (VehicleInfo vehicle : availableVehicles) {
-                    if (vehicle.name.equals(vehicleIdentifier)) {
-                        cfp.addReceiver(vehicleAID);
-                        break;
-                    }
-                }
+                announcement.addReceiver(vehicleAID);
             }
             
-            cfps.add(cfp);
+            logger.logSent(announcement);
+            send(announcement);
+            
+            System.out.println("Depot: Announced route " + (i + 1) + " to " + vehicleAIDs.size() + " vehicles");
+            logger.logEvent("Announced route " + (i + 1) + " for vehicle-to-vehicle bidding");
         }
         
-        // Send CFP messages
-        for (ACLMessage cfp : cfps) {
-            logger.logSent(cfp);
-            send(cfp);
-        }
-        
-        // Add behavior to handle proposals
-        addBehaviour(new ContractNetProposalHandler(this, result, cfps));
+        // Add behavior to handle winner notifications from vehicles
+        addBehaviour(new RouteWinnerHandler(this, result));
     }
     
     /**
-     * Handles Contract-Net proposals from vehicles
+     * Handles winner notifications from vehicles after vehicle-to-vehicle bidding
      */
-    private class ContractNetProposalHandler extends CyclicBehaviour {
+    private class RouteWinnerHandler extends CyclicBehaviour {
         private SolutionResult solutionResult;
-        private List<ACLMessage> cfps;
-        private Map<String, ACLMessage> proposals;
-        private int processedRoutes;
+        private Map<String, Boolean> assignedRoutes;
         
-        public ContractNetProposalHandler(Agent a, SolutionResult result, List<ACLMessage> cfps) {
+        public RouteWinnerHandler(Agent a, SolutionResult result) {
             super(a);
             this.solutionResult = result;
-            this.cfps = cfps;
-            this.proposals = new HashMap<>();
-            this.processedRoutes = 0;
+            this.assignedRoutes = new HashMap<>();
+            
+            // Initialize all routes as unassigned
+            for (int i = 0; i < result.routes.size(); i++) {
+                assignedRoutes.put(String.valueOf(i + 1), false);
+            }
         }
         
         @Override
         public void action() {
-            MessageTemplate template = MessageTemplate.and(
-                MessageTemplate.MatchPerformative(ACLMessage.PROPOSE),
-                MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET)
+            // Check for winner notifications from vehicles
+            MessageTemplate winnerTemplate = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+                MessageTemplate.MatchContent("ROUTE_WON:")
             );
             
-            ACLMessage propose = receive(template);
-            if (propose != null) {
-                logger.logReceived(propose);
-                String convId = propose.getConversationId();
-                proposals.put(convId, propose);
+            ACLMessage winnerMsg = receive(winnerTemplate);
+            if (winnerMsg != null) {
+                logger.logReceived(winnerMsg);
+                handleWinnerNotification(winnerMsg);
+                return;
+            }
+            
+            block();
+        }
+        
+        private void handleWinnerNotification(ACLMessage winnerMsg) {
+            String content = winnerMsg.getContent();
+            // Format: ROUTE_WON:ROUTE:routeId|VEHICLE:vehicleName|ROUTE:routeId|CUSTOMERS:...|...
+            
+            String[] parts = content.split("\\|");
+            String routeId = null;
+            String vehicleName = null;
+            
+            for (String part : parts) {
+                if (part.startsWith("ROUTE_WON:ROUTE:") || part.startsWith("ROUTE:")) {
+                    String routePart = part.startsWith("ROUTE_WON:ROUTE:") ? 
+                        part.substring("ROUTE_WON:ROUTE:".length()) : 
+                        part.substring("ROUTE:".length());
+                    if (routeId == null) {
+                        routeId = routePart;
+                    }
+                } else if (part.startsWith("VEHICLE:")) {
+                    vehicleName = part.substring("VEHICLE:".length());
+                }
+            }
+            
+            if (routeId == null || vehicleName == null) {
+                System.err.println("Depot: Invalid winner notification format: " + content);
+                return;
+            }
+            
+            // Find corresponding route
+            int routeIndex = Integer.parseInt(routeId) - 1;
+            if (routeIndex >= 0 && routeIndex < solutionResult.routes.size()) {
+                // Check if route is already assigned (handle duplicate notifications)
+                if (assignedRoutes.get(routeId)) {
+                    System.out.println("Depot: Route " + routeId + " already assigned, ignoring duplicate notification from " + vehicleName);
+                    logger.logEvent("Route " + routeId + " already assigned, ignoring duplicate");
+                    return;
+                }
                 
-                System.out.println("Depot: Received proposal from " + propose.getSender().getName() + 
-                                 " for conversation " + convId);
+                solutionResult.routes.get(routeIndex).vehicleName = vehicleName;
+                assignedRoutes.put(routeId, true);
                 
-                // Find corresponding route
-                int routeIndex = -1;
-                for (int i = 0; i < cfps.size(); i++) {
-                    if (cfps.get(i).getConversationId().equals(convId)) {
-                        routeIndex = i;
+                System.out.println("Depot: Route " + routeId + " assigned to vehicle " + vehicleName + 
+                                 " (winner of vehicle-to-vehicle bidding)");
+                logger.logEvent("Route " + routeId + " assigned to vehicle " + vehicleName + " (winner)");
+                
+                // Check if all routes are assigned
+                boolean allAssigned = true;
+                for (Boolean assigned : assignedRoutes.values()) {
+                    if (!assigned) {
+                        allAssigned = false;
                         break;
                     }
                 }
                 
-                if (routeIndex >= 0 && routeIndex < solutionResult.routes.size()) {
-                    // Accept the proposal
-                    ACLMessage accept = propose.createReply();
-                    accept.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-                    accept.setProtocol(FIPANames.InteractionProtocol.FIPA_CONTRACT_NET);
-                    accept.setContent("ROUTE_ASSIGNED:" + (routeIndex + 1));
-                    logger.logSent(accept);
-                    send(accept);
-                    
-                    // Assign vehicle identifier to route
-                    String vehicleIdentifier = propose.getSender().getLocalName();
-                    solutionResult.routes.get(routeIndex).vehicleName = vehicleIdentifier;
-                    
-                    System.out.println("Depot: Assigned route " + (routeIndex + 1) + " to vehicle " + vehicleIdentifier);
-                    processedRoutes++;
-                    
-                    if (processedRoutes >= solutionResult.routes.size()) {
-                        System.out.println("Depot: All routes assigned via Contract-Net");
-                        myAgent.removeBehaviour(this);
-                    }
+                if (allAssigned) {
+                    System.out.println("Depot: All routes assigned via vehicle-to-vehicle bidding");
+                    logger.logEvent("All routes assigned via vehicle-to-vehicle bidding");
                 }
-            } else {
-                block();
             }
         }
     }
@@ -623,3 +638,4 @@ public class Depot extends Agent {
         logger.close();
     }
 }
+

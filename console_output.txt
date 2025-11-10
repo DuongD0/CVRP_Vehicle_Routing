@@ -1,0 +1,238 @@
+✓ Depot Agent started: depot-agent
+Depot Agent depot-agent@192.168.1.42:1099/JADE is ready.
+Depot: Inventory initialized with 4 item types
+Depot: Located at (0.0, 0.0)
+Depot: Registered with DF as 'depot-service'
+✓ Vehicle Agent started: vehicle-Vehicle1 (capacity: 50, maxDistance: 1000.0)
+Vehicle Agent Vehicle1 started:
+  Capacity: 50 items
+  Max Distance: 1000.0
+  Initial position: (-73.86595646690135, 22.18157610580053)
+  Depot: (0.0, 0.0)
+✓ Vehicle Agent started: vehicle-Vehicle2 (capacity: 40, maxDistance: 800.0)
+✓ Vehicle Agent started: vehicle-Vehicle3 (capacity: 30, maxDistance: 600.0)
+Vehicle Agent Vehicle2 started:
+  Capacity: 40 items
+  Max Distance: 800.0
+  Initial position: (-79.23058910916221, 74.25595509575615)
+  Depot: (0.0, 0.0)
+Vehicle Agent Vehicle3 started:
+  Capacity: 30 items
+  Max Distance: 600.0
+  Initial position: (-41.376387642854915, 13.328473508158154)
+  Depot: (0.0, 0.0)
+Vehicle Vehicle1: Registered with DF as 'vehicle-service'
+Vehicle Vehicle3: Registered with DF as 'vehicle-service'
+Vehicle Vehicle2: Registered with DF as 'vehicle-service'
+✓ Customer Agent started: customer-1 at (100.0, 150.0)
+Customer Agent Customer1 (customer-1) started at (100.0, 150.0)
+✓ Customer Agent started: customer-2 at (200.0, 100.0)
+Customer Agent Customer2 (customer-2) started at (200.0, 100.0)
+✓ Customer Agent started: customer-3 at (150.0, 200.0)
+✓ Customer Agent started: customer-4 at (250.0, 180.0)
+Customer Customer1: Registered with DF as 'customer-service'
+Customer Agent Customer3 (customer-3) started at (150.0, 200.0)
+Customer Agent Customer4 (customer-4) started at (250.0, 180.0)
+Customer Customer2: Registered with DF as 'customer-service'
+Customer Customer4: Registered with DF as 'customer-service'
+Customer Customer3: Registered with DF as 'customer-service'
+
+===============================================
+  MULTI-AGENT VRP SYSTEM READY
+===============================================
+Agents:
+  • Depot Agent: Manages inventory and routes vehicles
+  • Vehicle Agents: Independent agents that bid for routes
+  • Customer Agents: Send item requests to depot
+
+Discovery:
+  • All agents registered with DF (Yellow Pages)
+  • Agents discover each other automatically via DF
+
+Workflow:
+  1. Customer agents find depot via DF and send requests
+  2. Depot checks inventory and queues requests
+  3. Depot batches requests and solves VRP with constraints:
+     - Basic Requirement 1: Prioritizes items delivered over distance
+     - Basic Requirement 2: Enforces maximum distance per vehicle
+  4. Depot finds vehicles via DF and sends routes via Contract-Net
+  5. Vehicles bid based on current position, capacity, and max distance
+  6. Depot assigns routes to winning vehicles
+  7. Vehicles complete routes and return to free state
+
+All communications follow FIPA protocols
+===============================================
+
+Customer Customer1: Found depot via DF
+Customer Customer1: Requested 11 units of ItemA
+
+=== Depot: Processing Request ===
+Customer: Customer1 (customer-1)
+Item: ItemA, Quantity: 11
+Location: (100.0, 150.0)
+Depot: ✓ Item available. Inventory: ItemA = 89
+Depot: Request added to queue. Queue size: 1
+Customer Customer1: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Customer Customer3: Found depot via DF
+Customer Customer3: Requested 11 units of ItemB
+
+=== Depot: Processing Request ===
+Customer: Customer3 (customer-3)
+Item: ItemB, Quantity: 11
+Location: (150.0, 200.0)
+Depot: ✓ Item available. Inventory: ItemB = 89
+Depot: Request added to queue. Queue size: 2
+Customer Customer3: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Customer Customer2: Found depot via DF
+Customer Customer2: Requested 11 units of ItemD
+
+=== Depot: Processing Request ===
+Customer: Customer2 (customer-2)
+Item: ItemD, Quantity: 11
+Location: (200.0, 100.0)
+Depot: ✓ Item available. Inventory: ItemD = 89
+Depot: Request added to queue. Queue size: 3
+Customer Customer2: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Customer Customer4: Found depot via DF
+Customer Customer4: Requested 7 units of ItemB
+
+=== Depot: Processing Request ===
+Customer: Customer4 (customer-4)
+Item: ItemB, Quantity: 7
+Location: (250.0, 180.0)
+Depot: ✓ Item available. Inventory: ItemB = 82
+Depot: Request added to queue. Queue size: 4
+Customer Customer4: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Customer Customer1: Found depot via DF
+Customer Customer1: Requested 5 units of ItemA
+
+=== Depot: Processing Request ===
+Customer: Customer1 (customer-1)
+Item: ItemA, Quantity: 5
+Location: (100.0, 150.0)
+Depot: ✓ Item available. Inventory: ItemA = 84
+Depot: Request added to queue. Queue size: 5
+Customer Customer1: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+
+=== Depot: Processing Batch ===
+Batch size: 5
+Depot: Found 3 vehicles via DF
+Vehicle Vehicle1 reported state: free at (-73.86595646690135, 22.18157610580053), capacity: 50, maxDistance: 1000.0
+Vehicle Vehicle2 reported state: free at (-79.23058910916221, 74.25595509575615), capacity: 40, maxDistance: 800.0
+Vehicle Vehicle3 reported state: free at (-41.376387642854915, 13.328473508158154), capacity: 30, maxDistance: 600.0
+Depot: Found 3 available vehicles
+=== OR-Tools CVRP Solver (Basic Requirements 1 & 2) ===
+Nodes: 6 (including depot)
+Customers: 5
+Vehicles: 3
+Solving CVRP with capacity and maximum distance constraints...
+Objective: Maximize items delivered (primary), minimize distance (secondary)
+Customer Customer4: Found depot via DF
+Customer Customer4: Requested 7 units of ItemB
+Customer Customer3: Found depot via DF
+Customer Customer3: Requested 13 units of ItemB
+Customer Customer2: Found depot via DF
+Customer Customer2: Requested 11 units of ItemC
+Solution found in 31360 ms!
+Objective value: 671
+Vehicle 3: [5, 1, 2, 4, 3] | Items: 45/50 | Distance: 671.00/1000.00
+
+=== Solution Summary ===
+Total items delivered: 45/45
+Total distance: 671.00
+Number of routes: 1
+=== Solving Complete ===
+
+Depot: Solution found with 1 routes
+Depot: Items delivered: 45/45
+Depot: Total distance: 671.00
+
+=== Depot: Contract-Net Route Assignment ===
+Depot: Found 3 vehicles via DF
+
+=== Vehicle Vehicle1: Received CFP ===
+CFP: ROUTE:1|CUSTOMERS:5,1,2,4,3|COORDS:100.00,150.00;100.00,150.00;150.00,200.00;250.00,180.00;200.00,100.00|DEMAND:45|DISTANCE:671.00
+
+=== Vehicle Vehicle2: Received CFP ===
+CFP: ROUTE:1|CUSTOMERS:5,1,2,4,3|COORDS:100.00,150.00;100.00,150.00;150.00,200.00;250.00,180.00;200.00,100.00|DEMAND:45|DISTANCE:671.00
+
+=== Vehicle Vehicle3: Received CFP ===
+CFP: ROUTE:1|CUSTOMERS:5,1,2,4,3|COORDS:100.00,150.00;100.00,150.00;150.00,200.00;250.00,180.00;200.00,100.00|DEMAND:45|DISTANCE:671.00
+Vehicle Vehicle2: Insufficient capacity (45 > 40)
+
+=== Depot: Processing Request ===
+Customer: Customer4 (customer-4)
+Item: ItemB, Quantity: 7
+Location: (250.0, 180.0)
+Vehicle Vehicle1: Route exceeds maximum distance (1110.40 > 1000.0)
+Vehicle Vehicle3: Insufficient capacity (45 > 30)
+Depot: ✓ Item available. Inventory: ItemB = 75
+Depot: Request added to queue. Queue size: 1
+Customer Customer4: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Depot: Updated vehicle Vehicle1 state: free, capacity: 50, maxDistance: 1000.0
+
+=== Depot: Processing Request ===
+Customer: Customer3 (customer-3)
+Item: ItemB, Quantity: 13
+Location: (150.0, 200.0)
+Depot: ✓ Item available. Inventory: ItemB = 62
+Depot: Request added to queue. Queue size: 2
+Depot: Updated vehicle Vehicle2 state: free, capacity: 40, maxDistance: 800.0
+Customer Customer3: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+
+=== Depot: Processing Request ===
+Customer: Customer2 (customer-2)
+Item: ItemC, Quantity: 11
+Location: (200.0, 100.0)
+Depot: ✓ Item available. Inventory: ItemC = 89
+Depot: Request added to queue. Queue size: 3
+Customer Customer2: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Depot: Updated vehicle Vehicle3 state: free, capacity: 30, maxDistance: 600.0
+Customer Customer1: Found depot via DF
+Customer Customer1: Requested 5 units of ItemA
+
+=== Depot: Processing Request ===
+Customer: Customer1 (customer-1)
+Item: ItemA, Quantity: 5
+Location: (100.0, 150.0)
+Depot: ✓ Item available. Inventory: ItemA = 79
+Depot: Request added to queue. Queue size: 4
+Customer Customer1: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+Customer Customer3: Found depot via DF
+Customer Customer3: Requested 7 units of ItemD
+
+=== Depot: Processing Request ===
+Customer: Customer3 (customer-3)
+Item: ItemD, Quantity: 7
+Location: (150.0, 200.0)
+Depot: ✓ Item available. Inventory: ItemD = 82
+Depot: Request added to queue. Queue size: 5
+Customer Customer3: ✓ Request accepted - Request accepted. Item will be delivered in next batch.
+
+=== Depot: Processing Batch ===
+Batch size: 5
+Depot: Found 3 vehicles via DF
+Vehicle Vehicle1 reported state: free at (-73.86595646690135, 22.18157610580053), capacity: 50, maxDistance: 1000.0
+Vehicle Vehicle2 reported state: free at (-79.23058910916221, 74.25595509575615), capacity: 40, maxDistance: 800.0
+Vehicle Vehicle3 reported state: free at (-41.376387642854915, 13.328473508158154), capacity: 30, maxDistance: 600.0
+Depot: Found 3 available vehicles
+=== OR-Tools CVRP Solver (Basic Requirements 1 & 2) ===
+Nodes: 6 (including depot)
+Customers: 5
+Vehicles: 3
+Solving CVRP with capacity and maximum distance constraints...
+Objective: Maximize items delivered (primary), minimize distance (secondary)
+Customer Customer4: Found depot via DF
+Customer Customer4: Requested 13 units of ItemC
+Customer Agent Customer4 terminating.
+Customer Agent Customer3 terminating.
+Vehicle Vehicle1: Deregistered from DF
+Vehicle Agent Vehicle1 terminating.
+Vehicle Vehicle2: Deregistered from DF
+Vehicle Agent Vehicle2 terminating.
+Customer Agent Customer1 terminating.
+Customer Agent Customer2 terminating.
+Vehicle Vehicle3: Deregistered from DF
+Vehicle Agent Vehicle3 terminating.
+
+Process finished with exit code 130

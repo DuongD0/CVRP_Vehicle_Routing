@@ -18,6 +18,8 @@ import project.Utils.AgentLogger;
 import java.util.Random;
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Map;
+import java.util.HashMap;
 
 /**
  * Independent Vehicle Agent that bids for routes via Contract-Net
@@ -56,12 +58,12 @@ public class VehicleAgent extends Agent {
             this.maxDistance = 1000.0; // Default max distance
         }
         
-        // Initialize position (random starting location)
+        // Initialize position at depot
         this.depotX = 0.0;
         this.depotY = 0.0;
         this.random = new Random();
-        this.currentX = depotX + (random.nextDouble() * 200 - 100);  // Random within 100 units
-        this.currentY = depotY + (random.nextDouble() * 200 - 100);
+        this.currentX = depotX;  // Start at depot
+        this.currentY = depotY;
         
         this.state = "free"; // There are 2 states: free and absent, simulating real-world availability
         this.assignedRouteId = null;
@@ -86,8 +88,11 @@ public class VehicleAgent extends Agent {
         // Add behavior to handle state queries
         addBehaviour(new QueryHandlerBehaviour());
         
-        // Add Contract-Net responder for route bidding
-        addBehaviour(new RouteContractNetResponder(this));
+        // Add behavior for vehicle-to-vehicle route bidding
+        addBehaviour(new VehicleBiddingCoordinator());
+        
+        // Add behavior to return to depot when free
+        addBehaviour(new ReturnToDepotBehaviour(this, 5000));  // Check every 5 seconds
     }
     
     /**
@@ -123,7 +128,462 @@ public class VehicleAgent extends Agent {
     }
     
     /**
-     * Contract-Net Responder that bids on routes
+     * Vehicle-to-Vehicle Bidding Coordinator
+     * Handles route announcements, coordinates bidding among vehicles, and determines winner
+     */
+    private class VehicleBiddingCoordinator extends CyclicBehaviour {
+        // Active bidding sessions: routeId -> BidSession
+        private Map<String, BidSession> activeBids = new HashMap<>();
+        
+        @Override
+        public void action() {
+            // Check for route announcements from depot
+            MessageTemplate routeAnnouncementTemplate = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+                MessageTemplate.MatchContent("ROUTE_ANNOUNCEMENT:")
+            );
+            
+            ACLMessage announcement = receive(routeAnnouncementTemplate);
+            if (announcement != null) {
+                logger.logReceived(announcement);
+                handleRouteAnnouncement(announcement);
+                return;
+            }
+            
+            // Check for bid messages from other vehicles
+            MessageTemplate bidTemplate = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.PROPOSE),
+                MessageTemplate.MatchProtocol("vehicle-bidding")
+            );
+            
+            ACLMessage bidMsg = receive(bidTemplate);
+            if (bidMsg != null) {
+                logger.logReceived(bidMsg);
+                handleVehicleBid(bidMsg);
+                return;
+            }
+            
+            // Check for winner announcement from other vehicles
+            MessageTemplate winnerTemplate = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+                MessageTemplate.MatchProtocol("vehicle-bidding")
+            );
+            
+            ACLMessage winnerMsg = receive(winnerTemplate);
+            if (winnerMsg != null && winnerMsg.getContent() != null && winnerMsg.getContent().startsWith("WINNER:")) {
+                logger.logReceived(winnerMsg);
+                handleWinnerAnnouncement(winnerMsg);
+                return;
+            }
+            
+            block();
+        }
+        
+        /**
+         * Handles route announcement from depot
+         */
+        private void handleRouteAnnouncement(ACLMessage announcement) {
+            String content = announcement.getContent();
+            // Format: ROUTE_ANNOUNCEMENT:ROUTE:routeId|CUSTOMERS:...|COORDS:...|DEMAND:...|DISTANCE:...
+            
+            System.out.println("\n=== Vehicle " + vehicleName + ": Received Route Announcement ===");
+            logger.logEvent("Received route announcement from depot");
+            
+            // Only bid if free
+            if (!"free".equals(state)) {
+                System.out.println("Vehicle " + vehicleName + ": Not available (state: " + state + ")");
+                logger.logEvent("Skipping route: state is " + state);
+                return;
+            }
+            
+            // Parse route information
+            String routeData = content.substring("ROUTE_ANNOUNCEMENT:".length());
+            String[] parts = routeData.split("\\|");
+            
+            String routeId = null;
+            int routeDemand = 0;
+            double routeDistance = 0.0;
+            double[] firstCustomerPos = null;
+            double[] lastCustomerPos = null;
+            
+            try {
+                for (String part : parts) {
+                    if (part.startsWith("ROUTE:")) {
+                        routeId = part.substring("ROUTE:".length());
+                    } else if (part.startsWith("DEMAND:")) {
+                        routeDemand = Integer.parseInt(part.substring("DEMAND:".length()));
+                    } else if (part.startsWith("DISTANCE:")) {
+                        routeDistance = Double.parseDouble(part.substring("DISTANCE:".length()));
+                    } else if (part.startsWith("COORDS:")) {
+                        String coordsString = part.substring("COORDS:".length());
+                        if (!coordsString.isEmpty()) {
+                            String[] coordPairs = coordsString.split(";");
+                            if (coordPairs.length > 0) {
+                                String[] firstCoords = coordPairs[0].split(",");
+                                if (firstCoords.length == 2) {
+                                    firstCustomerPos = new double[]{
+                                        Double.parseDouble(firstCoords[0]),
+                                        Double.parseDouble(firstCoords[1])
+                                    };
+                                }
+                                if (coordPairs.length > 1) {
+                                    String[] lastCoords = coordPairs[coordPairs.length - 1].split(",");
+                                    if (lastCoords.length == 2) {
+                                        lastCustomerPos = new double[]{
+                                            Double.parseDouble(lastCoords[0]),
+                                            Double.parseDouble(lastCoords[1])
+                                        };
+                                    }
+                                } else {
+                                    lastCustomerPos = firstCustomerPos;
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Vehicle " + vehicleName + ": Error parsing route announcement: " + e.getMessage());
+                return;
+            }
+            
+            if (routeId == null) {
+                return;
+            }
+            
+            // Check constraints
+            if (routeDemand > capacity) {
+                System.out.println("Vehicle " + vehicleName + ": Insufficient capacity (" + 
+                                 routeDemand + " > " + capacity + ")");
+                logger.logEvent("Skipping route: insufficient capacity");
+                return;
+            }
+            
+            // Calculate total distance
+            double totalRouteDistance = routeDistance;
+            if (firstCustomerPos != null) {
+                double toFirstCustomer = Math.hypot(
+                    currentX - firstCustomerPos[0],
+                    currentY - firstCustomerPos[1]
+                );
+                totalRouteDistance += toFirstCustomer;
+            }
+            if (lastCustomerPos != null) {
+                double toDepot = Math.hypot(
+                    lastCustomerPos[0] - depotX,
+                    lastCustomerPos[1] - depotY
+                );
+                totalRouteDistance += toDepot;
+            }
+            
+            if (totalRouteDistance > maxDistance) {
+                System.out.println("Vehicle " + vehicleName + ": Route exceeds maximum distance (" + 
+                                 String.format("%.2f", totalRouteDistance) + " > " + maxDistance + ")");
+                logger.logEvent("Skipping route: exceeds maximum distance");
+                return;
+            }
+            
+            // Calculate bid cost
+            double bidCost = totalRouteDistance;
+            
+            System.out.println("Vehicle " + vehicleName + ": Bidding with cost: " + String.format("%.2f", bidCost));
+            logger.logEvent("Bidding for route " + routeId + ": cost=" + String.format("%.2f", bidCost));
+            
+            // Get or create bid session (might already exist if bids were received before announcement)
+            BidSession session = activeBids.get(routeId);
+            if (session == null) {
+                session = new BidSession(routeId, routeData, bidCost);
+                activeBids.put(routeId, session);
+            } else {
+                // Update existing session with route data and my bid
+                session.routeData = routeData;
+                session.myBid = bidCost;
+            }
+            
+            // Find other vehicles via DF and send bid
+            List<AID> otherVehicles = findOtherVehiclesViaDF();
+            if (otherVehicles.isEmpty()) {
+                // Only vehicle available, notify depot directly
+                notifyDepotWinner(routeId, routeData);
+            } else {
+                // Send bid to all other vehicles
+                for (AID vehicleAID : otherVehicles) {
+                    ACLMessage bidMsg = new ACLMessage(ACLMessage.PROPOSE);
+                    bidMsg.addReceiver(vehicleAID);
+                    bidMsg.setProtocol("vehicle-bidding");
+                    bidMsg.setConversationId("bid-" + routeId + "-" + System.currentTimeMillis());
+                    bidMsg.setContent("BID:ROUTE:" + routeId + "|VEHICLE:" + vehicleName + 
+                                    "|COST:" + String.format("%.2f", bidCost));
+                    logger.logSent(bidMsg);
+                    send(bidMsg);
+                }
+                
+                // Wait for bids from other vehicles (with timeout)
+                addBehaviour(new BidCollectionBehaviour(getAgent(), routeId, otherVehicles.size(), 3000));
+            }
+        }
+        
+        /**
+         * Handles bid message from another vehicle
+         */
+        private void handleVehicleBid(ACLMessage bidMsg) {
+            String content = bidMsg.getContent();
+            // Format: BID:ROUTE:routeId|VEHICLE:vehicleName|COST:cost
+            
+            String[] parts = content.split("\\|");
+            String routeId = null;
+            String bidderName = null;
+            double bidCost = 0.0;
+            
+            for (String part : parts) {
+                if (part.startsWith("BID:ROUTE:")) {
+                    routeId = part.substring("BID:ROUTE:".length());
+                } else if (part.startsWith("VEHICLE:")) {
+                    bidderName = part.substring("VEHICLE:".length());
+                } else if (part.startsWith("COST:")) {
+                    bidCost = Double.parseDouble(part.substring("COST:".length()));
+                }
+            }
+            
+            if (routeId == null || bidderName == null) {
+                return;
+            }
+            
+            // Get or create bid session
+            BidSession session = activeBids.get(routeId);
+            if (session == null) {
+                // This vehicle received a bid but hasn't received the route announcement yet
+                // Create a session to track this bid
+                session = new BidSession(routeId, null, 0.0);
+                activeBids.put(routeId, session);
+            }
+            
+            session.addBid(bidderName, bidCost);
+            System.out.println("Vehicle " + vehicleName + ": Received bid from " + bidderName + 
+                             " for route " + routeId + ": " + String.format("%.2f", bidCost));
+            logger.logEvent("Received bid from " + bidderName + " for route " + routeId);
+        }
+        
+        /**
+         * Handles winner announcement from another vehicle
+         */
+        private void handleWinnerAnnouncement(ACLMessage winnerMsg) {
+            String content = winnerMsg.getContent();
+            // Format: WINNER:ROUTE:routeId|VEHICLE:vehicleName|COST:cost
+            
+            String[] parts = content.split("\\|");
+            String routeId = null;
+            String winnerName = null;
+            
+            for (String part : parts) {
+                if (part.startsWith("WINNER:ROUTE:")) {
+                    routeId = part.substring("WINNER:ROUTE:".length());
+                } else if (part.startsWith("VEHICLE:")) {
+                    winnerName = part.substring("VEHICLE:".length());
+                }
+            }
+            
+            if (routeId == null) {
+                return;
+            }
+            
+            BidSession session = activeBids.get(routeId);
+            if (session != null) {
+                activeBids.remove(routeId);
+                
+                if (winnerName.equals(vehicleName)) {
+                    // I won! Notify depot
+                    notifyDepotWinner(routeId, session.routeData);
+                } else {
+                    // Someone else won
+                    System.out.println("Vehicle " + vehicleName + ": Route " + routeId + 
+                                     " won by " + winnerName);
+                    logger.logEvent("Route " + routeId + " won by " + winnerName);
+                }
+            }
+        }
+        
+        /**
+         * Collects bids from other vehicles and determines winner
+         */
+        private class BidCollectionBehaviour extends WakerBehaviour {
+            private String routeId;
+            private int expectedBids;
+            
+            public BidCollectionBehaviour(Agent a, String routeId, int expectedBids, long timeout) {
+                super(a, timeout);
+                this.routeId = routeId;
+                this.expectedBids = expectedBids;
+            }
+            
+            @Override
+            protected void onWake() {
+                BidSession session = activeBids.get(routeId);
+                if (session == null) {
+                    return;
+                }
+                
+                // Only proceed if this vehicle initiated the bid session (has routeData)
+                if (session.routeData == null) {
+                    // This vehicle only received bids but didn't initiate - don't determine winner
+                    return;
+                }
+                
+                // Add my own bid if not already added
+                if (!session.bids.containsKey(vehicleName) && session.myBid > 0) {
+                    session.addBid(vehicleName, session.myBid);
+                }
+                
+                // Determine winner (lowest cost)
+                String winner = session.determineWinner();
+                
+                if (winner != null) {
+                    System.out.println("Vehicle " + vehicleName + ": Winner determined for route " + routeId + 
+                                     ": " + winner + " with cost " + String.format("%.2f", session.getWinnerCost()));
+                    logger.logEvent("Winner determined for route " + routeId + ": " + winner);
+                    
+                    // Announce winner to all other vehicles
+                    List<AID> otherVehicles = findOtherVehiclesViaDF();
+                    for (AID vehicleAID : otherVehicles) {
+                        ACLMessage winnerMsg = new ACLMessage(ACLMessage.INFORM);
+                        winnerMsg.addReceiver(vehicleAID);
+                        winnerMsg.setProtocol("vehicle-bidding");
+                        winnerMsg.setContent("WINNER:ROUTE:" + routeId + "|VEHICLE:" + winner + 
+                                            "|COST:" + String.format("%.2f", session.getWinnerCost()));
+                        logger.logSent(winnerMsg);
+                        send(winnerMsg);
+                    }
+                    
+                    // If I won, notify depot
+                    if (winner.equals(vehicleName)) {
+                        notifyDepotWinner(routeId, session.routeData);
+                    }
+                }
+                
+                activeBids.remove(routeId);
+            }
+        }
+        
+        /**
+         * Notifies depot that this vehicle won the route
+         */
+        private void notifyDepotWinner(String routeId, String routeData) {
+            try {
+                AID depotAID = findDepotViaDF();
+                if (depotAID == null) {
+                    System.err.println("Vehicle " + vehicleName + ": Depot not found via DF");
+                    return;
+                }
+                
+                ACLMessage winnerNotification = new ACLMessage(ACLMessage.INFORM);
+                winnerNotification.addReceiver(depotAID);
+                winnerNotification.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+                winnerNotification.setContent("ROUTE_WON:ROUTE:" + routeId + "|VEHICLE:" + vehicleName + 
+                                            "|" + routeData);
+                logger.logSent(winnerNotification);
+                send(winnerNotification);
+                
+                System.out.println("Vehicle " + vehicleName + ": Notified depot - won route " + routeId);
+                logger.logEvent("Notified depot: won route " + routeId);
+                
+                // Update state
+                assignedRouteId = routeId;
+                state = "absent";
+                
+            } catch (Exception e) {
+                System.err.println("Vehicle " + vehicleName + ": Error notifying depot: " + e.getMessage());
+            }
+        }
+        
+        /**
+         * Finds other vehicles via DF (excluding self)
+         */
+        private List<AID> findOtherVehiclesViaDF() {
+            List<AID> vehicles = new ArrayList<>();
+            try {
+                DFAgentDescription dfd = new DFAgentDescription();
+                ServiceDescription sd = new ServiceDescription();
+                sd.setType("vehicle-service");
+                dfd.addServices(sd);
+                
+                DFAgentDescription[] results = DFService.search(getAgent(), dfd);
+                for (DFAgentDescription result : results) {
+                    String localName = result.getName().getLocalName();
+                    if (!localName.equals(vehicleName) && !localName.equals("vehicle-" + vehicleName)) {
+                        vehicles.add(result.getName());
+                    }
+                }
+            } catch (FIPAException fe) {
+                System.err.println("Vehicle " + vehicleName + ": Error searching DF for vehicles: " + fe.getMessage());
+            }
+            return vehicles;
+        }
+        
+        /**
+         * Finds depot via DF
+         */
+        private AID findDepotViaDF() {
+            try {
+                DFAgentDescription dfd = new DFAgentDescription();
+                ServiceDescription sd = new ServiceDescription();
+                sd.setType("depot-service");
+                dfd.addServices(sd);
+                
+                DFAgentDescription[] results = DFService.search(getAgent(), dfd);
+                if (results.length > 0) {
+                    return results[0].getName();
+                }
+            } catch (FIPAException fe) {
+                System.err.println("Vehicle " + vehicleName + ": Error searching DF for depot: " + fe.getMessage());
+            }
+            return null;
+        }
+        
+        /**
+         * Bid session for a route
+         */
+        private class BidSession {
+            String routeId;
+            String routeData;
+            double myBid;
+            Map<String, Double> bids = new HashMap<>();
+            
+            public BidSession(String routeId, String routeData, double myBid) {
+                this.routeId = routeId;
+                this.routeData = routeData;
+                this.myBid = myBid;
+            }
+            
+            public void addBid(String vehicleName, double cost) {
+                bids.put(vehicleName, cost);
+            }
+            
+            public String determineWinner() {
+                if (bids.isEmpty()) {
+                    return null;
+                }
+                
+                String winner = null;
+                double minCost = Double.MAX_VALUE;
+                
+                for (Map.Entry<String, Double> entry : bids.entrySet()) {
+                    if (entry.getValue() < minCost) {
+                        minCost = entry.getValue();
+                        winner = entry.getKey();
+                    }
+                }
+                
+                return winner;
+            }
+            
+            public double getWinnerCost() {
+                String winner = determineWinner();
+                return winner != null ? bids.get(winner) : 0.0;
+            }
+        }
+    }
+    
+    /**
+     * Contract-Net Responder that bids on routes (DEPRECATED - kept for backward compatibility)
      */
     private class RouteContractNetResponder extends ContractNetResponder {
         public RouteContractNetResponder(Agent a) {
@@ -316,15 +776,13 @@ public class VehicleAgent extends Agent {
                 }
             }
             
-            // Update position (simulate movement - in production would track actual route)
-            // For now, move closer to depot
-            currentX = depotX + (random.nextDouble() * 50 - 25);
-            currentY = depotY + (random.nextDouble() * 50 - 25);
+            // Vehicle starts route from current position (will be at depot if free)
+            // Position will be updated as route progresses (simulated in RouteCompletionBehaviour)
             
             System.out.println("Vehicle " + vehicleName + ": Assigned route " + routeId);
             System.out.println("Vehicle " + vehicleName + ": State changed to 'absent' (delivering)");
-            System.out.println("Vehicle " + vehicleName + ": New position: (" + currentX + ", " + currentY + ")");
-            logger.logEvent("State changed to 'absent' - starting delivery");
+            System.out.println("Vehicle " + vehicleName + ": Starting from position: (" + currentX + ", " + currentY + ")");
+            logger.logEvent("State changed to 'absent' - starting delivery from (" + currentX + ", " + currentY + ")");
             
             // Confirm acceptance
             ACLMessage inform = accept.createReply();
@@ -365,13 +823,13 @@ public class VehicleAgent extends Agent {
             assignedRouteId = null;
             currentRoute = null;
             
-            // Return closer to depot
-            currentX = depotX + (random.nextDouble() * 100 - 50);
-            currentY = depotY + (random.nextDouble() * 100 - 50);
+            // Return exactly to depot
+            currentX = depotX;
+            currentY = depotY;
             
-            System.out.println("Vehicle " + vehicleName + ": Route completed. Returning to free state.");
+            System.out.println("Vehicle " + vehicleName + ": Route completed. Returning to depot.");
             System.out.println("Vehicle " + vehicleName + ": Position: (" + currentX + ", " + currentY + ")");
-            logger.logEvent("Route completed. Returning to free state. New position: (" + currentX + ", " + currentY + ")");
+            logger.logEvent("Route completed. Returning to depot. Position: (" + currentX + ", " + currentY + ")");
             
             // Notify customers that their goods have arrived
             notifyCustomersDeliveryComplete(customerIds);
@@ -428,6 +886,36 @@ public class VehicleAgent extends Agent {
                 System.err.println("Vehicle " + vehicleName + ": Error searching DF for customers: " + fe.getMessage());
                 logger.log("ERROR: Failed to search DF for customers: " + fe.getMessage());
             }
+        }
+    }
+    
+    /**
+     * Behavior that returns vehicle to depot when free and not at depot
+     */
+    private class ReturnToDepotBehaviour extends CyclicBehaviour {
+        private long checkInterval;
+        
+        public ReturnToDepotBehaviour(Agent a, long checkInterval) {
+            super(a);
+            this.checkInterval = checkInterval;
+        }
+        
+        @Override
+        public void action() {
+            // Only return to depot if free and not already at depot
+            if ("free".equals(state)) {
+                double distanceToDepot = Math.hypot(currentX - depotX, currentY - depotY);
+                // If not at depot (within 1 unit tolerance), move back
+                if (distanceToDepot > 1.0) {
+                    currentX = depotX;
+                    currentY = depotY;
+                    System.out.println("Vehicle " + vehicleName + ": Returned to depot. Position: (" + currentX + ", " + currentY + ")");
+                    logger.logEvent("Returned to depot. Position: (" + currentX + ", " + currentY + ")");
+                }
+            }
+            
+            // Wait before next check
+            block(checkInterval);
         }
     }
     

@@ -1,0 +1,259 @@
+================================================================================
+CUSTOMER REQUEST BEHAVIOR AND VEHICLE DELIVERY BEHAVIOR
+================================================================================
+
+This document describes the current implementation of:
+1. Customer Request Behavior (RequestGeneratorBehaviour and ResponseHandlerBehaviour)
+2. Vehicle Delivery Behavior (RouteCompletionBehaviour and notifyDepotWinner)
+
+================================================================================
+1. CUSTOMER REQUEST BEHAVIOR
+================================================================================
+
+1.1 REQUEST GENERATOR BEHAVIOUR (RequestGeneratorBehaviour)
+------------------------------------------------------------
+Location: src/main/java/project/Agent/Customer.java (Lines 73-116)
+
+Type: TickerBehaviour (periodic behavior)
+
+Initial Period: 5000 + random.nextInt(10000) milliseconds (5-15 seconds)
+Subsequent Period: 30000 + random.nextInt(30000) milliseconds (30-60 seconds)
+
+Behavior:
+---------
+1. On each tick:
+   - Generates a random item request:
+     * Item: Randomly selected from {"ItemA", "ItemB", "ItemC", "ItemD"}
+     * Quantity: Random between 5-15 units (5 + random.nextInt(10))
+   
+   - Creates CustomerRequest object with:
+     * customerId
+     * customerName
+     * x, y coordinates
+     * itemName
+     * quantity
+
+2. Finds Depot via DF (Directory Facilitator):
+   - Searches for "depot-service" type
+   - If depot not found, logs error and returns
+
+3. Sends FIPA-REQUEST message to Depot:
+   - Performative: REQUEST
+   - Protocol: fipa-request
+   - Conversation ID: "req-" + request.requestId
+   - Reply With: "rw-" + System.currentTimeMillis()
+   - Content Format: "REQUEST:customerId|customerName|x|y|itemName|quantity"
+   
+   Example: "REQUEST:customer-1|Customer1|100.00|150.00|ItemA|5"
+
+4. Logs the request:
+   - Logs sent message
+   - Logs event: "Sent request: {quantity} units of {itemName}"
+   - Prints to console
+
+5. Resets period for next request (30-60 seconds)
+
+
+1.2 RESPONSE HANDLER BEHAVIOUR (ResponseHandlerBehaviour)
+----------------------------------------------------------
+Location: src/main/java/project/Agent/Customer.java (Lines 121-152)
+
+Type: CyclicBehaviour (continuous behavior)
+
+Behavior:
+---------
+1. Continuously listens for messages from Depot
+
+2. When message received:
+   - Logs received message
+   - Parses message content
+
+3. Handles different message types:
+
+   a) INFORM messages:
+      - "ITEM_AVAILABLE:..." 
+        → Logs: "Request accepted: {message}"
+        → Prints: "✓ Request accepted - {message}"
+      
+      - "ITEM_UNAVAILABLE:..."
+        → Logs: "Request rejected: {message}"
+        → Prints: "✗ Request rejected - {message}"
+      
+      - "ROUTE_ASSIGNED:..."
+        → Logs: "Route assigned: {message}"
+        → Prints: "Route assigned - {message}"
+      
+      - "DELIVERY_COMPLETE:..."
+        → Logs: "DELIVERY COMPLETE: {message}"
+        → Prints: "✓✓✓ DELIVERY COMPLETE - {message}"
+
+   b) REFUSE messages:
+      → Logs: "Request refused: {content}"
+      → Prints: "Request was refused - {content}"
+
+4. Blocks if no message received (waits for next message)
+
+
+================================================================================
+2. VEHICLE DELIVERY BEHAVIOR
+================================================================================
+
+2.1 ROUTE ASSIGNMENT (notifyDepotWinner)
+----------------------------------------
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 469-495)
+
+Trigger: When vehicle wins route in vehicle-to-vehicle bidding
+
+Behavior:
+---------
+1. Finds Depot via DF:
+   - Searches for "depot-service" type
+   - If not found, logs error and returns
+
+2. Sends winner notification to Depot:
+   - Performative: INFORM
+   - Protocol: fipa-request
+   - Content Format: "ROUTE_WON:ROUTE:{routeId}|VEHICLE:{vehicleName}|{routeData}"
+   
+   Example: "ROUTE_WON:ROUTE:1|VEHICLE:Vehicle1|ROUTE:1|CUSTOMERS:1,2,3|..."
+
+3. Updates vehicle state:
+   - assignedRouteId = routeId
+   - state = "absent" (vehicle is now delivering)
+
+4. Logs:
+   - Logs sent notification
+   - Logs event: "Notified depot: won route {routeId}"
+   - Prints: "Notified depot - won route {routeId}"
+
+
+2.2 ROUTE COMPLETION BEHAVIOUR (RouteCompletionBehaviour)
+---------------------------------------------------------
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 812-836)
+
+Type: WakerBehaviour (one-time behavior after timeout)
+
+Timeout: 30000 milliseconds (30 seconds)
+
+Parameters:
+- customerIds: List of customer IDs on the route
+
+Behavior (onWake - after 30 seconds):
+-------------------------------------
+1. Updates vehicle state:
+   - state = "free" (vehicle is now available again)
+   - assignedRouteId = null
+   - currentRoute = null
+
+2. Returns vehicle to depot:
+   - currentX = depotX (0.0)
+   - currentY = depotY (0.0)
+   - Position is set directly (no movement simulation)
+
+3. Logs:
+   - Logs event: "Route completed. Returning to depot. Position: (0.0, 0.0)"
+   - Prints: "Route completed. Returning to depot."
+   - Prints: "Position: (0.0, 0.0)"
+
+4. Notifies customers:
+   - Calls notifyCustomersDeliveryComplete(customerIds)
+
+
+2.3 CUSTOMER DELIVERY NOTIFICATION (notifyCustomersDeliveryComplete)
+----------------------------------------------------------------------
+Location: src/main/java/project/Agent/VehicleAgent.java (Lines 841-889)
+
+Trigger: Called by RouteCompletionBehaviour after route completion
+
+Behavior:
+---------
+1. Validates customer IDs:
+   - If customerIds is null or empty, returns immediately
+
+2. Finds customers via DF:
+   - Searches for "customer-service" type
+   - Creates map of customer IDs to AIDs
+   - Matches customer IDs from route with discovered customers
+
+3. Sends delivery notification to each customer:
+   - Performative: INFORM
+   - Protocol: fipa-request
+   - Conversation ID: "delivery-" + System.currentTimeMillis()
+   - Content: "DELIVERY_COMPLETE:Your order has been delivered by vehicle {vehicleName}"
+   
+   Example: "DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1"
+
+4. Logs:
+   - Logs sent message for each customer
+   - Prints: "Notified customer {customerId} about delivery completion"
+   - If customer not found: "Could not find customer {customerId} via DF for notification"
+
+5. Error handling:
+   - Catches FIPAException if DF search fails
+   - Logs error message
+
+
+================================================================================
+3. CURRENT LIMITATIONS / NOTES
+================================================================================
+
+3.1 Movement Simulation:
+------------------------
+- Vehicle position is NOT updated during route execution
+- Vehicle waits 30 seconds, then teleports back to depot
+- No step-by-step movement to customer locations
+- No intermediate position updates during delivery
+
+3.2 Route Execution:
+--------------------
+- Route completion is simulated with a fixed 30-second timeout
+- No actual travel time calculation based on distance
+- No visiting customers one by one
+- Position remains at starting location during entire route
+
+3.3 Customer Request Timing:
+----------------------------
+- First request: 5-15 seconds after customer agent starts
+- Subsequent requests: 30-60 seconds apart
+- Requests are independent (no coordination between customers)
+
+3.4 Delivery Notification:
+--------------------------
+- All customers on route are notified simultaneously
+- Notification happens after 30 seconds (not when actually delivered)
+- No individual customer delivery tracking
+
+
+================================================================================
+4. MESSAGE FLOW SUMMARY
+================================================================================
+
+Customer Request Flow:
+---------------------
+1. Customer → Depot: REQUEST (item, quantity, location)
+2. Depot → Customer: INFORM (ITEM_AVAILABLE or ITEM_UNAVAILABLE)
+3. [Depot processes batch, solves VRP, announces routes]
+4. [Vehicles bid among themselves]
+5. Winner Vehicle → Depot: INFORM (ROUTE_WON)
+6. [Vehicle executes route - 30 seconds]
+7. Vehicle → Customers: INFORM (DELIVERY_COMPLETE)
+8. Customer receives: DELIVERY_COMPLETE notification
+
+Vehicle Delivery Flow:
+---------------------
+1. Vehicle wins route in bidding
+2. Vehicle notifies depot (ROUTE_WON)
+3. Vehicle state changes to "absent"
+4. RouteCompletionBehaviour starts (30 second timer)
+5. After 30 seconds:
+   - Vehicle state changes to "free"
+   - Vehicle position set to depot (0, 0)
+   - Vehicle notifies all customers on route
+6. Vehicle returns to depot (already there)
+
+
+================================================================================
+END OF DOCUMENT
+================================================================================
+
+
