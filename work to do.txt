@@ -1,0 +1,7 @@
+work to do:
+- fix the agents behavior, proper log for debugging (most crucial)
+- gui with input & sample scenario
+- refactor code to make the sample be a txt/json file as requirement
+- show test cases for the current implementation
+- have a complete scenario & overall workflow diagram
+- report
