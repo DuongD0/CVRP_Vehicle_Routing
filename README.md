@@ -1,268 +1,159 @@
-# CVRP Multi-Agent System - Basic Requirements 1 & 2
+# CVRP Multi-Agent System
 
-A multi-agent system implementation for solving the **Capacitated Vehicle Routing Problem (CVRP)** with capacity and maximum distance constraints using JADE (Java Agent Development Framework) and OR-Tools solver. The system implements Basic Requirements 1 and 2:
+A multi-agent system implementation for solving the **Capacitated Vehicle Routing Problem (CVRP)** using JADE (Java Agent Development Framework) and Google OR-Tools solver.
 
-- **Basic Requirement 1:** Prioritizes number of items delivered over total travel distance
-- **Basic Requirement 2:** Enforces maximum distance constraint per vehicle (dv)
+## Overview
+
+This system implements a CVRP solution where:
+- **MRA (Master Routing Agent)** reads the problem from configuration, queries Delivery Agents for vehicle information, solves routes using Google OR-Tools, and assigns routes to Delivery Agents.
+- **DA (Delivery Agent)** responds to MRA queries with capacity and maximum travel distance, and executes assigned routes.
+- Agents discover each other through JADE's Yellow Pages (DF) using service types (no hardcoded names).
+- All communication uses FIPA protocols (FIPA-Request).
+- Results are logged as JSON files.
 
 ## Table of Contents
 
-1. [Project Structure](#project-structure)
-2. [Agent Architecture](#agent-architecture)
-3. [Basic Requirements](#basic-requirements)
-4. [Agent Roles](#agent-roles)
-5. [Workflow](#workflow)
-6. [Usage](#usage)
-7. [Test Cases](#test-cases)
+1. [Agent Architecture](#agent-architecture)
+2. [Agent Requirements](#agent-requirements)
+3. [Problem Specification](#problem-specification)
+4. [Configuration](#configuration)
+5. [Usage](#usage)
+6. [Test Cases](#test-cases)
+7. [Output](#output)
 8. [Technical Details](#technical-details)
-
----
-
-## Project Structure
-
-```
-src/main/java/project/
-├── Agent/
-│   ├── Customer.java          # Customer agent that sends item requests
-│   ├── Depot.java             # Depot agent that manages inventory and solves CVRP
-│   └── VehicleAgent.java      # Vehicle agent that bids for routes with constraints
-├── General/
-│   ├── CustomerInfo.java      # Customer data structure
-│   ├── CustomerRequest.java   # Request data structure
-│   ├── RouteInfo.java         # Route data structure
-│   ├── SolutionResult.java    # Solver result structure (includes itemsDelivered)
-│   └── VehicleInfo.java       # Vehicle data structure (includes maxDistance)
-├── Solver/
-│   ├── VRPSolver.java         # Solver interface
-│   └── ORToolsSolver.java     # OR-Tools CVRP implementation with constraints
-└── Main.java                  # Entry point - creates and starts agents
-```
 
 ---
 
 ## Agent Architecture
 
-The system implements a **decentralized multi-agent architecture** where:
-
-- **Agents are independent** - No direct dependencies between agents
-- **Service discovery via DF only** - Agents discover each other exclusively through JADE's Directory Facilitator (Yellow Pages)
-- **No hardcoded agent names** - All communication uses DF service discovery
-- **FIPA protocol compliance** - All communications follow FIPA standards
-- **Pluggable solver** - Solver implementation can be swapped via interface
-
-### Agent Discovery Flow
-
-1. All agents register their services with DF at startup
-2. Agents discover each other by searching DF for service types:
-   - **Depot** searches for `vehicle-service` (no knowledge of vehicle names)
-   - **Customers** search for `depot-service` (no knowledge of depot name)
-   - **Vehicles** register as `vehicle-service` and are discovered dynamically
-
-**Critical:** Agents **never** use hardcoded agent names. All discovery is done through DF service type matching.
-
----
-
-## Basic Requirements
-
-### Basic Requirement 1: Prioritize Items Delivered Over Distance
-
-**Objective:** Maximize number of items delivered (primary), minimize total travel distance (secondary)
-
-**Implementation:**
-- OR-Tools solver uses disjunction with large penalty (1,000,000) for unvisited nodes
-- This ensures that visiting nodes (delivering items) takes precedence over distance minimization
-- Solver will try to visit as many nodes as possible first, then minimize distance as secondary objective
-
-**Example:**
-- Solution 1: Delivers 21 items with total distance 500 → **Better**
-- Solution 2: Delivers 20 items with total distance 400 → Worse
-
-### Basic Requirement 2: Maximum Distance Constraint Per Vehicle
-
-**Constraint:** Each vehicle v can only travel a maximum distance dv
-
-**Implementation:**
-- Each vehicle has a `maxDistance` field (dv)
-- OR-Tools solver adds distance dimension with vehicle-specific maximum distances
-- Vehicles check maximum distance constraint during bidding phase
-- Solver enforces distance constraint during optimization
-
-**Distance Calculation:**
-- Total route distance = distance from current position to first customer + route distance + distance from last customer to depot
-- Route is refused if total distance > vehicle's maxDistance
-
----
-
-## Agent Roles
-
-### 1. Depot Agent (`Depot.java`)
+### Master Routing Agent (MRA)
 
 **Responsibilities:**
-- Manages inventory (simple dictionary: `Map<String, Integer>`)
-- Receives and processes customer requests
-- Checks item availability
-- Batches requests for routing
-- Solves **CVRP** with capacity and maximum distance constraints
-- Assigns routes to vehicles via Contract-Net protocol
+- Has its own location (acts as the depot where all DAs start from and travel back to)
+- Reads the problem passed by main (about the "customers" it needs to deliver packages to)
+- Asks for vehicle information from DAs, combines with customer information to solve routes
+- Assigns routes back to the DAs to deliver
 
-**Services Registered:**
-- Service Type: `depot-service`
-- Service Name: `VRP-Depot`
-
-**Key Behaviors:**
-- `CustomerRequestHandler` - Handles FIPA-REQUEST messages from customers
-- `BatchProcessor` - Processes request batches when threshold reached (default: 5 requests)
-- `VehicleStateResponseHandler` - Updates vehicle state from responses
-- `ContractNetProposalHandler` - Handles route assignment via Contract-Net
-
-**Inventory System:**
-- Simple in-memory dictionary: `Map<String, Integer>`
-- Items: ItemA, ItemB, ItemC, ItemD (each initialized to 100 units)
-- Located at coordinates: **(0, 0)**
+**Service Registration:**
+- Registers with DF as `mra-service`
+- Discovers DAs via `da-service` type
 
 **Communication:**
-- Receives: `FIPA-REQUEST` from customers
-- Sends: `FIPA-REQUEST` (INFORM/REFUSE) to customers
-- Discovers vehicles: `DFService.search()` for `vehicle-service`
-- Sends: `FIPA-QUERY` to discovered vehicles
-- Sends: `FIPA Contract-Net` (CFP) to discovered vehicles for route bidding
+- Uses FIPA-Request protocol to query DAs for vehicle information
+- Uses FIPA-Request protocol to assign routes to DAs
 
----
-
-### 2. Vehicle Agent (`VehicleAgent.java`)
+### Delivery Agent (DA)
 
 **Responsibilities:**
-- Maintains current position (not always at depot)
-- Tracks state: `free` or `absent`
-- Participates in Contract-Net bidding for routes
-- **Checks capacity constraint** before bidding
-- **Checks maximum distance constraint** before bidding
-- Calculates bid cost based on total distance
-- Completes assigned routes and returns to free state
+- Has its own capacity & maximum travel distance
+- Responds to MRA queries with vehicle information
+- Accepts route assignments from MRA
+- Executes routes and returns to depot
 
-**Services Registered:**
-- Service Type: `vehicle-service`
-- Service Name: `VRP-Vehicle-{localName}`
-
-**Key Behaviors:**
-- `QueryHandlerBehaviour` - Responds to state queries from depot
-- `VehicleBiddingCoordinator` - Handles vehicle-to-vehicle bidding for routes
-- `MovementBehaviour` - Real movement simulation (10 units/second toward customers)
-- `ReturnToDepotBehaviour` - Safety mechanism to return vehicle to depot when free
-
-**Constraint Checks:**
-- **Capacity Check:** Route demand ≤ vehicle capacity
-- **Distance Check:** Total route distance ≤ vehicle maxDistance
-- Total distance = current position → first customer + route distance + last customer → depot
-
-**Bid Calculation:**
-- Considers distance from current position to first customer
-- Includes route distance
-- Includes return distance to depot
-- Checks capacity constraints
-- Checks maximum distance constraints
+**Service Registration:**
+- Registers with DF as `da-service`
+- Discovers MRA via `mra-service` type
 
 **Communication:**
-- Receives: `FIPA-QUERY` from depot (state queries)
-- Receives: `FIPA Contract-Net` (CFP) from depot
-- Sends: `FIPA-QUERY` (INFORM) responses
-- Sends: `FIPA Contract-Net` (PROPOSE) bids or REFUSE if constraints violated
-- Sends: `FIPA Contract-Net` (INFORM) after route acceptance
+- Uses FIPA-Request protocol to respond to MRA queries
+- Uses FIPA-Request protocol to receive route assignments
 
 ---
 
-### 3. Customer Agent (`Customer.java`)
+## Agent Requirements
 
-**Responsibilities:**
-- Generates random item requests
-- Finds depot via DF (no hardcoded depot name)
-- Sends item requests to depot
-- Receives responses about request status
-- Receives delivery completion notifications
+### Service Discovery
 
-**Services Registered:**
-- Service Type: `customer-service`
-- Service Name: `VRP-Customer-{id}`
+- **MRA and DA must register their services to JADE's Yellow Pages (DF)**
+- **Must find each other through the type of service (no hardcoded names)**
+  - MRA searches for `da-service` type
+  - DA searches for `mra-service` type
+- **Initiated using a configuration file** (the main reads that file and starts the agents)
 
-**Key Behaviors:**
-- `RequestGeneratorBehaviour` - Generates requests every 30-60 seconds
-- `ResponseHandlerBehaviour` - Handles responses from depot
+### Communication Protocol
 
-**Request Generation:**
-- Items: Randomly selects from ItemA, ItemB, ItemC, ItemD
-- Quantity: 5-15 units per request
-- Includes: customer ID, name, coordinates, item name, quantity
+- **Proper FIPA communication protocol must be used**
+- **Protocol choice:** FIPA-Request for queries/answers and route assignments
+- **All messages include:**
+  - Sender, receiver, performative, content, timestamp
+  - Conversation IDs for tracking
 
-**Communication:**
-- Discovers depot: `DFService.search()` for `depot-service`
-- Sends: `FIPA-REQUEST` to discovered depot
-- Receives: `FIPA-REQUEST` (INFORM/REFUSE) from depot
-- Receives: `FIPA-REQUEST` (INFORM) from vehicles (delivery completion)
+### Logging
+
+- **Proper logs must be extracted to show the detailed communication process of the agents**
+- **Logging level:** Save both message-level logs (sender, receiver, performative, content, timestamp) and result logs (routes assigned, route distance, items delivered)
+- **Output format:** Put final results in JSON and also produce a human-readable summary in the console
 
 ---
 
-## Workflow
+## Problem Specification
 
-### Complete System Workflow
+### CVRP Problem
 
+The system solves a Capacitated Vehicle Routing Problem where:
+
+- **Customer list contains:**
+  - Customer ID (node ID)
+  - Demand (number of items)
+  - Coordinates (x, y)
+
+- **Solution must work when total demand is larger than total vehicle capacity**
+  - Optimal solution is to deliver the most packages with the least distance
+  - **Prefer number of packages delivered over minimizing distance**
+
+- **Solver:** Uses Google OR-Tools as the main solver
+
+### Optimization Objective
+
+1. **Primary:** Maximize number of packages delivered
+2. **Secondary:** Minimize total travel distance
+
+The solver prioritizes visiting as many customers as possible (delivering more packages) over minimizing distance. This is achieved by using large penalties for unvisited nodes in OR-Tools.
+
+---
+
+## Configuration
+
+The system uses JSON configuration files. Each configuration file contains:
+
+```json
+{
+  "depot": {
+    "name": "mra",
+    "x": 0.0,
+    "y": 0.0
+  },
+  "vehicles": [
+    {
+      "name": "DA1",
+      "capacity": 50,
+      "maxDistance": 1000.0
+    }
+  ],
+  "customers": [
+    {
+      "id": "1",
+      "demand": 10,
+      "x": 10.0,
+      "y": 10.0
+    }
+  ]
+}
 ```
-1. System Startup
-   ├─ Main.java creates and starts all agents independently
-   ├─ Each agent registers with DF (Yellow Pages) using service types
-   └─ Agents discover each other via DF service type matching (no hardcoded names)
 
-2. Customer Request Flow
-   ├─ Customer generates random request (item + quantity)
-   ├─ Customer finds depot via DF search (service type: "depot-service")
-   ├─ Customer sends FIPA-REQUEST to discovered depot
-   ├─ Depot checks inventory
-   │  ├─ If available: Reserve items, queue request, send INFORM
-   │  └─ If unavailable: Send INFORM with availability status
-   └─ Customer logs response
+### Configuration Fields
 
-3. Batch Processing Flow (when threshold reached)
-   ├─ Depot batches requests (default: 5+ requests)
-   ├─ Depot finds vehicles via DF search (service type: "vehicle-service")
-   ├─ Depot queries vehicle states (FIPA-QUERY) using discovered AIDs
-   ├─ Depot filters free vehicles
-   ├─ Depot builds CVRP problem from requests
-   ├─ Depot calls solver (OR-Tools CVRP with constraints)
-   ├─ Depot receives solution with routes respecting constraints
-   └─ Depot assigns routes via Contract-Net
-
-4. Route Assignment Flow (Contract-Net with Constraints)
-   ├─ Depot sends CFP (Call for Proposal) to all discovered free vehicles
-   │  └─ CFP includes: route info, customers, demand, distance
-   ├─ Each vehicle evaluates route:
-   │  ├─ Checks capacity constraints
-   │  ├─ Checks maximum distance constraints
-   │  ├─ Calculates bid cost (total distance)
-   │  └─ Sends PROPOSE if feasible, REFUSE if constraints violated
-   ├─ Depot receives proposals
-   ├─ Depot accepts proposals
-   ├─ Vehicles receive ACCEPT_PROPOSAL
-   ├─ Vehicles confirm with INFORM
-   └─ Vehicles mark as busy and execute route
-
-5. Route Execution with Real Movement
-   ├─ Vehicle parses route data and extracts customer information
-   ├─ MovementBehaviour starts (updates position every 1 second)
-   ├─ Vehicle moves toward customers (10 units/second):
-   │  ├─ Position updated every second using linear interpolation
-   │  ├─ Distance calculated and movement interpolated
-   │  └─ Logs position every 5 seconds
-   ├─ When vehicle arrives at customer (within 1 unit threshold):
-   │  ├─ Vehicle notifies customer (DELIVERY_COMPLETE)
-   │  ├─ Vehicle moves to next customer in route
-   │  └─ Repeat for all customers
-   ├─ After all customers visited:
-   │  ├─ Vehicle returns to depot (10 units/second)
-   │  └─ Position updated every second during return
-   └─ When vehicle arrives at depot:
-      ├─ Vehicle state changes to "free"
-      ├─ Vehicle position set to depot (0, 0) exactly
-      └─ MovementBehaviour stops
-```
+- **depot:** Depot location and name
+  - `name`: Agent name for MRA
+  - `x`, `y`: Depot coordinates
+- **vehicles:** List of Delivery Agents
+  - `name`: Agent name for DA
+  - `capacity`: Maximum number of items vehicle can carry
+  - `maxDistance`: Maximum distance vehicle can travel
+- **customers:** List of customers to deliver to
+  - `id`: Customer node ID
+  - `demand`: Number of items to deliver
+  - `x`, `y`: Customer coordinates
 
 ---
 
@@ -273,7 +164,8 @@ The system implements a **decentralized multi-agent architecture** where:
 - Java JDK 8 or higher
 - Maven (for dependency management)
 - JADE framework (included in dependencies)
-- OR-Tools native libraries (for solver)
+- Google OR-Tools native libraries (for solver)
+- Gson library (for JSON parsing)
 
 ### Building the Project
 
@@ -281,8 +173,11 @@ The system implements a **decentralized multi-agent architecture** where:
 # Compile the project
 mvn clean compile
 
-# Run the system
+# Run the system with default config
 mvn exec:java -Dexec.mainClass="project.Main"
+
+# Run with specific config file
+mvn exec:java -Dexec.mainClass="project.Main" -Dexec.args="config/case_small.json"
 ```
 
 ### Running with JADE GUI
@@ -292,240 +187,199 @@ The system automatically starts with JADE GUI enabled. You can:
 1. **View agent status** - See all agents in the agent tree
 2. **Monitor messages** - View FIPA messages in the message queue
 3. **Check DF** - Open DF GUI to see registered services:
-   - Tools → DF GUI
-   - Verify all services are registered by type (not by name)
-4. **View agent logs** - Console output shows all agent activities
-
-### Configuration
-
-**Depot Configuration:**
-- Location: `(0, 0)` (hardcoded)
-- Inventory: Edit `Depot.java` setup() method
-- Batch threshold: `BATCH_THRESHOLD = 5` (requests)
-
-**Vehicle Configuration:**
-- Vehicle names, capacities, and maxDistances: Edit `Main.java`
-- Default: 3 vehicles with capacities [50, 40, 30] and maxDistances [1000.0, 800.0, 600.0]
-
-**Customer Configuration:**
-- Customer positions: Edit `Main.java`
-- Request frequency: 30-60 seconds (random)
+   - `mra-service` - Master Routing Agent
+   - `da-service` - Delivery Agents
 
 ---
 
 ## Test Cases
 
-Test cases are provided in separate files:
+The system includes 5 test case configuration files:
 
-1. **test_case_basic_requirement_1.txt** - Tests prioritization of items delivered over distance
-2. **test_case_basic_requirement_2.txt** - Tests maximum distance constraint per vehicle
-3. **test_case_insufficient_capacity.txt** - Tests handling of insufficient total capacity
-4. **test_case_vehicle_bidding.txt** - Tests vehicle bidding with constraints
-5. **test_case_end_to_end.txt** - Tests complete system workflow
-6. **test_case_distance_calculation.txt** - Tests distance calculation and constraints
+### 1. case_small.json
+- **Purpose:** Sanity test - few customers, capacity >= demand
+- **Description:** Small problem with 5 customers and 2 vehicles with sufficient capacity
 
-See individual test case files for detailed test steps and expected results.
+### 2. case_capacity_shortfall.json
+- **Purpose:** Edge case - total demand > total capacity
+- **Description:** Tests system behavior when total customer demand exceeds total vehicle capacity
+- **Expected:** System should deliver as many packages as possible, prioritizing packages delivered over distance
+
+### 3. case_tight_distance.json
+- **Purpose:** Edge case - vehicles have tight max_distance making some customers unreachable
+- **Description:** Tests system with vehicles that have very limited maximum travel distances
+- **Expected:** System should handle unreachable customers gracefully
+
+### 4. case_many_customers.json
+- **Purpose:** Stress test (performance)
+- **Description:** Large problem with 20 customers and 5 vehicles
+- **Expected:** System should handle larger problems efficiently
+
+### 5. case_random_seeded.json
+- **Purpose:** For reproducibility
+- **Description:** Fixed random seed for consistent testing
+- **Expected:** Same input should produce same results
+
+---
+
+## Output
+
+### JSON Results
+
+Solution results are saved as JSON files in the `results/` directory with format:
+```
+results/result_{configName}_{timestamp}.json
+```
+
+**JSON Structure:**
+```json
+{
+  "timestamp": "...",
+  "configName": "...",
+  "solveTimeMs": 1234,
+  "summary": {
+    "totalItemsRequested": 100,
+    "totalItemsDelivered": 95,
+    "totalDistance": 1234.56,
+    "numberOfRoutes": 3,
+    "deliveryRate": 0.95
+  },
+  "routes": [
+    {
+      "routeId": 1,
+      "vehicleName": "DA1",
+      "totalDemand": 30,
+      "totalDistance": 456.78,
+      "customers": [
+        {
+          "id": 1,
+          "name": "1",
+          "x": 10.0,
+          "y": 10.0,
+          "demand": 10
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Console Output
+
+The system also prints a human-readable summary to the console showing:
+- Total items requested vs delivered
+- Delivery rate
+- Total distance
+- Number of routes
+- Solve time
+- Detailed route information
+
+### Log Files
+
+Detailed communication logs are saved in the `logs/` directory:
+- `MRA_conversations.log` - MRA message logs
+- `DA-{name}_conversations.log` - Individual DA message logs
+
+Each log file contains:
+- Message-level logs (sender, receiver, performative, content, timestamp)
+- Conversation tracking (conversation IDs, start/end)
+- Event logs (state changes, route assignments, etc.)
 
 ---
 
 ## Technical Details
 
-### CVRP Problem
+### Solver Implementation
 
-**Capacitated Vehicle Routing Problem:**
-- Vehicles have limited capacity (number of items)
-- Vehicles have maximum distance constraint (dv)
-- Customers have demand (number of items)
-- Objective: Maximize items delivered (primary), minimize total distance (secondary)
+The system uses Google OR-Tools for CVRP solving:
 
-### FIPA Protocols Used
+- **Primary Objective:** Maximize packages delivered
+  - Uses disjunction with large penalty (1,000,000) for unvisited nodes
+  - Ensures visiting nodes takes precedence over distance minimization
 
-1. **FIPA-REQUEST** - Customer → Depot (item requests), Vehicle → Customer (delivery notifications)
-2. **FIPA-QUERY** - Depot → Vehicle (state queries)
-3. **FIPA Contract-Net** - Depot → Vehicle (route bidding with constraints) - DEPRECATED
-4. **Vehicle-to-Vehicle Bidding** - Vehicles bid among themselves for routes (custom protocol)
+- **Secondary Objective:** Minimize total distance
+  - Arc cost evaluator minimizes travel distance
+  - Only considered after maximizing packages delivered
 
-### Message Formats
+- **Constraints:**
+  - Capacity constraint per vehicle
+  - Maximum distance constraint per vehicle
 
-**Customer Request:**
+### Agent Communication Flow
+
+1. **MRA Startup:**
+   - MRA reads problem from config
+   - MRA registers with DF as `mra-service`
+   - MRA waits for DAs to register
+
+2. **DA Startup:**
+   - DAs register with DF as `da-service`
+   - DAs wait for MRA queries
+
+3. **Vehicle Information Query:**
+   - MRA searches DF for `da-service` type
+   - MRA sends FIPA-Request to each DA: `QUERY_VEHICLE_INFO`
+   - DAs respond with: `STATE|CAPACITY|MAX_DISTANCE|NAME|X|Y`
+
+4. **Route Solving:**
+   - MRA assembles problem with customer and vehicle data
+   - MRA calls OR-Tools solver
+   - Solver returns routes optimized for packages delivered
+
+5. **Route Assignment:**
+   - MRA sends FIPA-Request to each DA with route assignment
+   - Route message contains: route ID, vehicle ID, customers, coordinates, demand, distance
+   - DAs validate and accept routes if feasible
+
+6. **Route Execution:**
+   - DAs execute routes (move to customers)
+   - DAs return to depot after completing routes
+   - DAs update state to "free" when ready for next assignment
+
+### Project Structure
+
 ```
-REQUEST:customerId|customerName|x|y|itemName|quantity
-```
+src/main/java/project/
+├── Agent/
+│   ├── MasterRoutingAgent.java    # MRA - solves CVRP and assigns routes
+│   ├── DeliveryAgent.java         # DA - executes routes
+│   └── DepotProblemAssembler.java # Helper for problem assembly
+├── General/
+│   ├── CustomerInfo.java          # Customer data structure
+│   ├── CustomerRequest.java       # Request data structure
+│   ├── RouteInfo.java             # Route data structure
+│   ├── SolutionResult.java        # Solver result structure
+│   └── VehicleInfo.java           # Vehicle data structure
+├── Solver/
+│   ├── VRPSolver.java             # Solver interface
+│   └── ORToolsSolver.java         # OR-Tools CVRP implementation
+├── Utils/
+│   ├── AgentLogger.java           # Message logging utility
+│   ├── JsonConfigReader.java      # JSON configuration reader
+│   └── JsonResultLogger.java      # JSON result logger
+└── Main.java                      # Entry point
 
-**Depot Response:**
-```
-ITEM_AVAILABLE:Request accepted...
-or
-ITEM_UNAVAILABLE:Insufficient inventory...
-```
+config/
+├── case_small.json                # Small test case
+├── case_capacity_shortfall.json   # Capacity shortfall test case
+├── case_tight_distance.json       # Tight distance test case
+├── case_many_customers.json       # Many customers test case
+└── case_random_seeded.json        # Random seeded test case
 
-**Vehicle State Query:**
-```
-QUERY_STATE
-```
-
-**Vehicle State Response:**
-```
-STATE:free|CAPACITY:50|MAX_DISTANCE:1000.0|NAME:Vehicle1|X:10.5|Y:20.3
-```
-
-**Route Announcement (Vehicle-to-Vehicle Bidding):**
-```
-ROUTE_ANNOUNCEMENT:ROUTE:1|CUSTOMERS:1,2,3|CUSTOMER_IDS:customer-1,customer-2,customer-3|COORDS:100.00,150.00;200.00,100.00|DEMAND:25|DISTANCE:350.0
-```
-
-**Route Winner Notification:**
-```
-ROUTE_WON:ROUTE:1|VEHICLE:Vehicle1|ROUTE:1|CUSTOMERS:1,2,3|CUSTOMER_IDS:customer-1,customer-2,customer-3|COORDS:...|...
-```
-
-**Delivery Notification:**
-```
-DELIVERY_COMPLETE:Your order has been delivered by vehicle Vehicle1. Package arrived at (100.00, 150.00)
-```
-
-### Solver Interface
-
-```java
-public interface VRPSolver {
-    SolutionResult solve(int numNodes, int numCustomers, int numVehicles, 
-                       int[] vehicleCapacities, double[] vehicleMaxDistances,
-                       int[] demand, int[][] distance);
-}
-```
-
-**Constraints:**
-- `vehicleCapacities[i]` = capacity of vehicle i (number of items)
-- `vehicleMaxDistances[i]` = maximum distance for vehicle i
-- `demand[i]` = demand at node i (index 0 is depot, demand=0)
-- `distance[i][j]` = straight-line distance between nodes i and j
-
-**Solution Result:**
-- `routes` - List of routes for each vehicle
-- `itemsDelivered` - Number of items delivered (Basic Requirement 1)
-- `itemsTotal` - Total number of items requested
-- `totalDistance` - Total distance traveled by all vehicles
-
-### OR-Tools Implementation
-
-**Basic Requirement 1 - Prioritize Items Delivered:**
-- Uses `addDisjunction()` with large penalty (1,000,000) for unvisited nodes
-- Ensures visiting nodes (delivering items) takes precedence over distance minimization
-- Primary objective: Maximize items delivered
-- Secondary objective: Minimize total distance
-
-**Basic Requirement 2 - Maximum Distance Constraint:**
-- Adds distance dimension with `addDimensionWithVehicleCapacity()`
-- Sets vehicle-specific maximum distances
-- Enforces cumulative distance ≤ maxDistance for each vehicle
-- Vehicles also check distance constraint during bidding phase
-
-### Distance Calculation
-
-**Straight-Line Distance:**
-- Uses Euclidean distance: `sqrt((x1-x2)^2 + (y1-y2)^2)`
-- Distance matrix calculated for all node pairs
-- Total route distance for vehicle includes:
-  1. Distance from vehicle's current position to first customer
-  2. Route distance (sum of distances between customers on route)
-  3. Distance from last customer back to depot
-
-### Movement Simulation
-
-**Real Movement Implementation:**
-- Vehicles move at **10 units per second** toward customers
-- Position updated every **1 second** (1000ms tick interval)
-- Movement calculated using **linear interpolation** toward target
-- **Arrival threshold:** 1.0 unit distance (vehicle considered arrived)
-
-**Movement Behavior:**
-- `MovementBehaviour` (TickerBehaviour) updates vehicle position every second
-- When moving to customer:
-  - Calculates distance to target customer
-  - Moves 10 units toward target (or remaining distance if less)
-  - Updates `currentX` and `currentY` using linear interpolation
-  - Logs position every 5 seconds
-- When arriving at customer (distance ≤ 1.0 unit):
-  - Sets vehicle position to customer location (exact)
-  - Notifies customer (DELIVERY_COMPLETE message)
-  - Moves to next customer in route
-- When all customers visited:
-  - Vehicle returns to depot (10 units/second)
-  - Position updated every second during return
-- When arriving at depot:
-  - Sets vehicle position to depot (0, 0) exactly
-  - Sets state to "free"
-  - Stops MovementBehaviour
-
-**Starting Position:**
-- All vehicles start at depot coordinates (0, 0) when system starts
-- Vehicle position is tracked continuously during route execution
-- Position is used for distance calculations in bidding phase
-
-### Agent Discovery (DF Only)
-
-**No Hardcoded Names:**
-- All agents use `DFService.search()` to find each other
-- Search by service type, not by agent name
-- Depot finds vehicles by searching for `vehicle-service`
-- Customers find depot by searching for `depot-service`
-- Vehicles are discovered dynamically - no need to know their names
-
-**Example Discovery:**
-```java
-// Depot finding vehicles (NO hardcoded names)
-DFAgentDescription dfd = new DFAgentDescription();
-ServiceDescription sd = new ServiceDescription();
-sd.setType("vehicle-service");  // Search by TYPE only
-dfd.addServices(sd);
-DFAgentDescription[] results = DFService.search(this, dfd);
-// Results contain all vehicles registered with "vehicle-service"
+results/                            # JSON result files
+logs/                               # Agent conversation logs
 ```
 
 ---
 
-## Troubleshooting
+## Dependencies
 
-### Agents Not Discovering Each Other
-
-- **Check DF is running** - JADE automatically starts DF
-- **Verify registration** - Check console logs for DF registration messages
-- **Wait for registration** - Agents need time to register (1-2 seconds)
-- **Use DF GUI** - Verify services are registered by type (not by name)
-
-### No Routes Generated
-
-- **Check vehicle availability** - Verify vehicles are in "free" state
-- **Check batch threshold** - Ensure enough requests are queued
-- **Check constraints** - Verify capacity and distance constraints are feasible
-- **Check solver** - Verify OR-Tools libraries are loaded
-
-### Distance Constraint Violations
-
-- **Check vehicle maxDistance** - Verify maxDistance values are reasonable
-- **Check customer locations** - Verify distances are calculable
-- **Check route distance calculation** - Verify total distance includes all segments
-
----
-
-## Future Enhancements
-
-- Custom optimization algorithm implementation (GA, ACO, PSO, CSP)
-- GUI for user input, parameter settings, and visualization
-- Configuration file for default parameters
-- File input for loading delivery items
-- Database integration for inventory
-- Advanced bidding strategies
-- Load balancing between vehicles
+- **JADE 4.6.0** - Multi-agent framework
+- **Google OR-Tools 9.12.4544** - CVRP solver
+- **Gson 2.10.1** - JSON parsing
 
 ---
 
 ## License
 
 This project is for educational purposes.
-
----
-
-## Contact
-
-For questions or issues, please refer to the project documentation or contact the development team.

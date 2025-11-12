@@ -1,0 +1,57 @@
+{
+  "timestamp": "Wed Nov 12 22:22:11 ICT 2025",
+  "configName": "case_small",
+  "solveTimeMs": 30495,
+  "summary": {
+    "totalItemsRequested": 50,
+    "totalItemsDelivered": 50,
+    "totalDistance": 98.0,
+    "numberOfRoutes": 1,
+    "deliveryRate": 1.0
+  },
+  "routes": [
+    {
+      "routeId": 2,
+      "vehicleName": "unknown",
+      "totalDemand": 50,
+      "totalDistance": 98.0,
+      "customers": [
+        {
+          "id": 1,
+          "name": "C1",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 10
+        },
+        {
+          "id": 2,
+          "name": "C2",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 15
+        },
+        {
+          "id": 4,
+          "name": "C4",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 8
+        },
+        {
+          "id": 5,
+          "name": "C5",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 5
+        },
+        {
+          "id": 3,
+          "name": "C3",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 12
+        }
+      ]
+    }
+  ]
+}

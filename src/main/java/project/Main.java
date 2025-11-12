@@ -5,44 +5,77 @@ import jade.core.ProfileImpl;
 import jade.core.Runtime;
 import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
-import project.Utils.ConfigReader;
-import project.Utils.ConfigReader.AgentConfig;
-import project.Utils.ConfigReader.VehicleConfig;
-import project.Utils.ConfigReader.CustomerConfig;
+import project.Utils.JsonConfigReader;
+import project.Utils.JsonConfigReader.CVRPConfig;
+
+import java.io.File;
 
 /**
- * Main entry point for the VRP Multi-Agent System
- * Creates and starts all agents - agents discover each other via DF (Yellow Pages)
- * Reads configuration from web URL (if available) or local file as fallback
+ * Main entry point for the CVRP Multi-Agent System
+ * Creates and starts MRA (Master Routing Agent) and DAs (Delivery Agents)
+ * Agents discover each other via DF (Yellow Pages) using service types
+ * Reads configuration from JSON file
  */
 public class Main {
-    // Configuration: Web URL (set to null to disable) and local file path
-    private static final String CONFIG_WEB_URL = System.getProperty("config.url", ""); // Can be set via -Dconfig.url=...
-    private static final String CONFIG_LOCAL_FILE = "config/scenario_config.txt";
+    private static final String DEFAULT_CONFIG = "config/case_capacity_shortfall.json";
     
     public static void main(String[] args) {
         System.out.println("===============================================");
-        System.out.println("  VRP MULTI-AGENT SYSTEM - STARTING");
+        System.out.println("  CVRP MULTI-AGENT SYSTEM - STARTING");
         System.out.println("===============================================\n");
         
-        // Read configuration from web or local file
-        AgentConfig config = ConfigReader.readConfig(CONFIG_WEB_URL, CONFIG_LOCAL_FILE);
+        // Determine config file
+        String configFile = DEFAULT_CONFIG;
+        if (args.length > 0) {
+            configFile = args[0];
+        }
         
-        if (config.vehicles.isEmpty() || config.customers.isEmpty()) {
-            System.err.println("ERROR: Invalid configuration - no vehicles or customers found!");
-            System.err.println("Please check the configuration file: " + CONFIG_LOCAL_FILE);
+        // Read configuration from JSON file
+        CVRPConfig config;
+        try {
+            System.out.println("Reading configuration from: " + configFile);
+            config = JsonConfigReader.readConfig(configFile);
+            System.out.println("✓ Configuration loaded successfully\n");
+        } catch (Exception e) {
+            System.err.println("ERROR: Failed to read configuration file: " + e.getMessage());
+            e.printStackTrace();
             return;
         }
         
-        System.out.println("\n=== Configuration Loaded ===");
-        System.out.println("Depot: " + config.depotName);
+        // Extract config name from filename
+        String configName = new File(configFile).getName().replace(".json", "");
+        
+        // Validate configuration
+        if (config.depot == null) {
+            System.err.println("ERROR: Invalid configuration - depot not found!");
+            return;
+        }
+        if (config.vehicles == null || config.vehicles.isEmpty()) {
+            System.err.println("ERROR: Invalid configuration - no vehicles found!");
+            return;
+        }
+        if (config.customers == null || config.customers.isEmpty()) {
+            System.err.println("ERROR: Invalid configuration - no customers found!");
+            return;
+        }
+        
+        System.out.println("\n=== Configuration Summary ===");
+        System.out.println("Depot: " + config.depot.name + " at (" + config.depot.x + ", " + config.depot.y + ")");
         System.out.println("Vehicles: " + config.vehicles.size());
-        for (VehicleConfig v : config.vehicles) {
+        for (JsonConfigReader.VehicleConfig v : config.vehicles) {
             System.out.println("  - " + v.name + " (capacity: " + v.capacity + ", maxDistance: " + v.maxDistance + ")");
         }
         System.out.println("Customers: " + config.customers.size());
-        for (CustomerConfig c : config.customers) {
-            System.out.println("  - " + c.id + " (" + c.name + ") at (" + c.x + ", " + c.y + ")");
+        int totalDemand = 0;
+        for (JsonConfigReader.CustomerConfig c : config.customers) {
+            System.out.println("  - " + c.id + " (demand: " + c.demand + ") at (" + c.x + ", " + c.y + ")");
+            totalDemand += c.demand;
+        }
+        int totalCapacity = config.vehicles.stream().mapToInt(v -> v.capacity).sum();
+        System.out.println("\nTotal Demand: " + totalDemand);
+        System.out.println("Total Capacity: " + totalCapacity);
+        if (totalDemand > totalCapacity) {
+            System.out.println("⚠ WARNING: Total demand exceeds total capacity (edge case)");
         }
         System.out.println("============================\n");
         
@@ -59,81 +92,60 @@ public class Main {
         AgentContainer mainContainer = rt.createMainContainer(p);
         
         try {
-            // Create and start Depot agent
-            AgentController depotController = mainContainer.createNewAgent(
-                config.depotName, 
-                "project.Agent.Depot", 
-                null
+            // Create and start MRA (Master Routing Agent)
+            Object[] mraArgs = new Object[]{config, configName};
+            AgentController mraController = mainContainer.createNewAgent(
+                config.depot.name, 
+                "project.Agent.MasterRoutingAgent", 
+                mraArgs
             );
-            depotController.start();
-            System.out.println("✓ Depot Agent started: " + config.depotName);
+            mraController.start();
+            System.out.println("✓ Master Routing Agent (MRA) started: " + config.depot.name);
             
-            // Wait a moment for Depot to initialize and register with DF
+            // Wait a moment for MRA to initialize and register with DF
             Thread.sleep(1000);
             
-            // Create and start vehicle agents from configuration
-            for (VehicleConfig vehicleConfig : config.vehicles) {
-                Object[] vehicleArgs = new Object[]{
+            // Create and start Delivery Agents (DAs) from configuration
+            for (JsonConfigReader.VehicleConfig vehicleConfig : config.vehicles) {
+                Object[] daArgs = new Object[]{
                     vehicleConfig.name, 
                     vehicleConfig.capacity, 
                     vehicleConfig.maxDistance
                 };
-                AgentController vehicleController = mainContainer.createNewAgent(
-                    "vehicle-" + vehicleConfig.name, 
-                    "project.Agent.VehicleAgent", 
-                    vehicleArgs
+                AgentController daController = mainContainer.createNewAgent(
+                    vehicleConfig.name, 
+                    "project.Agent.DeliveryAgent", 
+                    daArgs
                 );
-                vehicleController.start();
-                System.out.println("✓ Vehicle Agent started: vehicle-" + vehicleConfig.name + 
+                daController.start();
+                System.out.println("✓ Delivery Agent (DA) started: " + vehicleConfig.name + 
                                  " (capacity: " + vehicleConfig.capacity + 
                                  ", maxDistance: " + vehicleConfig.maxDistance + ")");
-            }
-            
-            // Wait for vehicles to initialize and register with DF
-            Thread.sleep(2000);
-            
-            // Create and start customer agents from configuration
-            for (CustomerConfig customerConfig : config.customers) {
-                Object[] customerArgs = new Object[]{
-                    customerConfig.id,
-                    customerConfig.name,
-                    customerConfig.x,
-                    customerConfig.y
-                };
-                AgentController customerController = mainContainer.createNewAgent(
-                    customerConfig.id,
-                    "project.Agent.Customer",
-                    customerArgs
-                );
-                customerController.start();
-                System.out.println("✓ Customer Agent started: " + customerConfig.id + 
-                                 " (" + customerConfig.name + ") at (" + 
-                                 customerConfig.x + ", " + customerConfig.y + ")");
             }
             
             // Wait for all agents to initialize
             Thread.sleep(2000);
             
             System.out.println("\n===============================================");
-            System.out.println("  MULTI-AGENT VRP SYSTEM READY");
+            System.out.println("  CVRP MULTI-AGENT SYSTEM READY");
             System.out.println("===============================================");
             System.out.println("Agents:");
-            System.out.println("  • Depot Agent: Manages inventory and routes vehicles");
-            System.out.println("  • Vehicle Agents: Receive routes directly from depot");
-            System.out.println("  • Customer Agents: Send item requests to depot");
+            System.out.println("  • Master Routing Agent (MRA): Solves CVRP and assigns routes");
+            System.out.println("  • Delivery Agents (DAs): Execute assigned routes");
             System.out.println("\nDiscovery:");
             System.out.println("  • All agents registered with DF (Yellow Pages)");
-            System.out.println("  • Agents discover each other automatically via DF");
+            System.out.println("  • MRA finds DAs via 'da-service' type");
+            System.out.println("  • DAs find MRA via 'mra-service' type");
             System.out.println("\nWorkflow:");
-            System.out.println("  1. Customer agents find depot via DF and send requests");
-            System.out.println("  2. Depot checks inventory and queues requests");
-            System.out.println("  3. Depot batches requests and solves VRP with constraints:");
-            System.out.println("     - Basic Requirement 1: Prioritizes items delivered over distance");
-            System.out.println("     - Basic Requirement 2: Enforces maximum distance per vehicle");
-            System.out.println("  4. Depot sends routes directly to vehicles (routes already assigned by solver)");
-            System.out.println("  5. Vehicles accept routes if vehicle ID matches, reject otherwise");
-            System.out.println("  6. Vehicles complete routes with real movement and return to free state");
-            System.out.println("\nAll communications follow FIPA protocols");
+            System.out.println("  1. MRA reads problem from config (customers with id, demand, coordinates)");
+            System.out.println("  2. MRA queries DAs for vehicle information (capacity, maxDistance)");
+            System.out.println("  3. MRA solves CVRP using Google OR-Tools:");
+            System.out.println("     - Prioritizes packages delivered over distance");
+            System.out.println("     - Handles cases where demand > capacity");
+            System.out.println("  4. MRA assigns routes to DAs via FIPA-Request");
+            System.out.println("  5. DAs execute routes and return to depot");
+            System.out.println("  6. Results logged as JSON to results/ directory");
+            System.out.println("\nAll communications follow FIPA protocols (FIPA-Request)");
             System.out.println("===============================================\n");
             
         } catch (Exception e) {

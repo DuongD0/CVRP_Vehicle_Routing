@@ -10,7 +10,7 @@ import project.Utils.AgentLogger;
 
 /**
  * Helper class responsible for assembling VRP problem data and invoking the solver.
- * The Depot delegates problem preparation to this class to keep responsibilities
+ * The MRA delegates problem preparation to this class to keep responsibilities
  * separated and to simplify swapping the underlying solver in the future.
  */
 public class DepotProblemAssembler {
