@@ -20,12 +20,9 @@ import java.util.*;
 
 /**
  * Depot Agent that manages inventory and routes vehicles
- * Implements Basic Requirements 1 & 2:
- * - Basic Requirement 1: Prioritizes number of items delivered over total travel distance
- * - Basic Requirement 2: Enforces maximum distance constraint per vehicle
  */
 public class Depot extends Agent {
-    // Inventory management
+    // Inventory management (simulate real-life warehouse)
     private Map<String, Integer> inventory;
     
     // Depot location
@@ -42,19 +39,10 @@ public class Depot extends Agent {
     
     // Solver interface
     private VRPSolver solver;
-    
-    // Problem data for solver
-    private double[] x;
-    private double[] y;
-    private int[] demand;
-    private int[][] distance;
+    private DepotProblemAssembler problemAssembler;
     
     // Logger for conversations
     private AgentLogger logger;
-    
-    // Track route assignments to handle multiple acceptances
-    private Map<String, String> routeAssignments;  // routeId -> vehicleName (first acceptance wins)
-    private Map<String, Long> routeAssignmentTimes;  // routeId -> assignment timestamp
     
     @Override
     protected void setup() {
@@ -81,12 +69,9 @@ public class Depot extends Agent {
         pendingRequests = new ArrayList<>();
         currentBatch = new ArrayList<>();
         
-        // Initialize route assignment tracking
-        routeAssignments = new HashMap<>();
-        routeAssignmentTimes = new HashMap<>();
-        
         // Initialize solver
         solver = new ORToolsSolver();
+        problemAssembler = new DepotProblemAssembler(solver, logger);
         
         System.out.println("Depot: Inventory initialized with " + inventory.size() + " item types");
         System.out.println("Depot: Located at (" + depotX + ", " + depotY + ")");
@@ -97,9 +82,6 @@ public class Depot extends Agent {
         
         // Add behavior to handle customer requests
         addBehaviour(new CustomerRequestHandler());
-        
-        // Add behavior to handle route acceptances
-        addBehaviour(new RouteAcceptanceHandler());
         
         // Add behavior to process batches periodically
         addBehaviour(new BatchProcessor(this, 10000));  // Check every 10 seconds
@@ -299,42 +281,28 @@ public class Depot extends Agent {
         System.out.println("Depot: Found " + availableVehicles.size() + " available vehicles for route assignment");
         logger.logEvent("Found " + availableVehicles.size() + " available vehicles");
         
-        // Build problem for solver
-        buildProblemFromRequests(currentBatch, availableVehicles);
-        
-        // Prepare vehicle capacities and max distances for solver
-        int numVehicles = availableVehicles.size();
-        int[] vehicleCapacities = new int[numVehicles];
-        double[] vehicleMaxDistances = new double[numVehicles];
-        
         System.out.println("Depot: Preparing vehicle data for solver:");
-        for (int i = 0; i < numVehicles; i++) {
+        for (int i = 0; i < availableVehicles.size(); i++) {
             VehicleInfo vehicle = availableVehicles.get(i);
-            vehicleCapacities[i] = vehicle.capacity;
-            vehicleMaxDistances[i] = vehicle.maxDistance;
             System.out.println("Depot: Vehicle " + (i + 1) + " (" + vehicle.name + "): " +
                              "Capacity=" + vehicle.capacity + ", MaxDistance=" + vehicle.maxDistance);
             logger.logEvent("Vehicle " + (i + 1) + " (" + vehicle.name + "): " +
                           "Capacity=" + vehicle.capacity + ", MaxDistance=" + vehicle.maxDistance);
         }
         
-        System.out.println("Depot: Calling VRP solver with " + numVehicles + " vehicles and " + 
+        System.out.println("Depot: Calling VRP solver with " + availableVehicles.size() + " vehicles and " + 
                          currentBatch.size() + " customer requests");
-        logger.logEvent("Calling VRP solver: " + numVehicles + " vehicles, " + 
+        logger.logEvent("Calling VRP solver: " + availableVehicles.size() + " vehicles, " + 
                       currentBatch.size() + " customers");
         
-        // Solve CVRP with capacity and maximum distance constraints
-        SolutionResult result = solver.solve(
-            x.length,           // numNodes
-            x.length - 1,       // numCustomers
-            numVehicles,        // numVehicles
-            vehicleCapacities,  // vehicle capacities
-            vehicleMaxDistances, // vehicle max distances
-            demand,             // demand array
-            distance            // distance matrix
+        SolutionResult result = problemAssembler.assembleAndSolve(
+            depotX,
+            depotY,
+            currentBatch,
+            availableVehicles
         );
         
-        if (result.routes.isEmpty()) {
+        if (result == null || result.routes.isEmpty()) {
             System.out.println("Depot: No solution found. Requests will be queued again.");
             pendingRequests.addAll(currentBatch);
             return;
@@ -475,13 +443,12 @@ public class Depot extends Agent {
                 logger.logReceived(msg);
                 
                 String content = msg.getContent();
-                // Format: STATE:free|CAPACITY:50|MAX_DISTANCE:1000.0|NAME:Vehicle1|X:800.0|Y:600.0
-                String[] parts = content.split("\\|");
+                String[] parts = content != null ? content.split("\\|") : new String[0];
                 String state = null;
                 String name = null;
-                int capacity = 50;
-                double maxDistance = 1000.0;
-                
+                Integer capacity = null;
+                Double maxDistance = null;
+
                 for (String part : parts) {
                     if (part.startsWith("STATE:")) {
                         state = part.substring("STATE:".length());
@@ -493,34 +460,68 @@ public class Depot extends Agent {
                         maxDistance = Double.parseDouble(part.substring("MAX_DISTANCE:".length()));
                     }
                 }
-                
-                // Log conversation end for state query response
-                if (msg.getConversationId() != null && name != null) {
-                    logger.logConversationEnd(msg.getConversationId(), 
-                        "Vehicle state received - " + name + ": State=" + state + 
-                        ", Capacity=" + capacity + ", MaxDistance=" + maxDistance);
+
+                if (name == null && msg.getSender() != null) {
+                    name = msg.getSender().getLocalName();
                 }
-                
+
+                if (state == null) {
+                    logger.log("WARNING: Received vehicle state without state value from " +
+                              (name != null ? name : "unknown vehicle"));
+                    return;
+                }
+
+                if (msg.getConversationId() != null) {
+                    StringBuilder convSummary = new StringBuilder();
+                    convSummary.append("Vehicle state received - ")
+                               .append(name != null ? name : "unknown")
+                               .append(": State=").append(state);
+                    if (capacity != null) {
+                        convSummary.append(", Capacity=").append(capacity);
+                    }
+                    if (maxDistance != null) {
+                        convSummary.append(", MaxDistance=").append(maxDistance);
+                    }
+                    logger.logConversationEnd(msg.getConversationId(), convSummary.toString());
+                }
+
                 if (name != null) {
                     VehicleInfo vehicle = registeredVehicles.get(name);
                     if (vehicle == null) {
-                        vehicle = new VehicleInfo(name, capacity, maxDistance);
+                        int initialCapacity = capacity != null ? capacity : 50;
+                        double initialMaxDistance = maxDistance != null ? maxDistance : 1000.0;
+                        vehicle = new VehicleInfo(name, initialCapacity, initialMaxDistance);
                         registeredVehicles.put(name, vehicle);
-                        System.out.println("Depot: Registered new vehicle " + name + 
-                                         " (capacity: " + capacity + ", maxDistance: " + maxDistance + ")");
-                        logger.logEvent("Registered new vehicle " + name + 
-                                      ": capacity=" + capacity + ", maxDistance=" + maxDistance);
+                        System.out.println("Depot: Registered new vehicle " + name +
+                                         " (capacity: " + initialCapacity + ", maxDistance: " + initialMaxDistance + ")");
+                        logger.logEvent("Registered new vehicle " + name +
+                                      ": capacity=" + initialCapacity + ", maxDistance=" + initialMaxDistance);
                     } else {
-                        vehicle.capacity = capacity;
-                        vehicle.maxDistance = maxDistance;
-                        System.out.println("Depot: Updated vehicle " + name + " capacity and maxDistance");
-                        logger.logEvent("Updated vehicle " + name + ": capacity=" + capacity + ", maxDistance=" + maxDistance);
+                        if (capacity != null) {
+                            vehicle.capacity = capacity;
+                        }
+                        if (maxDistance != null) {
+                            vehicle.maxDistance = maxDistance;
+                        }
+                        if (capacity != null || maxDistance != null) {
+                            System.out.println("Depot: Updated vehicle " + name + " capacity/maxDistance");
+                            logger.logEvent("Updated vehicle " + name + ": capacity=" + vehicle.capacity +
+                                          ", maxDistance=" + vehicle.maxDistance);
+                        }
                     }
                     vehicle.state = state;
-                    System.out.println("Depot: Updated vehicle " + name + " state: " + state + 
-                                     " (capacity: " + capacity + ", maxDistance: " + maxDistance + ")");
-                    logger.logEvent("Updated vehicle " + name + " state: " + state + 
-                                  " (capacity: " + capacity + ", maxDistance: " + maxDistance + ")");
+
+                    StringBuilder stateLog = new StringBuilder();
+                    stateLog.append("Depot: Updated vehicle ").append(name).append(" state: ").append(state);
+                    if (capacity != null || maxDistance != null) {
+                        stateLog.append(" (capacity: ").append(vehicle.capacity)
+                                .append(", maxDistance: ").append(vehicle.maxDistance).append(")");
+                    }
+                    System.out.println(stateLog);
+                    logger.logEvent("Updated vehicle " + name + " state: " + state +
+                                  ((capacity != null || maxDistance != null) ?
+                                      " (capacity=" + vehicle.capacity + ", maxDistance=" + vehicle.maxDistance + ")" :
+                                      ""));
                 } else {
                     System.out.println("Depot: WARNING - Received vehicle state response without vehicle name");
                     logger.log("WARNING: Received vehicle state response without vehicle name");
@@ -532,104 +533,60 @@ public class Depot extends Agent {
     }
     
     /**
-     * Builds problem data structures from customer requests
-     */
-    private void buildProblemFromRequests(List<CustomerRequest> requests, List<VehicleInfo> vehicles) {
-        int numCustomers = requests.size();
-        int numNodes = numCustomers + 1;  // +1 for depot
-        
-        x = new double[numNodes];
-        y = new double[numNodes];
-        demand = new int[numNodes];
-        
-        // Depot at index 0
-        x[0] = depotX;
-        y[0] = depotY;
-        demand[0] = 0;
-        
-        // Customers
-        int idx = 1;
-        for (CustomerRequest req : requests) {
-            x[idx] = req.x;
-            y[idx] = req.y;
-            demand[idx] = req.quantity;
-            idx++;
-        }
-        
-        // Build distance matrix (straight-line distance)
-        distance = new int[numNodes][numNodes];
-        for (int i = 0; i < numNodes; i++) {
-            for (int j = 0; j < numNodes; j++) {
-                double dx = x[i] - x[j];
-                double dy = y[i] - y[j];
-                distance[i][j] = (int) Math.round(Math.hypot(dx, dy));
-            }
-        }
-    }
-    
-    /**
-     * Broadcasts routes to all available vehicles for self-evaluation
-     * Vehicles will self-check and accept routes they can handle
+     * Sends the solver result routes directly to the designated vehicles.
+     * Each route already contains the vehicle identifier selected by the solver.
      */
     private void assignRoutes(SolutionResult result, List<VehicleInfo> availableVehicles) {
-        System.out.println("\n=== Depot: Broadcasting Routes to Vehicle Service for Self-Evaluation ===");
-        logger.logEvent("Starting route broadcast to " + availableVehicles.size() + " vehicles for self-evaluation");
-        
-        // Clear route assignment tracking for new batch
-        routeAssignments.clear();
-        routeAssignmentTimes.clear();
-        
-        // Find all vehicle AIDs via DF
-        List<AID> vehicleAIDs = findVehiclesViaDF();
-        if (vehicleAIDs.isEmpty()) {
-            System.err.println("Depot: ERROR - No vehicles found via DF for route broadcast");
-            logger.log("ERROR: No vehicles found via DF for route broadcast");
-            return;
-        }
-        
-        System.out.println("Depot: Found " + vehicleAIDs.size() + " vehicles via DF for route broadcast");
-        logger.logEvent("Found " + vehicleAIDs.size() + " vehicles via DF for route broadcast");
-        
-        // Process each route
+        System.out.println("\n=== Depot: Dispatching Routes to Vehicles ===");
+        logger.logEvent("Starting targeted route dispatch to " + result.routes.size() + " routes");
+
         for (int i = 0; i < result.routes.size(); i++) {
             RouteInfo route = result.routes.get(i);
             String routeId = String.valueOf(i + 1);
-            
-            // Update route with proper customer coordinates and store customer IDs
+            int vehicleIndex = route.vehicleId - 1;
+
+            if (vehicleIndex < 0 || vehicleIndex >= availableVehicles.size()) {
+                System.err.println("Depot: ERROR - Vehicle index " + vehicleIndex + " out of range for route " + routeId);
+                logger.log("ERROR: Route " + routeId + " vehicle index " + vehicleIndex + " out of range");
+                continue;
+            }
+
+            VehicleInfo targetVehicle = availableVehicles.get(vehicleIndex);
+            route.vehicleName = targetVehicle.name;
+
+            // Update customer details for the route
             List<String> customerAgentIds = new ArrayList<>();
             for (int j = 0; j < route.customers.size(); j++) {
                 CustomerInfo customer = route.customers.get(j);
-                // Find corresponding request by matching customer ID with request index
-                int requestIndex = customer.id - 1;  // Customer ID is 1-indexed, requests are 0-indexed
+                int requestIndex = customer.id - 1;
                 if (requestIndex >= 0 && requestIndex < currentBatch.size()) {
                     CustomerRequest req = currentBatch.get(requestIndex);
                     customer.x = req.x;
                     customer.y = req.y;
                     customer.name = req.customerName;
-                    // Store the actual customer agent ID (e.g., "customer-1", "customer-2")
                     customerAgentIds.add(req.customerId);
-                    System.out.println("Depot: Route " + routeId + " - Customer " + customer.id + 
+                    System.out.println("Depot: Route " + routeId + " - Customer " + customer.id +
                                      ": " + req.customerName + " at (" + req.x + ", " + req.y + ")");
-                    logger.logEvent("Route " + routeId + " customer " + customer.id + 
+                    logger.logEvent("Route " + routeId + " customer " + customer.id +
                                   ": " + req.customerName + " at (" + req.x + ", " + req.y + ")");
                 } else {
-                    // Fallback: use numeric ID if request not found
                     customerAgentIds.add("customer-" + customer.id);
-                    System.out.println("Depot: WARNING - Route " + routeId + " customer " + customer.id + 
+                    System.out.println("Depot: WARNING - Route " + routeId + " customer " + customer.id +
                                      " not found in batch (using fallback ID)");
                     logger.log("WARNING: Route " + routeId + " customer " + customer.id + " not found in batch");
                 }
             }
-            
-            // Create route broadcast message (without VEHICLE_NAME - vehicles self-select)
+
             StringBuilder routeContent = new StringBuilder();
             routeContent.append("ROUTE:").append(routeId).append("|");
+            routeContent.append("VEHICLE_ID:").append(route.vehicleId).append("|");
+            routeContent.append("VEHICLE_NAME:").append(targetVehicle.name).append("|");
             routeContent.append("CUSTOMERS:");
             for (int j = 0; j < route.customers.size(); j++) {
                 if (j > 0) routeContent.append(",");
                 routeContent.append(route.customers.get(j).id);
             }
-            routeContent.append("|CUSTOMER_IDS:");  // Add actual customer agent IDs
+            routeContent.append("|CUSTOMER_IDS:");
             for (int j = 0; j < customerAgentIds.size(); j++) {
                 if (j > 0) routeContent.append(",");
                 routeContent.append(customerAgentIds.get(j));
@@ -642,110 +599,32 @@ public class Depot extends Agent {
             }
             routeContent.append("|DEMAND:").append(route.totalDemand);
             routeContent.append("|DISTANCE:").append(String.format("%.2f", route.totalDistance));
-            
-            // Broadcast route to all vehicles (they will self-check and accept if they can handle it)
-            ACLMessage routeBroadcast = new ACLMessage(ACLMessage.REQUEST);
-            String conversationId = "route-broadcast-" + routeId + "-" + System.currentTimeMillis();
-            for (AID vehicleAID : vehicleAIDs) {
-                routeBroadcast.addReceiver(vehicleAID);
-            }
-            routeBroadcast.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-            routeBroadcast.setConversationId(conversationId);
-            routeBroadcast.setContent("ROUTE_AVAILABLE:" + routeContent.toString());
-            
-            // Log conversation start for route broadcast
-            logger.logConversationStart(conversationId, 
-                "Route " + routeId + " broadcast to " + vehicleAIDs.size() + " vehicles (" + 
-                route.customers.size() + " customers, " + route.totalDemand + " items)");
-            
-            logger.logSent(routeBroadcast);
-            send(routeBroadcast);
-            
-            System.out.println("Depot: Broadcasted route " + routeId + " to " + vehicleAIDs.size() + 
-                             " vehicles (demand: " + route.totalDemand + " items, " + 
+
+            ACLMessage routeAssignment = new ACLMessage(ACLMessage.REQUEST);
+            routeAssignment.addReceiver(new AID(targetVehicle.name, AID.ISLOCALNAME));
+            routeAssignment.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+            routeAssignment.setOntology("route-assignment");
+            String conversationId = "route-assignment-" + routeId + "-" + System.currentTimeMillis();
+            routeAssignment.setConversationId(conversationId);
+            routeAssignment.setContent("ROUTE_ASSIGNMENT:" + routeContent);
+
+            logger.logConversationStart(conversationId,
+                "Route " + routeId + " sent to vehicle " + targetVehicle.name + " (" +
+                route.customers.size() + " customers, demand " + route.totalDemand + ")");
+
+            logger.logSent(routeAssignment);
+            send(routeAssignment);
+
+            System.out.println("Depot: Sent route " + routeId + " to vehicle " + targetVehicle.name +
+                             " (demand: " + route.totalDemand + " items, " +
                              "distance: " + String.format("%.2f", route.totalDistance) + ")");
-            logger.logEvent("Broadcasted route " + routeId + " to " + vehicleAIDs.size() + 
-                          " vehicles (" + route.customers.size() + " customers, " + 
-                          route.totalDemand + " items, " + String.format("%.2f", route.totalDistance) + " distance)");
-            
-            // Initialize route assignment tracking
-            routeAssignments.put(routeId, null);
-            routeAssignmentTimes.put(routeId, System.currentTimeMillis());
+            logger.logEvent("Dispatched route " + routeId + " to vehicle " + targetVehicle.name +
+                          " (" + route.customers.size() + " customers, " +
+                          String.format("%.2f", route.totalDistance) + " distance)");
         }
-        
-        System.out.println("Depot: Completed route broadcast for " + result.routes.size() + " routes");
-        logger.logEvent("Completed route broadcast for " + result.routes.size() + " routes. Waiting for vehicle self-evaluation...");
-    }
-    
-    /**
-     * Handles route acceptance responses from vehicles
-     * Tracks which vehicle accepted which route (first acceptance wins)
-     */
-    private class RouteAcceptanceHandler extends CyclicBehaviour {
-        @Override
-        public void action() {
-            MessageTemplate template = MessageTemplate.and(
-                MessageTemplate.MatchPerformative(ACLMessage.AGREE),
-                MessageTemplate.MatchProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST)
-            );
-            
-            ACLMessage msg = receive(template);
-            if (msg != null) {
-                logger.logReceived(msg);
-                String content = msg.getContent();
-                
-                if (content != null && content.startsWith("ROUTE_ACCEPTED:")) {
-                    // Format: ROUTE_ACCEPTED:ROUTE:routeId|VEHICLE:vehicleName
-                    String[] parts = content.substring("ROUTE_ACCEPTED:".length()).split("\\|");
-                    String routeId = null;
-                    String vehicleName = null;
-                    
-                    for (String part : parts) {
-                        if (part.startsWith("ROUTE:")) {
-                            routeId = part.substring("ROUTE:".length());
-                        } else if (part.startsWith("VEHICLE:")) {
-                            vehicleName = part.substring("VEHICLE:".length());
-                        }
-                    }
-                    
-                    if (routeId != null && vehicleName != null) {
-                        // Check if route is already assigned
-                        String assignedVehicle = routeAssignments.get(routeId);
-                        if (assignedVehicle == null) {
-                            // First acceptance wins
-                            routeAssignments.put(routeId, vehicleName);
-                            System.out.println("Depot: Route " + routeId + " accepted by vehicle " + vehicleName);
-                            logger.logEvent("Route " + routeId + " accepted by vehicle " + vehicleName + 
-                                          " (first acceptance)");
-                            
-                            // Log conversation end for accepted route
-                            logger.logConversationEnd(msg.getConversationId(), 
-                                "Route " + routeId + " accepted by vehicle " + vehicleName);
-                        } else {
-                            // Route already assigned to another vehicle
-                            System.out.println("Depot: Route " + routeId + " already assigned to vehicle " + 
-                                             assignedVehicle + ". Rejecting acceptance from " + vehicleName);
-                            logger.logEvent("Route " + routeId + " already assigned to " + assignedVehicle + 
-                                          ". Rejecting " + vehicleName);
-                            
-                            // Send rejection to this vehicle
-                            ACLMessage rejection = msg.createReply();
-                            rejection.setPerformative(ACLMessage.REFUSE);
-                            rejection.setContent("ROUTE_ALREADY_ASSIGNED:Route " + routeId + " already assigned to " + assignedVehicle);
-                            
-                            // Log conversation end for rejected route
-                            logger.logConversationEnd(msg.getConversationId(), 
-                                "Route " + routeId + " rejected - already assigned to " + assignedVehicle);
-                            
-                            logger.logSent(rejection);
-                            send(rejection);
-                        }
-                    }
-                }
-            } else {
-                block();
-            }
-        }
+
+        System.out.println("Depot: Completed route dispatch for " + result.routes.size() + " routes");
+        logger.logEvent("Completed route dispatch for " + result.routes.size() + " routes");
     }
     
     /**

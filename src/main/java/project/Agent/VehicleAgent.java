@@ -19,16 +19,16 @@ import java.util.List;
 import java.util.ArrayList;
 
 /**
- * Vehicle Agent that accepts direct route assignments from depot
+ * Vehicle Agent that accepts routes from depot
  * Moves to customers and notifies them upon arrival
  */
 public class VehicleAgent extends Agent {
     private String vehicleName;
     private int capacity;
-    private double maxDistance;  // Maximum distance vehicle can travel (Basic Requirement 2)
-    private String state; // "free", "absent", "busy"
+    private double maxDistance;  // Maximum distance vehicle can travel
+    private String state; // "free", "absent" (free when not delivering, absent when delivering)
     
-    // Current position (not always at depot)
+    // Current position
     private double currentX;
     private double currentY;
     private double depotX;
@@ -45,7 +45,7 @@ public class VehicleAgent extends Agent {
     private boolean isMoving;          // Whether vehicle is currently moving
     private MovementBehaviour currentMovementBehaviour;  // Track current movement behavior instance
     private static final double MOVEMENT_SPEED = 10.0;  // Units per second
-    private static final double ARRIVAL_THRESHOLD = 1.0;  // Distance threshold to consider arrived
+    private static final double ARRIVAL_THRESHOLD = 1.0;  // Distance threshold from the vehicle to the customer node to consider arrived
     
     // Logger for conversations
     private AgentLogger logger;
@@ -127,23 +127,32 @@ public class VehicleAgent extends Agent {
                         "State query from " + (msg.getSender() != null ? msg.getSender().getLocalName() : "unknown"));
                 }
                 
-                if (msg.getContent().equals("QUERY_STATE")) {
+                if ("QUERY_STATE".equals(msg.getContent())) {
                     ACLMessage reply = msg.createReply();
                     reply.setPerformative(ACLMessage.INFORM);
                     reply.setProtocol(FIPANames.InteractionProtocol.FIPA_QUERY);
-                    reply.setContent("STATE:" + state + "|CAPACITY:" + capacity + "|MAX_DISTANCE:" + maxDistance + 
-                                   "|NAME:" + vehicleName + "|X:" + currentX + "|Y:" + currentY);
                     
-                    // Log conversation end
-                    logger.logConversationEnd(msg.getConversationId(), 
-                        "State query responded - State: " + state + ", Capacity: " + capacity + 
-                        ", MaxDistance: " + maxDistance);
-                    
+                    if ("absent".equals(state)) {
+                        reply.setContent("STATE:absent");
+                        logger.logConversationEnd(msg.getConversationId(),
+                            "State query responded - State: absent");
+                        System.out.println("Vehicle " + vehicleName + " reported state: absent");
+                        logger.logEvent("Reported state absent to depot");
+                    } else {
+                        reply.setContent("STATE:" + state + "|CAPACITY:" + capacity + "|MAX_DISTANCE:" + maxDistance +
+                                       "|NAME:" + vehicleName + "|X:" + currentX + "|Y:" + currentY);
+                        
+                        logger.logConversationEnd(msg.getConversationId(), 
+                            "State query responded - State: " + state + ", Capacity: " + capacity + 
+                            ", MaxDistance: " + maxDistance);
+                        
+                        System.out.println("Vehicle " + vehicleName + " reported state: " + state + 
+                                         " at (" + currentX + ", " + currentY + "), " +
+                                         "capacity: " + capacity + ", maxDistance: " + maxDistance);
+                    }
+
                     logger.logSent(reply);
                     send(reply);
-                    System.out.println("Vehicle " + vehicleName + " reported state: " + state + 
-                                     " at (" + currentX + ", " + currentY + "), " +
-                                     "capacity: " + capacity + ", maxDistance: " + maxDistance);
                 }
             } else {
                 block();
@@ -159,24 +168,24 @@ public class VehicleAgent extends Agent {
     private class RouteAssignmentHandler extends CyclicBehaviour {
         @Override
         public void action() {
-            // Check for route availability messages from depot
-            MessageTemplate routeAvailableTemplate = MessageTemplate.and(
+            // Check for route assignment messages from depot
+            MessageTemplate routeAssignmentTemplate = MessageTemplate.and(
                 MessageTemplate.MatchPerformative(ACLMessage.REQUEST),
-                MessageTemplate.MatchContent("ROUTE_AVAILABLE:")
+                MessageTemplate.MatchOntology("route-assignment")
             );
             
-            ACLMessage routeAvailable = receive(routeAvailableTemplate);
-            if (routeAvailable != null) {
-                logger.logReceived(routeAvailable);
+            ACLMessage routeAssignment = receive(routeAssignmentTemplate);
+            if (routeAssignment != null) {
+                logger.logReceived(routeAssignment);
                 
-                // Log conversation start for route availability
-                if (routeAvailable.getConversationId() != null) {
+                // Log conversation start for route assignment
+                if (routeAssignment.getConversationId() != null) {
                     // Extract route ID for logging
                     String routeId = "unknown";
                     try {
-                        String content = routeAvailable.getContent();
-                        if (content != null && content.startsWith("ROUTE_AVAILABLE:")) {
-                            String routeData = content.substring("ROUTE_AVAILABLE:".length());
+                        String content = routeAssignment.getContent();
+                        if (content != null && content.startsWith("ROUTE_ASSIGNMENT:")) {
+                            String routeData = content.substring("ROUTE_ASSIGNMENT:".length());
                             String[] parts = routeData.split("\\|");
                             for (String part : parts) {
                                 if (part.startsWith("ROUTE:")) {
@@ -188,12 +197,12 @@ public class VehicleAgent extends Agent {
                     } catch (Exception e) {
                         // Ignore parsing errors
                     }
-                    logger.logConversationStart(routeAvailable.getConversationId(), 
-                        "Route availability broadcast for route " + routeId + " from " + 
-                        (routeAvailable.getSender() != null ? routeAvailable.getSender().getLocalName() : "unknown"));
+                    logger.logConversationStart(routeAssignment.getConversationId(), 
+                        "Route assignment for route " + routeId + " from " + 
+                        (routeAssignment.getSender() != null ? routeAssignment.getSender().getLocalName() : "unknown"));
                 }
                 
-                handleRouteAvailability(routeAvailable);
+                handleRouteAssignment(routeAssignment);
                 return;
             }
             
@@ -201,175 +210,99 @@ public class VehicleAgent extends Agent {
         }
         
         /**
-         * Handles route availability broadcast from depot
-         * Vehicle self-evaluates if it can handle the route
+         * Handles route assignment from depot.
+         * Vehicle validates the assignment and starts executing if feasible.
          */
-        private void handleRouteAvailability(ACLMessage routeAvailable) {
-            String content = routeAvailable.getContent();
-            // Format: ROUTE_AVAILABLE:ROUTE:routeId|CUSTOMERS:...|CUSTOMER_IDS:...|COORDS:...|DEMAND:...|DISTANCE:...
-            
-            System.out.println("\n=== Vehicle " + vehicleName + ": Received Route Availability ===");
-            logger.logEvent("Received route availability broadcast from depot");
-            
-            // Parse route data
-            String routeData = content.substring("ROUTE_AVAILABLE:".length());
+        private void handleRouteAssignment(ACLMessage routeAssignment) {
+            String content = routeAssignment.getContent();
+            if (content == null || !content.startsWith("ROUTE_ASSIGNMENT:")) {
+                logger.log("WARNING: Received route assignment with invalid content");
+                return;
+            }
+
+            System.out.println("\n=== Vehicle " + vehicleName + ": Received Route Assignment ===");
+            logger.logEvent("Received route assignment from depot");
+
+            String routeData = content.substring("ROUTE_ASSIGNMENT:".length());
             String[] parts = routeData.split("\\|");
-            
+
             String routeId = null;
+            Integer assignedVehicleId = null;
+            String assignedVehicleName = null;
             int routeDemand = 0;
             double routeDistance = 0.0;
-            List<CustomerInfo> routeCustomers = new ArrayList<>();
-            
+
             try {
                 for (String part : parts) {
                     if (part.startsWith("ROUTE:")) {
                         routeId = part.substring("ROUTE:".length());
+                    } else if (part.startsWith("VEHICLE_ID:")) {
+                        assignedVehicleId = Integer.parseInt(part.substring("VEHICLE_ID:".length()));
+                    } else if (part.startsWith("VEHICLE_NAME:")) {
+                        assignedVehicleName = part.substring("VEHICLE_NAME:".length());
                     } else if (part.startsWith("DEMAND:")) {
                         routeDemand = Integer.parseInt(part.substring("DEMAND:".length()));
                     } else if (part.startsWith("DISTANCE:")) {
                         routeDistance = Double.parseDouble(part.substring("DISTANCE:".length()));
-                    } else if (part.startsWith("COORDS:")) {
-                        // Parse customer coordinates
-                        String coordsString = part.substring("COORDS:".length());
-                        if (!coordsString.isEmpty()) {
-                            String[] coordPairs = coordsString.split(";");
-                            for (int i = 0; i < coordPairs.length; i++) {
-                                String[] coords = coordPairs[i].split(",");
-                                if (coords.length == 2) {
-                                    double x = Double.parseDouble(coords[0]);
-                                    double y = Double.parseDouble(coords[1]);
-                                    CustomerInfo customer = new CustomerInfo(i + 1, x, y, 0);
-                                    routeCustomers.add(customer);
-                                }
-                            }
-                        }
                     }
                 }
             } catch (Exception e) {
-                System.err.println("Vehicle " + vehicleName + ": Error parsing route availability: " + e.getMessage());
-                logger.log("ERROR: Failed to parse route availability: " + e.getMessage());
-                sendRejection(routeAvailable, "Invalid route format");
+                System.err.println("Vehicle " + vehicleName + ": Error parsing route assignment: " + e.getMessage());
+                logger.log("ERROR: Failed to parse route assignment: " + e.getMessage());
                 return;
             }
-            
+
             if (routeId == null) {
-                System.err.println("Vehicle " + vehicleName + ": Invalid route format - missing route ID");
-                logger.log("ERROR: Invalid route format - missing route ID");
-                sendRejection(routeAvailable, "Invalid route format");
+                System.err.println("Vehicle " + vehicleName + ": Invalid route assignment - missing route ID");
+                logger.log("ERROR: Invalid route assignment - missing route ID");
                 return;
             }
-            
-            System.out.println("Vehicle " + vehicleName + ": Evaluating route " + routeId + 
-                             " (demand: " + routeDemand + ", distance: " + String.format("%.2f", routeDistance) + ")");
-            logger.logEvent("Evaluating route " + routeId + ": demand=" + routeDemand + 
+
+            if (assignedVehicleName != null && !assignedVehicleName.equals(vehicleName)) {
+                System.out.println("Vehicle " + vehicleName + ": Route " + routeId +
+                                 " assigned to " + assignedVehicleName + ". Ignoring.");
+                logger.logEvent("Ignoring route " + routeId + " - assigned to " + assignedVehicleName);
+                return;
+            }
+
+            System.out.println("Vehicle " + vehicleName + ": Evaluating route " + routeId +
+                             " (vehicleId: " + (assignedVehicleId != null ? assignedVehicleId : "unknown") +
+                             ", demand: " + routeDemand + ", distance: " + String.format("%.2f", routeDistance) + ")");
+            logger.logEvent("Evaluating route " + routeId + ": demand=" + routeDemand +
                           ", distance=" + String.format("%.2f", routeDistance));
-            
-            // Self-check 1: Vehicle state must be "free"
+
             if (!"free".equals(state)) {
-                System.out.println("Vehicle " + vehicleName + ": Cannot accept route " + routeId + 
-                                 " - current state: " + state + " (must be free)");
-                logger.logEvent("REJECTED route " + routeId + ": Vehicle state is " + state + " (must be free)");
-                sendRejection(routeAvailable, "Vehicle not available. Current state: " + state);
+                System.out.println("Vehicle " + vehicleName + ": Cannot start route " + routeId +
+                                 " - current state: " + state);
+                logger.logEvent("Route " + routeId + " ignored - vehicle state is " + state);
                 return;
             }
-            
-            // Self-check 2: Route demand must fit vehicle capacity
+
             if (routeDemand > capacity) {
-                System.out.println("Vehicle " + vehicleName + ": Cannot accept route " + routeId + 
-                                 " - demand " + routeDemand + " exceeds capacity " + capacity);
-                logger.logEvent("REJECTED route " + routeId + ": Demand " + routeDemand + 
+                System.out.println("Vehicle " + vehicleName + ": Route " + routeId +
+                                 " demand " + routeDemand + " exceeds capacity " + capacity);
+                logger.logEvent("Route " + routeId + " rejected locally - demand " + routeDemand +
                               " exceeds capacity " + capacity);
-                sendRejection(routeAvailable, "Route demand " + routeDemand + " exceeds vehicle capacity " + capacity);
                 return;
             }
-            
-            // Self-check 3: Calculate total distance (from current position to first customer + route distance + return to depot)
-            double totalDistance = routeDistance;
-            if (!routeCustomers.isEmpty()) {
-                // Distance from current position to first customer
-                CustomerInfo firstCustomer = routeCustomers.get(0);
-                double distanceToFirst = Math.hypot(currentX - firstCustomer.x, currentY - firstCustomer.y);
-                totalDistance += distanceToFirst;
-                
-                // Distance from last customer back to depot
-                CustomerInfo lastCustomer = routeCustomers.get(routeCustomers.size() - 1);
-                double distanceToDepot = Math.hypot(lastCustomer.x - depotX, lastCustomer.y - depotY);
-                totalDistance += distanceToDepot;
-            } else {
-                // If no customers, just distance from current position to depot
-                totalDistance = Math.hypot(currentX - depotX, currentY - depotY);
-            }
-            
-            // Self-check 4: Total distance must not exceed vehicle max distance
-            if (totalDistance > maxDistance) {
-                System.out.println("Vehicle " + vehicleName + ": Cannot accept route " + routeId + 
-                                 " - total distance " + String.format("%.2f", totalDistance) + 
+
+            if (routeDistance > maxDistance) {
+                System.out.println("Vehicle " + vehicleName + ": Route " + routeId +
+                                 " distance " + String.format("%.2f", routeDistance) +
                                  " exceeds max distance " + maxDistance);
-                logger.logEvent("REJECTED route " + routeId + ": Total distance " + 
-                              String.format("%.2f", totalDistance) + " exceeds max distance " + maxDistance);
-                sendRejection(routeAvailable, "Route total distance " + String.format("%.2f", totalDistance) + 
-                            " exceeds vehicle max distance " + maxDistance);
+                logger.logEvent("Route " + routeId + " rejected locally - distance " +
+                              String.format("%.2f", routeDistance) + " exceeds max distance " + maxDistance);
                 return;
             }
-            
-            // All checks passed - accept the route
-            System.out.println("Vehicle " + vehicleName + ": ✓ All self-checks passed for route " + routeId);
-            System.out.println("Vehicle " + vehicleName + ": Capacity: " + capacity + " >= Demand: " + routeDemand);
-            System.out.println("Vehicle " + vehicleName + ": Max Distance: " + maxDistance + " >= Total Distance: " + 
-                             String.format("%.2f", totalDistance));
-            logger.logEvent("ACCEPTED route " + routeId + ": Capacity=" + capacity + " (demand=" + routeDemand + 
-                          "), MaxDistance=" + maxDistance + " (total=" + String.format("%.2f", totalDistance) + ")");
-            
-            // Send acceptance
-            ACLMessage acceptance = routeAvailable.createReply();
-            acceptance.setPerformative(ACLMessage.AGREE);
-            acceptance.setContent("ROUTE_ACCEPTED:ROUTE:" + routeId + "|VEHICLE:" + vehicleName);
-            
-            // Log conversation response (conversation end will be logged by depot when it receives this)
-            logger.logSent(acceptance);
-            send(acceptance);
-            
-            System.out.println("Vehicle " + vehicleName + ": Sent route acceptance to depot for route " + routeId);
-            logger.logEvent("Sent route acceptance to depot for route " + routeId);
-            
-            // Start the route immediately (depot will reject if another vehicle already accepted)
+
+            System.out.println("Vehicle " + vehicleName + ": ✓ Route " + routeId + " accepted");
+            System.out.println("Vehicle " + vehicleName + ": Capacity " + capacity +
+                             " vs demand " + routeDemand + ", maxDistance " + maxDistance +
+                             " vs route distance " + String.format("%.2f", routeDistance));
+            logger.logEvent("ACCEPTED route " + routeId + ": capacity=" + capacity + " (demand=" + routeDemand +
+                          "), maxDistance=" + maxDistance + " (route distance=" + String.format("%.2f", routeDistance) + ")");
+
             parseRouteAndStartMovement(routeId, routeData);
-        }
-        
-        /**
-         * Sends rejection message to depot
-         */
-        private void sendRejection(ACLMessage routeAvailable, String reason) {
-            // Extract route ID from message content for logging
-            String routeId = "unknown";
-            try {
-                String content = routeAvailable.getContent();
-                if (content != null && content.startsWith("ROUTE_AVAILABLE:")) {
-                    String routeData = content.substring("ROUTE_AVAILABLE:".length());
-                    String[] parts = routeData.split("\\|");
-                    for (String part : parts) {
-                        if (part.startsWith("ROUTE:")) {
-                            routeId = part.substring("ROUTE:".length());
-                            break;
-                        }
-                    }
-                }
-            } catch (Exception e) {
-                // Ignore parsing errors, use "unknown" route ID
-            }
-            
-            ACLMessage rejection = routeAvailable.createReply();
-            rejection.setPerformative(ACLMessage.REFUSE);
-            rejection.setContent("ROUTE_REJECTED:" + reason);
-            
-            // Log conversation end for rejected route
-            logger.logConversationEnd(routeAvailable.getConversationId(), 
-                "Route " + routeId + " rejected: " + reason);
-            
-            logger.logSent(rejection);
-            send(rejection);
-            System.out.println("Vehicle " + vehicleName + ": Sent route rejection to depot: " + reason);
-            logger.logEvent("Sent route rejection to depot: " + reason);
         }
     }
     

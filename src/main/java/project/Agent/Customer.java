@@ -16,8 +16,8 @@ import project.Utils.AgentLogger;
 import java.util.Random;
 
 /*
- * Customer agent:
- * - Send requests to the depot
+ * Customer agent: A support agent that helps simulate the whole VRP process
+ * - Send requests to the depot (id, name, x, y, item name, quantity)
  * - Receive responses from the depot
  */
 public class Customer extends Agent {
@@ -27,8 +27,8 @@ public class Customer extends Agent {
     private double y;
     private Random random;
     
-    // Logger for conversations
-    private AgentLogger logger; // to generate time window requirement
+    // Conversation logger
+    private AgentLogger logger;
     
     @Override
     protected void setup() {
@@ -105,15 +105,16 @@ public class Customer extends Agent {
                 request.customerId, request.customerName, request.x, request.y,
                 request.itemName, request.quantity);
             msg.setContent(content);
-            
+            send(msg);
+
             // Log conversation start
             logger.logConversationStart(msg.getConversationId(), 
                 "Customer request: " + quantity + "x " + itemName + " to " + depotAgent.getLocalName());
-            
             logger.logSent(msg);
-            send(msg);
-            System.out.println("Customer " + customerName + ": Requested " + quantity + " units of " + itemName);
             logger.logEvent("Sent request: " + quantity + " units of " + itemName);
+
+            // Print to console for debugging
+            System.out.println("Customer " + customerName + ": Requested " + quantity + " units of " + itemName);
             
             // Reset period for next request
             reset(30000 + random.nextInt(30000));
@@ -162,7 +163,6 @@ public class Customer extends Agent {
             }
         }
     }
-    // Why only handle responses from Depot but not the Vehicle agent as well (delivered successfully)
     
     /**
      * Finds Depot agent via DF

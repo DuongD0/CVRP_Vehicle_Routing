@@ -62,7 +62,3 @@ if the depot receive all vehicle agent information, would the result routes are 
 - split the solver into a separate agent to make use of the concurrent feature of jade agents
 - move the if-else part in the initiation of the agents to a txt file. the main is supposed to read input from a website outside, if there is no data from that web then read from the txt file as the sample scenario
 - continue reading all agents for error
-
-
-
-
