@@ -1,10 +1,30 @@
 work to do:
-- about the log:
-    - handle the log more to have more conversation between the agents
-    - agents currently stops at assigning and have assigned, no movement log to be seen
-    - if trying to predict when some das are delivering, they may response busy (bring back the state)
-    - simplify (or beautify) the log, show it on the UI (show everything on the UI)
+- backend:
+    - process 3-type of data: vehicle-only, customer-only, and vehicle-customer
+
+- agent:
+    - da:
+        - if mra trying to query when some das are delivering, they may response busy (bring back the state)
+        - states are busy and free (busy when delivering, free when at/arrived back to the depot position)
+    - main:
+        - based on the type of data from api to terminate, start, or do nothing to the agents
+    - about the log:
+        - handle the log more to have more conversation between the agents
+
+        - simplify (or beautify) the log, show it on the UI (show everything on the UI)
+
+    - about the agents:
+        - handle edge cases (consecutive requests when the das are delivering, vehicle state (bring back the free/busy) to occupy the log more)
+
+- frontend:
+    - the vehicle page should send separate information
+    - requests (that is not loaded from the test cases) should not contain vehicle information anymore
+    - requests from test case however, will still include vehicle (for demonstration)
+    - the vehicle page should have a save button, and if changes happen then force the user to save changes before exit the page
+    - saving changes will send vehicles data to the api (with the same format as the current vehicle data)
+
 - split the prj into multiple test cases (!w max distance, /w max distance, /w time window, /w bidding (if possible))
+- all the scenarios, logs must be described as detailed as possible in the report as well as the video & presentation
 - practice presenting for the final w
 - must done within this week !!!
 - have a complete scenario & overall workflow diagram

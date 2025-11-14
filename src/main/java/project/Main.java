@@ -200,43 +200,9 @@ public class Main {
                 }
             }
             
-            // Wait a bit before cleanup to allow route assignment responses to be fully logged
-            // Route assignments have already been sent by MRA before signaling completion
-            // This ensures all route assignment messages and responses are logged
-            System.out.println("\n=== Waiting for Route Assignment Responses to be Logged ===");
-            System.out.println("Waiting 3 seconds for route assignment responses to complete logging...");
-            try {
-                Thread.sleep(3000); // Wait 3 seconds for final route assignment responses to be logged
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            }
-            System.out.println("✓ Route assignment communication logging completed");
-            
-            // Clean up agents after route assignment has completed
-            System.out.println("\n=== Cleaning Up Agents ===");
-            try {
-                System.out.println("Terminating MRA...");
-                mraController.kill();
-                System.out.println("✓ MRA terminated");
-                
-                for (JsonConfigReader.VehicleConfig vehicleConfig : config.vehicles) {
-                    try {
-                        String daName = vehicleConfig.name + "-" + request.requestId;
-                        System.out.println("Terminating DA: " + daName);
-                        mainContainer.getAgent(daName).kill();
-                        System.out.println("  ✓ DA " + daName + " terminated");
-                    } catch (Exception e) {
-                        System.err.println("  ✗ Failed to terminate DA " + vehicleConfig.name + "-" + request.requestId + ": " + e.getMessage());
-                        // Ignore cleanup errors
-                    }
-                }
-                System.out.println("✓ All agents terminated");
-            } catch (Exception e) {
-                System.err.println("Error terminating agents: " + e.getMessage());
-                e.printStackTrace();
-            }
-            
-            System.out.println("Request processing complete\n");
+            // Agents are kept running and will only be terminated when the program is forced to stop
+            System.out.println("Request processing complete");
+            System.out.println("Agents remain active and will only terminate on program shutdown\n");
             
         } catch (Exception e) {
             System.err.println("Error processing request: " + e.getMessage());

@@ -14,7 +14,7 @@ This document provides a comprehensive, detailed description of all agent classe
 
 ## MasterRoutingAgent
 
-**Package:** `project.Agent`  
+**Package:** `project.Agent`
 **Extends:** `jade.core.Agent`
 
 The Master Routing Agent (MRA) is the central coordinator for the CVRP system. It reads problem configurations, queries delivery agents for vehicle information, solves routing problems using Google OR-Tools, and assigns routes to delivery agents.
@@ -23,11 +23,11 @@ The Master Routing Agent (MRA) is the central coordinator for the CVRP system. I
 
 - `depotX` (double): X coordinate of the depot location
 - `depotY` (double): Y coordinate of the depot location
-- `customers` (List<CustomerInfo>): List of customer information from the problem configuration
+- `customers` (List `<CustomerInfo>`): List of customer information from the problem configuration
 - `registeredVehicles` (Map<String, VehicleInfo>): Map of vehicle names to their information
-- `expectedVehicleCount` (int): Number of vehicles expected to respond to queries
-- `receivedVehicleCount` (int): Number of vehicles that have responded
-- `allVehiclesReceived` (boolean): Flag indicating if all vehicles have responded
+- `expectedVehicleCount` (int): Number of vehicles expected to respond to queries (?)
+- `receivedVehicleCount` (int): Number of vehicles that have responded (?)
+- `allVehiclesReceived` (boolean): Flag indicating if all vehicles have responded (?)
 - `solver` (VRPSolver): Interface to the VRP solver (OR-Tools implementation)
 - `problemAssembler` (DepotProblemAssembler): Helper class for assembling problem data
 - `logger` (AgentLogger): Logger for conversation and event tracking
@@ -39,7 +39,8 @@ The Master Routing Agent (MRA) is the central coordinator for the CVRP system. I
 ### Methods
 
 #### `setup()`
-**Access:** protected  
+
+**Access:** protected
 **Override:** Yes (from Agent)
 
 Initializes the Master Routing Agent when it starts.
@@ -47,6 +48,7 @@ Initializes the Master Routing Agent when it starts.
 **Parameters:** None (uses `getArguments()`)
 
 **Process:**
+
 1. Retrieves arguments: config, configName, and optionally solutionLatch and solutionHolder for backend mode
 2. Validates arguments - requires at least config and configName
 3. Initializes logger with agent name "MRA"
@@ -66,11 +68,13 @@ Initializes the Master Routing Agent when it starts.
 ---
 
 #### `queryVehiclesAndSolve()`
+
 **Access:** private
 
 Queries all Delivery Agents for their vehicle information, then proceeds to solve the routing problem.
 
 **Process:**
+
 1. Finds all Delivery Agents via DF (Directory Facilitator) using service type "da-service"
 2. If no DAs found, logs error and returns
 3. Sets expected vehicle count to the number of DAs found
@@ -87,6 +91,7 @@ Queries all Delivery Agents for their vehicle information, then proceeds to solv
 ---
 
 #### `VehicleInfoResponseHandler` (Inner Class)
+
 **Extends:** `CyclicBehaviour`
 
 Handles vehicle information responses from Delivery Agents.
@@ -94,9 +99,11 @@ Handles vehicle information responses from Delivery Agents.
 **Methods:**
 
 ##### `action()`
+
 Processes incoming vehicle information messages.
 
 **Process:**
+
 1. Uses message template to match INFORM messages with FIPA_REQUEST protocol
 2. Filters out route assignment responses by checking conversation ID and content
 3. For each vehicle info response:
@@ -117,11 +124,13 @@ Processes incoming vehicle information messages.
 ---
 
 #### `WaitForVehiclesBehaviour` (Inner Class)
+
 **Extends:** `TickerBehaviour`
 
 Periodically checks if all vehicles have responded before proceeding to solve.
 
 **Fields:**
+
 - `startTime` (long): Timestamp when behavior started
 - `timeoutMs` (long): Maximum wait time in milliseconds
 - `minWaitMs` (long): Minimum wait time (3 seconds) even if all vehicles respond quickly
@@ -130,12 +139,15 @@ Periodically checks if all vehicles have responded before proceeding to solve.
 **Methods:**
 
 ##### `WaitForVehiclesBehaviour(Agent a, long period, long timeoutMs)`
+
 Constructor that initializes the ticker behavior with check period and timeout.
 
 ##### `onTick()`
+
 Called periodically to check vehicle response status.
 
 **Process:**
+
 1. If shouldStop is true, returns immediately
 2. Calculates elapsed time since start
 3. If allVehiclesReceived is true:
@@ -149,7 +161,8 @@ Called periodically to check vehicle response status.
 
 ---
 
-#### `RouteAssignmentResponseHandler` (Inner Class)
+#### `RouteAssignmentResponseHandler` (Inner Class) (All vehicles should be able to run all assigned route based on the current implementation)
+
 **Extends:** `CyclicBehaviour`
 
 Handles route assignment responses (accept/reject) from Delivery Agents.
@@ -157,9 +170,11 @@ Handles route assignment responses (accept/reject) from Delivery Agents.
 **Methods:**
 
 ##### `action()`
+
 Processes route assignment responses from DAs.
 
 **Process:**
+
 1. Creates message templates for INFORM (accept) and REFUSE (reject) messages
 2. Receives messages matching the template
 3. For each response:
@@ -177,18 +192,21 @@ Processes route assignment responses from DAs.
    - Prints formatted response summary
 4. Blocks if no messages available
 
-**Message Format:** 
+**Message Format:**
+
 - Accept: `ROUTE_ACCEPTED:1|VEHICLE:DA1|STATUS:ACCEPTED|DEMAND:30|DISTANCE:150.50|CUSTOMERS:3`
 - Reject: `ROUTE_REJECTED:1|VEHICLE:DA1|STATUS:REJECTED|REASON:CAPACITY_EXCEEDED|DETAILS:Demand exceeds capacity`
 
 ---
 
-#### `solveAndAssignRoutes()`
+#### `solveAndAssignRoutes()	`
+
 **Access:** private
 
 Solves the CVRP problem using the solver and assigns routes to Delivery Agents.
 
 **Process:**
+
 1. Collects all registered vehicles into a list
 2. Validates that vehicles are available
 3. Converts customers to CustomerRequest format for problem assembler
@@ -219,15 +237,18 @@ Solves the CVRP problem using the solver and assigns routes to Delivery Agents.
 ---
 
 #### `assignRoutes(SolutionResult result, List<VehicleInfo> availableVehicles)`
+
 **Access:** private
 
 Assigns computed routes to Delivery Agents.
 
 **Parameters:**
+
 - `result` (SolutionResult): The solution containing routes
-- `availableVehicles` (List<VehicleInfo>): List of available vehicles
+- `availableVehicles` (List`<VehicleInfo>`): List of available vehicles
 
 **Process:**
+
 1. For each route in the solution:
    - Creates route ID (1-based index)
    - Gets vehicle index from route.vehicleId
@@ -261,15 +282,18 @@ Assigns computed routes to Delivery Agents.
 ---
 
 #### `findDAByName(String vehicleName)`
-**Access:** private  
+
+**Access:** private
 **Returns:** AID of the Delivery Agent, or null if not found
 
 Finds a Delivery Agent by vehicle name.
 
 **Parameters:**
+
 - `vehicleName` (String): Name of the vehicle to find
 
 **Process:**
+
 1. Gets all DAs via findDeliveryAgentsViaDF()
 2. For each DA:
    - Checks exact name match
@@ -281,11 +305,13 @@ Finds a Delivery Agent by vehicle name.
 ---
 
 #### `registerWithDF()`
+
 **Access:** private
 
 Registers the MRA with the Directory Facilitator (DF) for service discovery.
 
 **Process:**
+
 1. Creates DFAgentDescription with agent AID
 2. Creates ServiceDescription:
    - Type: "mra-service"
@@ -299,12 +325,14 @@ Registers the MRA with the Directory Facilitator (DF) for service discovery.
 ---
 
 #### `findDeliveryAgentsViaDF()`
-**Access:** private  
-**Returns:** List<AID> of found Delivery Agents
+
+**Access:** private
+**Returns:** List`<AID>` of found Delivery Agents
 
 Finds all Delivery Agents registered with DF.
 
 **Process:**
+
 1. Creates DFAgentDescription with service type "da-service"
 2. Searches DF for matching agents
 3. Collects AIDs of all found agents
@@ -315,12 +343,14 @@ Finds all Delivery Agents registered with DF.
 ---
 
 #### `takeDown()`
-**Access:** protected  
+
+**Access:** protected
 **Override:** Yes (from Agent)
 
 Cleanup method called when agent terminates.
 
 **Process:**
+
 1. Logs termination event
 2. Deregisters from DF
 3. Closes logger
@@ -344,46 +374,52 @@ Helper class responsible for assembling VRP problem data and invoking the solver
 ### Methods
 
 #### `DepotProblemAssembler(VRPSolver solver, AgentLogger logger)`
+
 **Access:** public
 
 Constructor that initializes the problem assembler with a solver and logger.
 
 **Parameters:**
+
 - `solver` (VRPSolver): The VRP solver to use
 - `logger` (AgentLogger): Logger for tracking events
 
 ---
 
 #### `assembleAndSolve(double depotX, double depotY, List<CustomerRequest> requests, List<VehicleInfo> vehicles)`
-**Access:** public  
+
+**Access:** public
 **Returns:** SolutionResult (may contain zero routes if solver fails)
 
 Builds the VRP problem from provided requests and vehicles, then calls the solver.
 
 **Parameters:**
+
 - `depotX` (double): Depot X coordinate
 - `depotY` (double): Depot Y coordinate
-- `requests` (List<CustomerRequest>): Current batch of customer requests
-- `vehicles` (List<VehicleInfo>): Available vehicles from the fleet
+- `requests` (List`<CustomerRequest>`): Current batch of customer requests
+- `vehicles` (List`<VehicleInfo>`): Available vehicles from the fleet
 
 **Process:**
+
 1. **Problem Setup:**
+
    - Calculates number of nodes (customers + 1 depot)
    - Creates arrays for coordinates (x, y) and demands
    - Sets depot at index 0 (demand = 0)
    - Populates customer data starting at index 1
-
 2. **Distance Matrix Calculation:**
+
    - Creates 2D distance matrix (numNodes × numNodes)
    - Calculates Euclidean distance between all node pairs
    - Rounds distances to integers
-
 3. **Vehicle Data Extraction:**
+
    - Creates arrays for vehicle capacities and max distances
    - Extracts data from VehicleInfo objects
    - Logs vehicle information
-
 4. **Time Window Processing:**
+
    - Checks if any customer has time windows
    - If time windows exist:
      - Creates timeWindows array (numNodes × 2)
@@ -391,8 +427,8 @@ Builds the VRP problem from provided requests and vehicles, then calls the solve
      - Sets customer time windows from requests
      - Sets default wide window for customers without time windows
    - Logs if time windows are detected
-
 5. **Solver Invocation:**
+
    - Calls solver.solve() with:
      - Number of nodes
      - Number of customers
@@ -412,7 +448,7 @@ Builds the VRP problem from provided requests and vehicles, then calls the solve
 
 ## DeliveryAgent
 
-**Package:** `project.Agent`  
+**Package:** `project.Agent`
 **Extends:** `jade.core.Agent`
 
 The Delivery Agent (DA) represents a delivery vehicle in the system. It responds to MRA queries with vehicle information, accepts route assignments, and executes delivery routes.
@@ -427,7 +463,7 @@ The Delivery Agent (DA) represents a delivery vehicle in the system. It responds
 - `depotX` (double): Depot X coordinate
 - `depotY` (double): Depot Y coordinate
 - `assignedRouteId` (String): ID of currently assigned route
-- `currentRoute` (List<CustomerInfo>): List of customers in current route
+- `currentRoute` (List`<CustomerInfo>`): List of customers in current route
 - `currentCustomerIndex` (int): Index of customer currently moving to (-1 = idle, -2 = returning to depot)
 - `targetX` (double): Target X coordinate for movement
 - `targetY` (double): Target Y coordinate for movement
@@ -440,12 +476,14 @@ The Delivery Agent (DA) represents a delivery vehicle in the system. It responds
 ### Methods
 
 #### `setup()`
-**Access:** protected  
+
+**Access:** protected
 **Override:** Yes (from Agent)
 
 Initializes the Delivery Agent when it starts.
 
 **Process:**
+
 1. Retrieves arguments: vehicleName, capacity, maxDistance
 2. Uses defaults if arguments not provided:
    - vehicleName: local name
@@ -465,6 +503,7 @@ Initializes the Delivery Agent when it starts.
 ---
 
 #### `VehicleInfoQueryHandler` (Inner Class)
+
 **Extends:** `CyclicBehaviour`
 
 Handles vehicle information queries from MRA using FIPA-Request protocol.
@@ -472,9 +511,11 @@ Handles vehicle information queries from MRA using FIPA-Request protocol.
 **Methods:**
 
 ##### `action()`
+
 Processes vehicle information queries.
 
 **Process:**
+
 1. Creates message template matching REQUEST performative with FIPA_REQUEST protocol
 2. Receives matching messages
 3. If message content is "QUERY_VEHICLE_INFO":
@@ -496,6 +537,7 @@ Processes vehicle information queries.
 ---
 
 #### `RouteAssignmentHandler` (Inner Class)
+
 **Extends:** `CyclicBehaviour`
 
 Handles route assignments from MRA.
@@ -503,9 +545,11 @@ Handles route assignments from MRA.
 **Methods:**
 
 ##### `action()`
+
 Processes route assignment messages.
 
 **Process:**
+
 1. Creates message template matching REQUEST performative with "route-assignment" ontology
 2. Receives matching messages
 3. If route assignment received:
@@ -517,15 +561,19 @@ Processes route assignment messages.
 ---
 
 ##### `handleRouteAssignment(ACLMessage routeAssignment)`
+
 **Access:** private (within RouteAssignmentHandler)
 
 Handles route assignment from MRA. Validates the assignment and starts execution if feasible.
 
 **Parameters:**
+
 - `routeAssignment` (ACLMessage): The route assignment message
 
 **Process:**
+
 1. **Message Parsing:**
+
    - Extracts route data from content (after "ROUTE_ASSIGNMENT:")
    - Parses pipe-delimited fields:
      - ROUTE: route ID
@@ -536,8 +584,8 @@ Handles route assignment from MRA. Validates the assignment and starts execution
      - CUSTOMERS: comma-separated customer IDs
      - DEPOT_X, DEPOT_Y: depot coordinates
    - Updates depot coordinates and current position
-
 2. **Validation Checks:**
+
    - **Missing Route ID:** Returns if route ID is null
    - **Wrong Vehicle:** If assigned vehicle name doesn't match this vehicle:
      - Sends reject response with reason "WRONG_VEHICLE"
@@ -551,8 +599,8 @@ Handles route assignment from MRA. Validates the assignment and starts execution
    - **Distance Check:** If route distance exceeds maxDistance:
      - Sends reject response with reason "DISTANCE_EXCEEDED"
      - Returns
-
 3. **Route Acceptance:**
+
    - Logs acceptance
    - Creates acceptance response message:
      - Performative: INFORM
@@ -566,17 +614,20 @@ Handles route assignment from MRA. Validates the assignment and starts execution
 ---
 
 ##### `sendRejectResponse(ACLMessage routeAssignment, String routeId, String reason, String details)`
+
 **Access:** private (within RouteAssignmentHandler)
 
 Sends a rejection response to MRA for a route assignment.
 
 **Parameters:**
+
 - `routeAssignment` (ACLMessage): Original route assignment message
 - `routeId` (String): ID of the route being rejected
 - `reason` (String): Rejection reason code
 - `details` (String): Detailed rejection message
 
 **Process:**
+
 1. Creates rejection response content:
    - ROUTE_REJECTED: routeId
    - VEHICLE: vehicleName
@@ -594,16 +645,20 @@ Sends a rejection response to MRA for a route assignment.
 ---
 
 #### `parseRouteAndStartMovement(String routeId, String routeData)`
+
 **Access:** private
 
 Parses route data and starts movement behavior to execute the delivery.
 
 **Parameters:**
+
 - `routeId` (String): ID of the route
 - `routeData` (String): Pipe-delimited route data string
 
 **Process:**
+
 1. **Route Parsing:**
+
    - Parses route data to extract:
      - CUSTOMERS: numeric customer IDs
      - CUSTOMER_IDS: customer agent IDs
@@ -613,15 +668,15 @@ Parses route data and starts movement behavior to execute the delivery.
      - Coordinates
      - Agent name
    - Validates customers list is not empty
-
 2. **State Initialization:**
+
    - Sets assignedRouteId
    - Stores route in currentRoute
    - Sets currentCustomerIndex to 0
    - Sets isMoving to true
    - Sets target to first customer coordinates
-
 3. **Movement Behavior:**
+
    - Stops any existing MovementBehaviour
    - Creates new MovementBehaviour (updates every 1 second)
    - Adds behavior to agent
@@ -632,6 +687,7 @@ Parses route data and starts movement behavior to execute the delivery.
 ---
 
 #### `MovementBehaviour` (Inner Class)
+
 **Extends:** `TickerBehaviour`
 
 Movement behavior that updates vehicle position periodically. Moves vehicle towards customers and returns to depot.
@@ -639,18 +695,22 @@ Movement behavior that updates vehicle position periodically. Moves vehicle towa
 **Methods:**
 
 ##### `MovementBehaviour(Agent a, long period)`
+
 Constructor that initializes ticker behavior with update period.
 
 **Parameters:**
+
 - `a` (Agent): The agent this behavior belongs to
 - `period` (long): Update period in milliseconds
 
 ---
 
 ##### `onTick()`
+
 Called periodically to update vehicle position.
 
 **Process:**
+
 1. Checks if vehicle is moving
 2. Validates currentRoute is not null
 3. Routes to appropriate movement function:
@@ -661,11 +721,13 @@ Called periodically to update vehicle position.
 ---
 
 ##### `moveTowardsCustomer()`
+
 **Access:** private (within MovementBehaviour)
 
 Moves vehicle towards the current target customer.
 
 **Process:**
+
 1. Validates currentRoute and currentCustomerIndex
 2. Gets current customer from route
 3. Sets target coordinates to customer location
@@ -689,11 +751,13 @@ Moves vehicle towards the current target customer.
 ---
 
 ##### `returnToDepot()`
+
 **Access:** private (within MovementBehaviour)
 
 Moves vehicle back to depot after completing all deliveries.
 
 **Process:**
+
 1. Sets target to depot coordinates
 2. Calculates distance to depot
 3. **If arrived (distance <= ARRIVAL_THRESHOLD):**
@@ -712,28 +776,34 @@ Moves vehicle back to depot after completing all deliveries.
 ---
 
 #### `ReturnToDepotBehaviour` (Inner Class)
+
 **Extends:** `CyclicBehaviour`
 
 Behavior that returns vehicle to depot when free and not at depot.
 
 **Fields:**
+
 - `checkInterval` (long): Interval between checks in milliseconds
 
 **Methods:**
 
 ##### `ReturnToDepotBehaviour(Agent a, long checkInterval)`
+
 Constructor that initializes the behavior with check interval.
 
 **Parameters:**
+
 - `a` (Agent): The agent this behavior belongs to
 - `checkInterval` (long): Interval between checks in milliseconds
 
 ---
 
 ##### `action()`
+
 Checks if vehicle should return to depot.
 
 **Process:**
+
 1. If vehicle has no assigned route and is not moving:
    - Calculates distance to depot
    - If distance > ARRIVAL_THRESHOLD:
@@ -745,11 +815,13 @@ Checks if vehicle should return to depot.
 ---
 
 #### `registerWithDF()`
+
 **Access:** private
 
 Registers the Delivery Agent with the Directory Facilitator (DF) for service discovery.
 
 **Process:**
+
 1. Creates DFAgentDescription with agent AID
 2. Creates ServiceDescription:
    - Type: "da-service"
@@ -763,12 +835,14 @@ Registers the Delivery Agent with the Directory Facilitator (DF) for service dis
 ---
 
 #### `takeDown()`
-**Access:** protected  
+
+**Access:** protected
 **Override:** Yes (from Agent)
 
 Cleanup method called when agent terminates.
 
 **Process:**
+
 1. Logs termination event
 2. Deregisters from DF
 3. Closes logger
@@ -783,25 +857,26 @@ Cleanup method called when agent terminates.
 ### Agent Communication Flow
 
 1. **Initialization:**
+
    - MRA and DAs register with DF (Directory Facilitator)
    - MRA waits 3 seconds for DAs to register
-
 2. **Vehicle Information Query:**
+
    - MRA queries all DAs via DF for vehicle information
    - DAs respond with capacity, max distance, name, and position
    - MRA waits for all responses (with timeout)
-
 3. **Problem Solving:**
+
    - MRA assembles problem using DepotProblemAssembler
    - Solver (OR-Tools) computes optimal routes
    - Solution includes routes, unserved customers, and statistics
-
 4. **Route Assignment:**
+
    - MRA assigns routes to DAs via FIPA-Request messages
    - DAs validate routes (capacity, distance, vehicle match)
    - DAs send accept/reject responses
-
 5. **Route Execution:**
+
    - DAs execute routes using MovementBehaviour
    - Vehicles move towards customers at MOVEMENT_SPEED
    - After all deliveries, vehicles return to depot
@@ -827,7 +902,6 @@ Cleanup method called when agent terminates.
 
 ---
 
-**Document Version:** 1.0  
-**Last Updated:** Generated from codebase analysis  
+**Document Version:** 1.0
+**Last Updated:** Generated from codebase analysis
 **Total Functions Documented:** 30+ methods across 3 agent classes
-
