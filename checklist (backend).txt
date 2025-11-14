@@ -1,8 +1,0 @@
-checklist (backend):
-- have the agents work completely independent of eachother (only find out each other through the df of jade)
-- have the path finding algorithm completely manual ?
-- have the agents behave as expected (vehicle receiving routes, customer notified by vehicles & request packages, depot handle requests & hand over routes for the vehicle to pick )
-- have the code been properly cleaned, commented ?
-- have the sample scenario been put to a txt file instead of if/else clause in the code ?
-- have oop principles been followed ?
-- have the extensions been implemented ?

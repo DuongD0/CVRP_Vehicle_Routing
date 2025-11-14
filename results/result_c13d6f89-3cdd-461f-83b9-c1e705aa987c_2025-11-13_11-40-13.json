@@ -1,0 +1,110 @@
+{
+  "timestamp": "Thu Nov 13 11:40:13 ICT 2025",
+  "configName": "c13d6f89-3cdd-461f-83b9-c1e705aa987c",
+  "solveTimeMs": 31262,
+  "summary": {
+    "totalItemsRequested": 115,
+    "totalItemsDelivered": 115,
+    "totalDistance": 3337.0,
+    "numberOfRoutes": 3,
+    "deliveryRate": 1.0,
+    "unservedCustomers": 0
+  },
+  "routes": [
+    {
+      "routeId": 1,
+      "vehicleName": "DA1",
+      "totalDemand": 39,
+      "totalDistance": 1181.0,
+      "customers": [
+        {
+          "id": 4,
+          "name": "C4",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 16
+        },
+        {
+          "id": 5,
+          "name": "C5",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 13
+        },
+        {
+          "id": 8,
+          "name": "C8",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 10
+        }
+      ]
+    },
+    {
+      "routeId": 2,
+      "vehicleName": "DA2",
+      "totalDemand": 39,
+      "totalDistance": 1094.0,
+      "customers": [
+        {
+          "id": 3,
+          "name": "C3",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 9
+        },
+        {
+          "id": 7,
+          "name": "C7",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 15
+        },
+        {
+          "id": 10,
+          "name": "C10",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 7
+        },
+        {
+          "id": 6,
+          "name": "C6",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 8
+        }
+      ]
+    },
+    {
+      "routeId": 3,
+      "vehicleName": "DA3",
+      "totalDemand": 37,
+      "totalDistance": 1062.0,
+      "customers": [
+        {
+          "id": 9,
+          "name": "C9",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 12
+        },
+        {
+          "id": 2,
+          "name": "C2",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 11
+        },
+        {
+          "id": 1,
+          "name": "C1",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 14
+        }
+      ]
+    }
+  ],
+  "unservedCustomers": []
+}

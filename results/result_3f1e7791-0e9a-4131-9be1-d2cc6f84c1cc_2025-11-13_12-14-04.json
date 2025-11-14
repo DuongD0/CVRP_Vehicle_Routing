@@ -1,0 +1,74 @@
+{
+  "timestamp": "Thu Nov 13 12:14:04 ICT 2025",
+  "configName": "3f1e7791-0e9a-4131-9be1-d2cc6f84c1cc",
+  "solveTimeMs": 30003,
+  "summary": {
+    "totalItemsRequested": 83,
+    "totalItemsDelivered": 83,
+    "totalDistance": 1540.0,
+    "numberOfRoutes": 2,
+    "deliveryRate": 1.0,
+    "unservedCustomers": 0
+  },
+  "routes": [
+    {
+      "routeId": 1,
+      "vehicleName": "DA1",
+      "totalDemand": 48,
+      "totalDistance": 975.0,
+      "customers": [
+        {
+          "id": 4,
+          "name": "C4",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 12
+        },
+        {
+          "id": 5,
+          "name": "C5",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 10
+        },
+        {
+          "id": 6,
+          "name": "C6",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 8
+        },
+        {
+          "id": 3,
+          "name": "C3",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 18
+        }
+      ]
+    },
+    {
+      "routeId": 2,
+      "vehicleName": "DA2",
+      "totalDemand": 35,
+      "totalDistance": 565.0,
+      "customers": [
+        {
+          "id": 1,
+          "name": "C1",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 15
+        },
+        {
+          "id": 2,
+          "name": "C2",
+          "x": 0.0,
+          "y": 0.0,
+          "demand": 20
+        }
+      ]
+    }
+  ],
+  "unservedCustomers": []
+}

@@ -79,6 +79,20 @@ public class JsonResultLogger {
             }
             jsonResult.add("routes", routesArray);
             
+            // Unserved customers
+            JsonArray unservedArray = new JsonArray();
+            for (CustomerInfo customer : result.unservedCustomers) {
+                JsonObject customerJson = new JsonObject();
+                customerJson.addProperty("id", customer.id);
+                customerJson.addProperty("name", customer.name != null ? customer.name : "C" + customer.id);
+                customerJson.addProperty("x", customer.x);
+                customerJson.addProperty("y", customer.y);
+                customerJson.addProperty("demand", customer.demand);
+                unservedArray.add(customerJson);
+            }
+            jsonResult.add("unservedCustomers", unservedArray);
+            summary.addProperty("unservedCustomers", result.unservedCustomers.size());
+            
             // Write JSON
             gson.toJson(jsonResult, writer);
             System.out.println("✓ Solution result saved to: " + fileName);
@@ -105,20 +119,33 @@ public class JsonResultLogger {
             result.itemsTotal > 0 ? (100.0 * result.itemsDelivered / result.itemsTotal) : 0.0));
         System.out.println("Total Distance: " + String.format("%.2f", result.totalDistance));
         System.out.println("Number of Routes: " + result.routes.size());
+        System.out.println("Unserved Customers: " + result.unservedCustomers.size());
         System.out.println("Solve Time: " + result.solveTimeMs + " ms");
         System.out.println("\nRoutes:");
-        for (int i = 0; i < result.routes.size(); i++) {
-            RouteInfo route = result.routes.get(i);
-            System.out.println("  Route " + (i + 1) + " (Vehicle: " + 
-                (route.vehicleName != null ? route.vehicleName : "unknown") + "):");
-            System.out.println("    Customers: " + route.customers.size());
-            System.out.println("    Demand: " + route.totalDemand + " items");
-            System.out.println("    Distance: " + String.format("%.2f", route.totalDistance));
-            System.out.print("    Sequence: Depot");
-            for (CustomerInfo customer : route.customers) {
-                System.out.print(" -> C" + customer.id);
+        if (result.routes.isEmpty()) {
+            System.out.println("  (No routes - problem could not be solved)");
+        } else {
+            for (int i = 0; i < result.routes.size(); i++) {
+                RouteInfo route = result.routes.get(i);
+                System.out.println("  Route " + (i + 1) + " (Vehicle: " + 
+                    (route.vehicleName != null ? route.vehicleName : "unknown") + "):");
+                System.out.println("    Customers: " + route.customers.size());
+                System.out.println("    Demand: " + route.totalDemand + " items");
+                System.out.println("    Distance: " + String.format("%.2f", route.totalDistance));
+                System.out.print("    Sequence: Depot");
+                for (CustomerInfo customer : route.customers) {
+                    System.out.print(" -> C" + customer.id);
+                }
+                System.out.println(" -> Depot");
             }
-            System.out.println(" -> Depot");
+        }
+        if (result.unservedCustomers.size() > 0) {
+            System.out.println("\nUnserved Customers:");
+            for (CustomerInfo customer : result.unservedCustomers) {
+                System.out.println("  - " + (customer.name != null ? customer.name : "C" + customer.id) + 
+                    " (demand: " + customer.demand + ") at (" + 
+                    String.format("%.2f", customer.x) + ", " + String.format("%.2f", customer.y) + ")");
+            }
         }
         System.out.println("===============================================\n");
     }

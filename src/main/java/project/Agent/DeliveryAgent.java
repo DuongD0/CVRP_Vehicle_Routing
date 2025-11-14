@@ -163,6 +163,18 @@ public class DeliveryAgent extends Agent {
             
             ACLMessage routeAssignment = receive(routeAssignmentTemplate);
             if (routeAssignment != null) {
+                // Log the received route assignment message immediately
+                String senderName = (routeAssignment.getSender() != null) ? routeAssignment.getSender().getLocalName() : "unknown";
+                System.out.println("\n=== DA " + vehicleName + ": Received Route Assignment Message ===");
+                System.out.println("DA " + vehicleName + ": Message Details:");
+                System.out.println("  From: " + senderName);
+                System.out.println("  Performative: REQUEST");
+                System.out.println("  Protocol: " + (routeAssignment.getProtocol() != null ? routeAssignment.getProtocol() : "N/A"));
+                System.out.println("  Ontology: " + (routeAssignment.getOntology() != null ? routeAssignment.getOntology() : "N/A"));
+                System.out.println("  Conversation ID: " + (routeAssignment.getConversationId() != null ? routeAssignment.getConversationId() : "N/A"));
+                System.out.println("  Content Length: " + (routeAssignment.getContent() != null ? routeAssignment.getContent().length() : 0) + " characters");
+                
+                // Log the received message to file
                 logger.logReceived(routeAssignment);
                 
                 // Log conversation start for route assignment
@@ -184,11 +196,12 @@ public class DeliveryAgent extends Agent {
                     } catch (Exception e) {
                         // Ignore parsing errors
                     }
+                    System.out.println("DA " + vehicleName + ": Starting conversation: Route assignment for route " + routeId);
                     logger.logConversationStart(routeAssignment.getConversationId(), 
-                        "Route assignment for route " + routeId + " from " + 
-                        (routeAssignment.getSender() != null ? routeAssignment.getSender().getLocalName() : "unknown"));
+                        "Route assignment for route " + routeId + " from " + senderName);
                 }
                 
+                // Handle the route assignment
                 handleRouteAssignment(routeAssignment);
                 return;
             }
@@ -202,13 +215,21 @@ public class DeliveryAgent extends Agent {
          */
         private void handleRouteAssignment(ACLMessage routeAssignment) {
             String content = routeAssignment.getContent();
+            String senderName = (routeAssignment.getSender() != null) ? routeAssignment.getSender().getLocalName() : "unknown";
+            
+            System.out.println("\n=== DA " + vehicleName + ": Received Route Assignment ===");
+            System.out.println("DA " + vehicleName + ": Route Assignment Details:");
+            System.out.println("  From: " + senderName);
+            System.out.println("  Conversation ID: " + (routeAssignment.getConversationId() != null ? routeAssignment.getConversationId() : "N/A"));
+            System.out.println("  Protocol: " + (routeAssignment.getProtocol() != null ? routeAssignment.getProtocol() : "N/A"));
+            System.out.println("  Ontology: " + (routeAssignment.getOntology() != null ? routeAssignment.getOntology() : "N/A"));
+            logger.logEvent("Received route assignment message from MRA: " + senderName);
+            
             if (content == null || !content.startsWith("ROUTE_ASSIGNMENT:")) {
+                System.err.println("DA " + vehicleName + ": WARNING - Received route assignment with invalid content");
                 logger.log("WARNING: Received route assignment with invalid content");
                 return;
             }
-
-            System.out.println("\n=== DA " + vehicleName + ": Received Route Assignment ===");
-            logger.logEvent("Received route assignment from MRA");
 
             String routeData = content.substring("ROUTE_ASSIGNMENT:".length());
             String[] parts = routeData.split("\\|");
@@ -218,6 +239,9 @@ public class DeliveryAgent extends Agent {
             String assignedVehicleName = null;
             int routeDemand = 0;
             double routeDistance = 0.0;
+            List<String> customerIds = new ArrayList<>();
+            String depotXStr = null;
+            String depotYStr = null;
 
             try {
                 for (String part : parts) {
@@ -231,17 +255,47 @@ public class DeliveryAgent extends Agent {
                         routeDemand = Integer.parseInt(part.substring("DEMAND:".length()));
                     } else if (part.startsWith("DISTANCE:")) {
                         routeDistance = Double.parseDouble(part.substring("DISTANCE:".length()));
+                    } else if (part.startsWith("CUSTOMERS:")) {
+                        String customersStr = part.substring("CUSTOMERS:".length());
+                        if (!customersStr.isEmpty()) {
+                            String[] ids = customersStr.split(",");
+                            for (String id : ids) {
+                                customerIds.add(id.trim());
+                            }
+                        }
                     } else if (part.startsWith("DEPOT_X:")) {
-                        depotX = Double.parseDouble(part.substring("DEPOT_X:".length()));
+                        depotXStr = part.substring("DEPOT_X:".length());
+                        depotX = Double.parseDouble(depotXStr);
+                        // Update current position to depot position when depot is received
+                        currentX = depotX;
                     } else if (part.startsWith("DEPOT_Y:")) {
-                        depotY = Double.parseDouble(part.substring("DEPOT_Y:".length()));
+                        depotYStr = part.substring("DEPOT_Y:".length());
+                        depotY = Double.parseDouble(depotYStr);
+                        // Update current position to depot position when depot is received
+                        currentY = depotY;
                     }
                 }
             } catch (Exception e) {
                 System.err.println("DA " + vehicleName + ": Error parsing route assignment: " + e.getMessage());
+                e.printStackTrace();
                 logger.log("ERROR: Failed to parse route assignment: " + e.getMessage());
                 return;
             }
+
+            // Log parsed route assignment details
+            System.out.println("DA " + vehicleName + ": Parsed Route Assignment:");
+            System.out.println("  Route ID: " + (routeId != null ? routeId : "N/A"));
+            System.out.println("  Vehicle ID: " + (assignedVehicleId != null ? assignedVehicleId.toString() : "N/A"));
+            System.out.println("  Assigned Vehicle Name: " + (assignedVehicleName != null ? assignedVehicleName : "N/A"));
+            System.out.println("  This Vehicle Name: " + vehicleName);
+            System.out.println("  Route Demand: " + routeDemand + " items");
+            System.out.println("  Route Distance: " + String.format("%.2f", routeDistance));
+            System.out.println("  Number of Customers: " + customerIds.size());
+            System.out.println("  Depot: (" + (depotXStr != null ? depotXStr : "N/A") + ", " + (depotYStr != null ? depotYStr : "N/A") + ")");
+            if (!customerIds.isEmpty()) {
+                System.out.println("  Customer IDs: " + String.join(", ", customerIds));
+            }
+            System.out.println("================================================");
 
             if (routeId == null) {
                 System.err.println("DA " + vehicleName + ": Invalid route assignment - missing route ID");
@@ -252,20 +306,32 @@ public class DeliveryAgent extends Agent {
             if (assignedVehicleName != null && !assignedVehicleName.equals(vehicleName)) {
                 System.out.println("DA " + vehicleName + ": Route " + routeId +
                                  " assigned to " + assignedVehicleName + ". Ignoring.");
-                logger.logEvent("Ignoring route " + routeId + " - assigned to " + assignedVehicleName);
+                logger.logEvent("Ignoring route " + routeId + " - assigned to " + assignedVehicleName + 
+                              " (this vehicle: " + vehicleName + ")");
+                
+                // Send reject response (route not for this vehicle)
+                sendRejectResponse(routeAssignment, routeId, "WRONG_VEHICLE", 
+                    "Route assigned to " + assignedVehicleName + ", not " + vehicleName);
                 return;
             }
 
             System.out.println("DA " + vehicleName + ": Evaluating route " + routeId +
                              " (vehicleId: " + (assignedVehicleId != null ? assignedVehicleId : "unknown") +
                              ", demand: " + routeDemand + ", distance: " + String.format("%.2f", routeDistance) + ")");
+            System.out.println("DA " + vehicleName + ": Vehicle Capacity: " + capacity + 
+                             ", Max Distance: " + maxDistance);
             logger.logEvent("Evaluating route " + routeId + ": demand=" + routeDemand +
-                          ", distance=" + String.format("%.2f", routeDistance));
+                          ", distance=" + String.format("%.2f", routeDistance) +
+                          ", capacity=" + capacity + ", maxDistance=" + maxDistance);
 
             if (assignedRouteId != null || currentRoute != null) {
                 System.out.println("DA " + vehicleName + ": Cannot start route " + routeId +
                                  " - already assigned to route " + assignedRouteId);
-                logger.logEvent("Route " + routeId + " ignored - vehicle already has route assignment");
+                logger.logEvent("Route " + routeId + " ignored - vehicle already has route assignment: " + assignedRouteId);
+                
+                // Send reject response
+                sendRejectResponse(routeAssignment, routeId, "ALREADY_ASSIGNED", 
+                    "Vehicle already assigned to route " + assignedRouteId);
                 return;
             }
 
@@ -274,6 +340,10 @@ public class DeliveryAgent extends Agent {
                                  " demand " + routeDemand + " exceeds capacity " + capacity);
                 logger.logEvent("Route " + routeId + " rejected locally - demand " + routeDemand +
                               " exceeds capacity " + capacity);
+                
+                // Send reject response
+                sendRejectResponse(routeAssignment, routeId, "CAPACITY_EXCEEDED", 
+                    "Demand " + routeDemand + " exceeds capacity " + capacity);
                 return;
             }
 
@@ -283,17 +353,95 @@ public class DeliveryAgent extends Agent {
                                  " exceeds max distance " + maxDistance);
                 logger.logEvent("Route " + routeId + " rejected locally - distance " +
                               String.format("%.2f", routeDistance) + " exceeds max distance " + maxDistance);
+                
+                // Send reject response
+                sendRejectResponse(routeAssignment, routeId, "DISTANCE_EXCEEDED", 
+                    "Distance " + String.format("%.2f", routeDistance) + " exceeds max distance " + maxDistance);
                 return;
             }
 
-            System.out.println("DA " + vehicleName + ": ✓ Route " + routeId + " accepted");
-            System.out.println("DA " + vehicleName + ": Capacity " + capacity +
-                             " vs demand " + routeDemand + ", maxDistance " + maxDistance +
-                             " vs route distance " + String.format("%.2f", routeDistance));
+            // Route is valid and accepted
+            System.out.println("DA " + vehicleName + ": ✓ Route " + routeId + " ACCEPTED");
+            System.out.println("DA " + vehicleName + ": Validation Results:");
+            System.out.println("  Capacity: " + capacity + " >= Demand: " + routeDemand + " ✓");
+            System.out.println("  Max Distance: " + maxDistance + " >= Route Distance: " + 
+                             String.format("%.2f", routeDistance) + " ✓");
+            System.out.println("  Customers: " + customerIds.size());
             logger.logEvent("ACCEPTED route " + routeId + ": capacity=" + capacity + " (demand=" + routeDemand +
                           "), maxDistance=" + maxDistance + " (route distance=" + String.format("%.2f", routeDistance) + ")");
 
+            // Prepare acceptance response to MRA
+            String responseContent = "ROUTE_ACCEPTED:" + routeId + "|VEHICLE:" + vehicleName + 
+                                   "|STATUS:ACCEPTED|DEMAND:" + routeDemand + 
+                                   "|DISTANCE:" + String.format("%.2f", routeDistance) +
+                                   "|CUSTOMERS:" + customerIds.size();
+            
+            System.out.println("DA " + vehicleName + ": Preparing acceptance response to MRA");
+            System.out.println("DA " + vehicleName + ": Response Content: " + responseContent);
+            
+            // Send response back to MRA (FIPA-Request protocol requires a response)
+            ACLMessage response = routeAssignment.createReply();
+            response.setPerformative(ACLMessage.INFORM);
+            response.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+            response.setConversationId(routeAssignment.getConversationId());
+            response.setContent(responseContent);
+            
+            // Log the response before sending
+            logger.logEvent("Sending route acceptance response to MRA: Route " + routeId + 
+                          " ACCEPTED by vehicle " + vehicleName);
+            logger.logSent(response);
+            
+            // Send the response
+            send(response);
+            
+            System.out.println("DA " + vehicleName + ": ✓ Route acceptance response sent to MRA for route " + routeId);
+            logger.logEvent("Route acceptance response sent successfully to MRA for route " + routeId);
+            
+            // Log conversation end
+            if (routeAssignment.getConversationId() != null) {
+                logger.logConversationEnd(routeAssignment.getConversationId(), 
+                    "Route " + routeId + " ACCEPTED and delivery started");
+            }
+
             parseRouteAndStartMovement(routeId, routeData);
+        }
+        
+        /**
+         * Sends a reject response to MRA for a route assignment
+         */
+        private void sendRejectResponse(ACLMessage routeAssignment, String routeId, String reason, String details) {
+            // Prepare rejection response
+            String responseContent = "ROUTE_REJECTED:" + routeId + "|VEHICLE:" + vehicleName + 
+                                   "|STATUS:REJECTED|REASON:" + reason + "|DETAILS:" + details;
+            
+            System.out.println("DA " + vehicleName + ": Preparing rejection response to MRA");
+            System.out.println("DA " + vehicleName + ": Rejection Reason: " + reason);
+            System.out.println("DA " + vehicleName + ": Rejection Details: " + details);
+            System.out.println("DA " + vehicleName + ": Response Content: " + responseContent);
+            
+            // Create response message
+            ACLMessage response = routeAssignment.createReply();
+            response.setPerformative(ACLMessage.REFUSE);
+            response.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+            response.setConversationId(routeAssignment.getConversationId());
+            response.setContent(responseContent);
+            
+            // Log the response before sending
+            logger.logEvent("Sending route rejection response to MRA: Route " + routeId + 
+                          " REJECTED by vehicle " + vehicleName + " - Reason: " + reason);
+            logger.logSent(response);
+            
+            // Send the response
+            send(response);
+            
+            System.out.println("DA " + vehicleName + ": ✓ Route rejection response sent to MRA for route " + routeId);
+            logger.logEvent("Route rejection response sent successfully to MRA for route " + routeId + ": " + reason);
+            
+            // Log conversation end
+            if (routeAssignment.getConversationId() != null) {
+                logger.logConversationEnd(routeAssignment.getConversationId(), 
+                    "Route " + routeId + " REJECTED: " + reason + " - " + details);
+            }
         }
     }
     
