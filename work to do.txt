@@ -6,13 +6,9 @@ work to do:
     - da:
         - if mra trying to query when some das are delivering, they may response busy (bring back the state)
         - states are busy and free (busy when delivering, free when at/arrived back to the depot position)
+        - when arrived back to the depot, must notify the depot (depot do not need to response back) (this conversation need to be logged)
     - main:
         - based on the type of data from api to terminate, start, or do nothing to the agents
-    - about the log:
-        - handle the log more to have more conversation between the agents
-
-        - simplify (or beautify) the log, show it on the UI (show everything on the UI)
-
     - about the agents:
         - handle edge cases (consecutive requests when the das are delivering, vehicle state (bring back the free/busy) to occupy the log more)
 
@@ -22,6 +18,10 @@ work to do:
     - requests from test case however, will still include vehicle (for demonstration)
     - the vehicle page should have a save button, and if changes happen then force the user to save changes before exit the page
     - saving changes will send vehicles data to the api (with the same format as the current vehicle data)
+
+integration:
+- an icon that expand a window for viewing log, user can choose which agent to view log from
+- vehicle state will be updated separately from the backend route response
 
 - split the prj into multiple test cases (!w max distance, /w max distance, /w time window, /w bidding (if possible))
 - all the scenarios, logs must be described as detailed as possible in the report as well as the video & presentation
