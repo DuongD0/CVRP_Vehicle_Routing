@@ -40,6 +40,9 @@ public class MasterRoutingAgent extends Agent {
     // Problem data (from config)
     private List<CustomerInfo> customers;
     
+    // Persistent tracking of unserved customers across solving sessions
+    private List<CustomerInfo> unservedCustomers;
+    
     // Vehicle management
     private Map<String, VehicleInfo> registeredVehicles;
     private int expectedVehicleCount;  // Number of vehicles expected to respond
@@ -140,6 +143,9 @@ public class MasterRoutingAgent extends Agent {
             );
             customers.add(customer);
         }
+        
+        // Initialize unserved customers list (starts empty, accumulates over time)
+        unservedCustomers = new ArrayList<>();
         
         // Initialize collections
         registeredVehicles = new HashMap<>();
@@ -599,14 +605,25 @@ public class MasterRoutingAgent extends Agent {
         System.out.println("MRA: Using " + availableVehicles.size() + " available vehicles");
         logger.logEvent("Using " + availableVehicles.size() + " available vehicles");
         
-        // Convert customers to CustomerRequest format for problem assembler
+        // Combine current customers with previously unserved customers for solving
+        List<CustomerInfo> allCustomersToSolve = new ArrayList<>();
+        allCustomersToSolve.addAll(customers);
+        allCustomersToSolve.addAll(unservedCustomers);
+        
+        System.out.println("MRA: Solving with " + customers.size() + " new customers + " + 
+                         unservedCustomers.size() + " previously unserved customers = " + 
+                         allCustomersToSolve.size() + " total");
+        logger.logEvent("Solving with " + customers.size() + " new + " + 
+                      unservedCustomers.size() + " unserved = " + allCustomersToSolve.size() + " total");
+        
+        // Convert all customers to CustomerRequest format for problem assembler
         List<CustomerRequest> customerRequests = new ArrayList<>();
-        for (int i = 0; i < customers.size(); i++) {
-            CustomerInfo customer = customers.get(i);
+        for (int i = 0; i < allCustomersToSolve.size(); i++) {
+            CustomerInfo customer = allCustomersToSolve.get(i);
             CustomerRequest req;
             
-            // Check if config has time window for this customer
-            if (i < config.customers.size() && config.customers.get(i).timeWindow != null) {
+            // Check if config has time window for this customer (only for new customers)
+            if (i < customers.size() && i < config.customers.size() && config.customers.get(i).timeWindow != null) {
                 req = new CustomerRequest(
                     customer.name,
                     customer.name,
@@ -631,9 +648,9 @@ public class MasterRoutingAgent extends Agent {
         
         // Solve
         System.out.println("MRA: Calling VRP solver with " + availableVehicles.size() + 
-                         " vehicles and " + customers.size() + " customers");
+                         " vehicles and " + allCustomersToSolve.size() + " customers");
         logger.logEvent("Calling VRP solver: " + availableVehicles.size() + 
-                      " vehicles, " + customers.size() + " customers");
+                      " vehicles, " + allCustomersToSolve.size() + " customers");
         
         SolutionResult result = problemAssembler.assembleAndSolve(
             depotX,
@@ -649,16 +666,76 @@ public class MasterRoutingAgent extends Agent {
         }
         
         // Update unserved customers with proper coordinates and names
+        // Check both new customers and previously unserved customers
         for (CustomerInfo unserved : result.unservedCustomers) {
+            boolean found = false;
+            // First check in new customers
             for (CustomerInfo originalCustomer : customers) {
                 if (originalCustomer.id == unserved.id) {
                     unserved.x = originalCustomer.x;
                     unserved.y = originalCustomer.y;
                     unserved.name = originalCustomer.name;
+                    found = true;
                     break;
                 }
             }
+            // If not found in new customers, check in previously unserved
+            if (!found) {
+                for (CustomerInfo prevUnserved : unservedCustomers) {
+                    if (prevUnserved.id == unserved.id) {
+                        unserved.x = prevUnserved.x;
+                        unserved.y = prevUnserved.y;
+                        unserved.name = prevUnserved.name;
+                        break;
+                    }
+                }
+            }
         }
+        
+        // Update persistent unserved customers list
+        // Remove customers that were served (in routes) and add new unserved customers
+        List<CustomerInfo> servedCustomerIds = new ArrayList<>();
+        for (RouteInfo route : result.routes) {
+            for (CustomerInfo customer : route.customers) {
+                servedCustomerIds.add(customer);
+            }
+        }
+        
+        // Remove served customers from unserved list
+        unservedCustomers.removeIf(unserved -> {
+            for (CustomerInfo served : servedCustomerIds) {
+                if (served.id == unserved.id) {
+                    System.out.println("MRA: Customer " + unserved.name + " (ID: " + unserved.id + 
+                                     ") was previously unserved but is now served. Removing from unserved list.");
+                    logger.logEvent("Customer " + unserved.name + " (ID: " + unserved.id + 
+                                  ") removed from unserved list - now served");
+                    return true;
+                }
+            }
+            return false;
+        });
+        
+        // Add new unserved customers to the persistent list (avoid duplicates)
+        for (CustomerInfo newUnserved : result.unservedCustomers) {
+            boolean alreadyExists = false;
+            for (CustomerInfo existingUnserved : unservedCustomers) {
+                if (existingUnserved.id == newUnserved.id) {
+                    alreadyExists = true;
+                    break;
+                }
+            }
+            if (!alreadyExists) {
+                CustomerInfo unservedCopy = new CustomerInfo(newUnserved.id, newUnserved.x, newUnserved.y, newUnserved.demand, newUnserved.name);
+                unservedCustomers.add(unservedCopy);
+                System.out.println("MRA: Added customer " + newUnserved.name + " (ID: " + newUnserved.id + 
+                                 ") to persistent unserved list");
+                logger.logEvent("Added customer " + newUnserved.name + " (ID: " + newUnserved.id + 
+                              ") to persistent unserved list");
+            }
+        }
+        
+        System.out.println("MRA: Persistent unserved customers count: " + unservedCustomers.size());
+        logger.logEvent("Persistent unserved customers count: " + unservedCustomers.size());
         
         System.out.println("\n=== MRA: VRP Solution Summary ===");
         if (result.routes.isEmpty()) {

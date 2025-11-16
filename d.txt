@@ -1,0 +1,8 @@
+first run:
+- frontend:
+    - no logs were shown
+    - vehicle state not updated (still idle)
+    - moving from the vehicle setting page to the main page erase all contents in the main page
+
+- agents: 
+    - mra being terminated right after solving the request

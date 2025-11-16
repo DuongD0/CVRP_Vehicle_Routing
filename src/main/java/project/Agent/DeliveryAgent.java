@@ -34,7 +34,10 @@ public class DeliveryAgent extends Agent {
     private double depotX;
     private double depotY;
     
-    // Current assignment
+    // Route queue - stores routes that need to be processed
+    private java.util.Queue<QueuedRoute> routeQueue;
+    
+    // Current assignment (route being executed)
     private String assignedRouteId;
     private List<CustomerInfo> currentRoute;
     
@@ -44,6 +47,26 @@ public class DeliveryAgent extends Agent {
     private double targetY;            // Target Y coordinate
     private boolean isMoving;          // Whether vehicle is currently moving
     private MovementBehaviour currentMovementBehaviour;  // Track current movement behavior instance
+    
+    /**
+     * Inner class to store queued route information
+     */
+    @SuppressWarnings("unused")
+    private static class QueuedRoute {
+        String routeId;
+        String routeData;
+        int routeDemand;  // For logging/debugging
+        double routeDistance;  // For logging/debugging
+        List<String> customerIds;  // For logging/debugging
+        
+        QueuedRoute(String routeId, String routeData, int routeDemand, double routeDistance, List<String> customerIds) {
+            this.routeId = routeId;
+            this.routeData = routeData;
+            this.routeDemand = routeDemand;
+            this.routeDistance = routeDistance;
+            this.customerIds = customerIds;
+        }
+    }
     private static final double MOVEMENT_SPEED = 10.0;  // Units per second
     private static final double ARRIVAL_THRESHOLD = 1.0;  // Distance threshold from the vehicle to the customer node to consider arrived
     
@@ -68,6 +91,9 @@ public class DeliveryAgent extends Agent {
         this.depotY = 0.0;
         this.currentX = depotX;  // Start at depot
         this.currentY = depotY;
+        
+        // Initialize route queue
+        this.routeQueue = new java.util.LinkedList<>();
         
         this.assignedRouteId = null;
         this.currentRoute = null;
@@ -98,7 +124,7 @@ public class DeliveryAgent extends Agent {
         // Add behavior to handle route assignments from MRA
         addBehaviour(new RouteAssignmentHandler());
         
-        // Add behavior to return to depot when free
+        // Add behavior to process route queue and return to depot when idle
         addBehaviour(new ReturnToDepotBehaviour(this, 5000));  // Check every 5 seconds
     }
     
@@ -324,16 +350,7 @@ public class DeliveryAgent extends Agent {
                           ", distance=" + String.format("%.2f", routeDistance) +
                           ", capacity=" + capacity + ", maxDistance=" + maxDistance);
 
-            if (assignedRouteId != null || currentRoute != null) {
-                System.out.println("DA " + vehicleName + ": Cannot start route " + routeId +
-                                 " - already assigned to route " + assignedRouteId);
-                logger.logEvent("Route " + routeId + " ignored - vehicle already has route assignment: " + assignedRouteId);
-                
-                // Send reject response
-                sendRejectResponse(routeAssignment, routeId, "ALREADY_ASSIGNED", 
-                    "Vehicle already assigned to route " + assignedRouteId);
-                return;
-            }
+            // No longer reject routes when already assigned - add to queue instead
 
             if (routeDemand > capacity) {
                 System.out.println("DA " + vehicleName + ": Route " + routeId +
@@ -360,7 +377,7 @@ public class DeliveryAgent extends Agent {
                 return;
             }
 
-            // Route is valid and accepted
+            // Route is valid and accepted - add to queue
             System.out.println("DA " + vehicleName + ": ✓ Route " + routeId + " ACCEPTED");
             System.out.println("DA " + vehicleName + ": Validation Results:");
             System.out.println("  Capacity: " + capacity + " >= Demand: " + routeDemand + " ✓");
@@ -369,6 +386,12 @@ public class DeliveryAgent extends Agent {
             System.out.println("  Customers: " + customerIds.size());
             logger.logEvent("ACCEPTED route " + routeId + ": capacity=" + capacity + " (demand=" + routeDemand +
                           "), maxDistance=" + maxDistance + " (route distance=" + String.format("%.2f", routeDistance) + ")");
+
+            // Add route to queue
+            QueuedRoute queuedRoute = new QueuedRoute(routeId, routeData, routeDemand, routeDistance, customerIds);
+            routeQueue.offer(queuedRoute);
+            System.out.println("DA " + vehicleName + ": Route " + routeId + " added to queue. Queue size: " + routeQueue.size());
+            logger.logEvent("Route " + routeId + " added to queue. Queue size: " + routeQueue.size());
 
             // Prepare acceptance response to MRA
             String responseContent = "ROUTE_ACCEPTED:" + routeId + "|VEHICLE:" + vehicleName + 
@@ -400,10 +423,13 @@ public class DeliveryAgent extends Agent {
             // Log conversation end
             if (routeAssignment.getConversationId() != null) {
                 logger.logConversationEnd(routeAssignment.getConversationId(), 
-                    "Route " + routeId + " ACCEPTED and delivery started");
+                    "Route " + routeId + " ACCEPTED and queued");
             }
 
-            parseRouteAndStartMovement(routeId, routeData);
+            // Start processing queue if not already moving
+            if (!isMoving && currentRoute == null) {
+                processNextRouteInQueue();
+            }
         }
         
         /**
@@ -446,8 +472,27 @@ public class DeliveryAgent extends Agent {
     }
     
     /**
+     * Processes the next route in the queue
+     * Called when a route completes or when a new route is added to an empty queue
+     */
+    private void processNextRouteInQueue() {
+        if (routeQueue.isEmpty()) {
+            System.out.println("DA " + vehicleName + ": Route queue is empty. Waiting for new routes.");
+            logger.logEvent("Route queue is empty. Waiting for new routes.");
+            return;
+        }
+        
+        QueuedRoute queuedRoute = routeQueue.poll();
+        System.out.println("DA " + vehicleName + ": Processing next route from queue: " + queuedRoute.routeId);
+        System.out.println("DA " + vehicleName + ": Remaining routes in queue: " + routeQueue.size());
+        logger.logEvent("Processing route " + queuedRoute.routeId + " from queue. Remaining: " + routeQueue.size());
+        
+        parseRouteAndStartMovement(queuedRoute.routeId, queuedRoute.routeData);
+    }
+    
+    /**
      * Parses route data and starts movement behavior
-     * Called when DA accepts a route assignment
+     * Called when DA starts executing a route from the queue
      */
     private void parseRouteAndStartMovement(String routeId, String routeData) {
         System.out.println("DA " + vehicleName + ": Parsing route data for route " + routeId);
@@ -662,23 +707,27 @@ public class DeliveryAgent extends Agent {
                 // Arrived at depot
                 currentX = depotX;
                 currentY = depotY;
-                isMoving = false;
                 String completedRouteId = assignedRouteId;
-                assignedRouteId = null;
-                currentRoute = null;
-                currentCustomerIndex = -1;
                 
                 System.out.println("\n=== DA " + vehicleName + ": RETURNED TO DEPOT ===");
                 System.out.println("DA " + vehicleName + ": Route " + completedRouteId + " completed");
-                System.out.println("DA " + vehicleName + ": Ready for next route assignment");
-                logger.logEvent("RETURNED to depot. Route " + completedRouteId + " completed. Ready for next assignment");
+                logger.logEvent("RETURNED to depot. Route " + completedRouteId + " completed.");
                 
-                // Stop movement behavior and remove it
+                // Clear current route
+                assignedRouteId = null;
+                currentRoute = null;
+                currentCustomerIndex = -1;
+                isMoving = false;
+                
+                // Stop current movement behavior
                 stop();
                 if (currentMovementBehaviour != null) {
                     removeBehaviour(currentMovementBehaviour);
                     currentMovementBehaviour = null;
                 }
+                
+                // Process next route in queue if available
+                processNextRouteInQueue();
             } else {
                 // Move towards depot
                 double moveDistance = Math.min(MOVEMENT_SPEED, distance);
@@ -703,11 +752,18 @@ public class DeliveryAgent extends Agent {
         
         @Override
         public void action() {
+            // If no route is being executed and not moving, ensure we're at depot
+            // and check if there are routes in queue to process
             if (assignedRouteId == null && !isMoving) {
                 double distanceToDepot = Math.hypot(currentX - depotX, currentY - depotY);
                 if (distanceToDepot > ARRIVAL_THRESHOLD) {
                     currentX = depotX;
                     currentY = depotY;
+                }
+                
+                // Check if there are routes in queue to process
+                if (!routeQueue.isEmpty()) {
+                    processNextRouteInQueue();
                 }
             }
             

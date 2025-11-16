@@ -1,31 +1,62 @@
 work to do:
 - backend:
-    - process 3-type of data: vehicle-only, customer-only, and vehicle-customer
+    - process different types of data: 
+        - problem-related: 
+            - vehicle-only: to terminate/create corresponding das (those which names already in the list be kept intact, not on the list will be terminated, on the list but not initiated will be initiated)
+            - customer-only: use the existing list of das to solve the problem
+        - agent-related:
+            - da: state should be passed to some api to update the state on the website
+    - there should be separate apis for these datas
 
 - agent:
     - da:
-        - if mra trying to query when some das are delivering, they may response busy (bring back the state)
+        - if mra trying to query when some das are delivering, they may response busy
         - states are busy and free (busy when delivering, free when at/arrived back to the depot position)
         - when arrived back to the depot, must notify the depot (depot do not need to response back) (this conversation need to be logged)
     - main:
-        - based on the type of data from api to terminate, start, or do nothing to the agents
-    - about the agents:
-        - handle edge cases (consecutive requests when the das are delivering, vehicle state (bring back the free/busy) to occupy the log more)
+        - based on the type of data from api to terminate, start, or do nothing to the das
 
 - frontend:
-    - the vehicle page should send separate information
-    - requests (that is not loaded from the test cases) should not contain vehicle information anymore
-    - requests from test case however, will still include vehicle (for demonstration)
-    - the vehicle page should have a save button, and if changes happen then force the user to save changes before exit the page
-    - saving changes will send vehicles data to the api (with the same format as the current vehicle data)
+    - vehicle page:
+        - still current setting, but now on change will send vehicle-only data to the api (also force the user to confirm change on exit page)
+        - have a "save" button along with other neccessary buttons
+    - main page:
+        - request now not contain vehicle list anymore
+    - test cases:
+        - choosing test cases prompt the user to the vehicle page and force them to confirm changes before view the user data in the main page
 
-integration:
-- an icon that expand a window for viewing log, user can choose which agent to view log from
-- vehicle state will be updated separately from the backend route response
+current problem:
+    - choosing test cases will create more agents then call all those agents to solve the problem, which should not be
+    - request the same problem again and again
 
-- split the prj into multiple test cases (!w max distance, /w max distance, /w time window, /w bidding (if possible))
-- all the scenarios, logs must be described as detailed as possible in the report as well as the video & presentation
-- practice presenting for the final w
-- must done within this week !!!
-- have a complete scenario & overall workflow diagram
-- report
+delete all current test cases in frontend
+vehicle agents should have a list of assigned routes from the mra
+- have 3 test cases:
+    - test case 1: basic agent communication (basic cvrp)
+        - all customers must be served in one go
+        - mra: receive request, ask for capacity, assign route
+        - da: return capacity, receive route, execute the route (or store for later execution), notify the depot when came back
+
+    - test case 2: demand exceed capacity (test favor item over distance)
+        - mra: like test case 1, but now with unserved customer which will be stored
+        - da: like test case 1
+        - after solving the first round, the unserved customer will be taken to solved again and assign back to the das, which will store the new route and execute later
+
+    - test case 3: with maximum distance
+        - like test case 1, but now with max distance
+
+    - test case 4: multiple request when das have not arrived back
+        - no busy/free state, das now have a list of routes that it needs to completely
+    - test case 5: with time window
+        - mra: ask for capacity, speed, and maximum distance, assign route
+        - da: now 
+
+if test-case: send vehicle data along with route data, mra only ask for the presence of those vehicles
+if normal: send customer data only, mra queries all vehicle to solve the problem
+adjust vehicle list: will send the vehicle list only for main to send terminate request/create to match the list
+
+new frontend (in python completely) (implement in "frontend 2" folder):
+- load logs of agents in execution
+- visualize movement of das when executing route
+- load test cases (scenarios), pass to the backend, and visualize it
+- let the user to pick nodes with demand

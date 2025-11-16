@@ -105,15 +105,48 @@ export default function App() {
     setSolutionStatus('unsolved');
   };
 
+  // Compare two vehicle lists to see if they're the same
+  const vehiclesAreEqual = (v1: Vehicle[], v2: Vehicle[]): boolean => {
+    if (v1.length !== v2.length) return false;
+    
+    // Sort by id and compare
+    const sorted1 = [...v1].sort((a, b) => a.id - b.id);
+    const sorted2 = [...v2].sort((a, b) => a.id - b.id);
+    
+    return sorted1.every((vehicle, index) => {
+      const other = sorted2[index];
+      return (
+        vehicle.name === other.name && 
+        vehicle.capacity === other.capacity && 
+        (vehicle.maxDistance || 1000) === (other.maxDistance || 1000)
+      );
+    });
+  };
+
   const handleSolve = async () => {
     if (customers.length === 0) return;
     
     setIsLoading(true);
     setSolutionStatus('solving');
     
+    // Determine if we should send vehicle data
+    let vehiclesToSend: Vehicle[] | undefined = vehicles;
+    
+    if (previousVehicles && currentRequestVehicles) {
+      // We have history - compare current vehicles with last request vehicles
+      if (vehiclesAreEqual(vehicles, currentRequestVehicles)) {
+        // Vehicles haven't changed since last request - don't send
+        vehiclesToSend = undefined;
+      }
+    }
+    
     try {
-      // Always send vehicle data to backend API
-      const result = await solveCVRPBackend(customers, vehicles);
+      // Send data to backend API
+      const result = await solveCVRPBackend(customers, vehiclesToSend);
+      
+      // Update vehicle tracking
+      setPreviousVehicles(currentRequestVehicles);
+      setCurrentRequestVehicles([...vehicles]);
       
       // Check if we got a valid solution with routes
       if (!result || !result.routes || result.routes.length === 0) {

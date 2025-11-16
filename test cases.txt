@@ -1,0 +1,8 @@
+test case 1: pure agent communication (basic cvrp /w max distance, testing agent communication)
+    - agents should communicate clearly 
+    - system should favor number of delivered item over distance
+    - the ultimate goal is still maximize number of item delivered while minimize travel distancee
+    - route assignment, depot notification should be clear
+    - clear messages between agents
+
+test case 2: with maximum distance
