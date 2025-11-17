@@ -79,3 +79,12 @@ detailed:
 - requests only send customer info as all agents are defined at first to be initiated by the main
 - make use of the current apis and implement more if needed
 - the depot location is 0,0 but make it in the middle of the visual map
+
+flaw:
+    - vehicle still not show up (seems to be some error with using the only favicon (400 or 404 error))
+    - a customer that has a extreme large demand will cause the system to keep solving for that customer
+
+final upgrade (if possible):
+    - vehicle agents should have a terminate flag indicating if its about to terminate
+        - if it is then wont response to mra' request
+    - 

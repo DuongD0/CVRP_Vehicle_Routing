@@ -417,13 +417,31 @@
         };
         let mapLayout = null;
         let mapUpdateInterval = null;
+        let baseMapTraces = [];
+        let vehicleOverlayTrace = null;
+        let vehicleAnnotations = [];
+        let vehicleDirections = {};
+        let mapBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
         
         // Initialize map
         function initMap() {
-            const data = [];
+            mapLayout = {
+                title: 'CVRP Route Visualization',
+                xaxis: { title: 'X Coordinate', scaleanchor: 'y', scaleratio: 1 },
+                yaxis: { title: 'Y Coordinate' },
+                hovermode: 'closest',
+                showlegend: true,
+                width: document.getElementById('map').offsetWidth,
+                height: document.getElementById('map').offsetHeight,
+                margin: { l: 40, r: 20, t: 40, b: 40 }
+            };
             
-            // Depot (centered at 0,0, but will be displayed in middle)
-            data.push({
+            const depotTrace = createDepotTrace();
+            setBaseMapTraces([depotTrace], [0], [0]);
+        }
+
+        function createDepotTrace() {
+            return {
                 x: [0],
                 y: [0],
                 mode: 'markers',
@@ -432,19 +450,55 @@
                 marker: { size: 15, color: 'red', symbol: 'square' },
                 text: ['Depot (0,0)'],
                 hovertemplate: 'Depot<br>Location: (0, 0)<extra></extra>'
-            });
-            
-            mapLayout = {
-                title: 'CVRP Route Visualization',
-                xaxis: { title: 'X Coordinate', scaleanchor: 'y', scaleratio: 1 },
-                yaxis: { title: 'Y Coordinate' },
-                hovermode: 'closest',
-                showlegend: true,
-                width: document.getElementById('map').offsetWidth,
-                height: document.getElementById('map').offsetHeight
             };
-            
-            Plotly.newPlot('map', data, mapLayout, {responsive: true});
+        }
+
+        function setBaseMapTraces(traces, allX, allY) {
+            baseMapTraces = traces;
+            updateAxisRanges(allX, allY);
+            renderMapState();
+        }
+
+        function renderMapState() {
+            if (!mapLayout) return;
+            const traces = baseMapTraces.length ? [...baseMapTraces] : [createDepotTrace()];
+            if (vehicleOverlayTrace) {
+                traces.push(vehicleOverlayTrace);
+            }
+
+            const layout = {
+                ...mapLayout,
+                annotations: vehicleAnnotations.length ? [...vehicleAnnotations] : undefined
+            };
+
+            Plotly.react('map', traces, layout, { responsive: true });
+        }
+
+        function updateAxisRanges(allX = [mapBounds.minX, mapBounds.maxX], allY = [mapBounds.minY, mapBounds.maxY]) {
+            const minX = Math.min(...allX);
+            const maxX = Math.max(...allX);
+            const minY = Math.min(...allY);
+            const maxY = Math.max(...allY);
+
+            const padding = 5;
+            const xRange = [
+                Math.floor(minX - padding),
+                Math.ceil(maxX + padding)
+            ];
+            const yRange = [
+                Math.floor(minY - padding),
+                Math.ceil(maxY + padding)
+            ];
+
+            mapBounds = {
+                minX: xRange[0],
+                maxX: xRange[1],
+                minY: yRange[0],
+                maxY: yRange[1]
+            };
+
+            mapLayout.xaxis = { ...(mapLayout.xaxis || {}), range: xRange };
+            mapLayout.yaxis = { ...(mapLayout.yaxis || {}), range: yRange };
         }
         
         function switchTab(tabName) {
@@ -576,46 +630,27 @@
         }
         
         function updateMap() {
-            const data = [];
-            
-            // Depot
-            data.push({
-                x: [0],
-                y: [0],
-                mode: 'markers',
-                type: 'scatter',
-                name: 'Depot',
-                marker: { size: 15, color: 'red', symbol: 'square' },
-                text: ['Depot (0,0)'],
-                hovertemplate: 'Depot<br>Location: (0, 0)<extra></extra>'
-            });
-            
-            // Customers
+            const traces = [createDepotTrace()];
+
             if (customers.length > 0) {
-                data.push({
+                traces.push({
                     x: customers.map(c => c.x),
                     y: customers.map(c => c.y),
                     mode: 'markers+text',
                     type: 'scatter',
                     name: 'Customers',
-                    marker: { size: 10, color: 'blue' },
+                    marker: { size: 10, color: '#1f77b4' },
                     text: customers.map(c => c.id),
                     textposition: 'top center',
                     hovertemplate: 'Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
                     customdata: customers.map(c => c.demand)
                 });
             }
-            
-            // Center map around all points (with depot at center)
+
             const allX = [0, ...customers.map(c => c.x)];
             const allY = [0, ...customers.map(c => c.y)];
-            const xRange = [Math.min(...allX) - 10, Math.max(...allX) + 10];
-            const yRange = [Math.min(...allY) - 10, Math.max(...allY) + 10];
-            
-            mapLayout.xaxis.range = xRange;
-            mapLayout.yaxis.range = yRange;
-            
-            Plotly.redraw('map', data, mapLayout);
+
+            setBaseMapTraces(traces, allX, allY);
         }
         
         function updateMapWithSolution() {
@@ -624,17 +659,7 @@
             const data = [];
             const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
             
-            // Depot
-            data.push({
-                x: [0],
-                y: [0],
-                mode: 'markers',
-                type: 'scatter',
-                name: 'Depot',
-                marker: { size: 15, color: 'red', symbol: 'square' },
-                text: ['Depot (0,0)'],
-                hovertemplate: 'Depot<br>Location: (0, 0)<extra></extra>'
-            });
+            data.push(createDepotTrace());
             
             // Routes
             if (currentSolution.routes) {
@@ -697,13 +722,7 @@
                 });
             }
             
-            const xRange = [Math.min(...allX) - 10, Math.max(...allX) + 10];
-            const yRange = [Math.min(...allY) - 10, Math.max(...allY) + 10];
-            
-            mapLayout.xaxis.range = xRange;
-            mapLayout.yaxis.range = yRange;
-            
-            Plotly.redraw('map', data, mapLayout);
+            setBaseMapTraces(data, allX, allY);
             
             // Start tracking vehicle movement
             startMovementTracking();
@@ -728,9 +747,102 @@
         }
         
         function updateVehiclePositions(vehicleData) {
-            // This would update vehicle positions on the map
-            // For now, we'll just log it
-            console.log('Vehicle positions:', vehicleData);
+            const entries = Object.entries(vehicleData || {});
+            if (entries.length === 0) {
+                vehicleOverlayTrace = null;
+                vehicleAnnotations = [];
+                renderMapState();
+                return;
+            }
+
+            const x = [];
+            const y = [];
+            const text = [];
+            const hover = [];
+            const colors = [];
+
+            entries.forEach(([name, info]) => {
+                const vx = Number(info.x) || 0;
+                const vy = Number(info.y) || 0;
+                const status = info.status || 'idle';
+                const distance = info.route_id ? `Route: ${info.route_id}` : 'No route';
+
+                x.push(vx);
+                y.push(vy);
+                text.push(name);
+                hover.push(`${name}<br>Status: ${status}<br>${distance}<br>Location: (${vx.toFixed(2)}, ${vy.toFixed(2)})`);
+                colors.push(getVehicleColor(status));
+            });
+
+            vehicleOverlayTrace = {
+                x,
+                y,
+                text,
+                customdata: hover,
+                mode: 'markers+text',
+                type: 'scatter',
+                name: 'Vehicles',
+                marker: {
+                    size: 14,
+                    symbol: 'triangle-up',
+                    color: colors,
+                    line: { color: '#ffffff', width: 1.5 }
+                },
+                textposition: 'bottom center',
+                hovertemplate: '%{customdata}<extra></extra>'
+            };
+
+            vehicleAnnotations = entries.map(([name, info], idx) => createVehicleArrow(name, info, colors[idx]));
+            updateAxisRanges(
+                [mapBounds.minX, mapBounds.maxX, ...x],
+                [mapBounds.minY, mapBounds.maxY, ...y]
+            );
+            renderMapState();
+        }
+
+        function getVehicleColor(status) {
+            switch (status) {
+                case 'moving': return '#27ae60';
+                case 'at_customer': return '#f1c40f';
+                case 'at_depot': return '#2980b9';
+                case 'idle':
+                default: return '#7f8c8d';
+            }
+        }
+
+        function createVehicleArrow(name, info, color) {
+            const vx = Number(info.x) || 0;
+            const vy = Number(info.y) || 0;
+            const targetX = Number(info.target_x);
+            const targetY = Number(info.target_y);
+            const hasTarget = !Number.isNaN(targetX) && !Number.isNaN(targetY);
+            const dx = hasTarget ? targetX - vx : (vehicleDirections[name]?.dx || 1);
+            const dy = hasTarget ? targetY - vy : (vehicleDirections[name]?.dy || 0);
+
+            const norm = Math.hypot(dx, dy) || 1;
+            const direction = { dx: dx / norm, dy: dy / norm };
+            vehicleDirections[name] = direction;
+
+            const arrowLength = 3;
+            const headX = vx + direction.dx * arrowLength;
+            const headY = vy + direction.dy * arrowLength;
+
+            return {
+                x: headX,
+                y: headY,
+                ax: vx,
+                ay: vy,
+                xref: 'x',
+                yref: 'y',
+                axref: 'x',
+                ayref: 'y',
+                showarrow: true,
+                arrowhead: 3,
+                arrowsize: 1,
+                arrowwidth: 2,
+                arrowcolor: color,
+                text: ''
+            };
         }
         
         async function loadAgentList() {
