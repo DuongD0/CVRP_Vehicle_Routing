@@ -422,6 +422,8 @@
         let vehicleAnnotations = [];
         let vehicleDirections = {};
         let mapBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+        let mapDataBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+        let baseAxisData = { x: [0], y: [0] };
         
         // Initialize map
         function initMap() {
@@ -453,9 +455,13 @@
             };
         }
 
-        function setBaseMapTraces(traces, allX, allY) {
+        function setBaseMapTraces(traces, allX = [], allY = []) {
             baseMapTraces = traces;
-            updateAxisRanges(allX, allY);
+            baseAxisData = {
+                x: (allX && allX.length ? [...allX] : [0]),
+                y: (allY && allY.length ? [...allY] : [0])
+            };
+            updateAxisRanges(baseAxisData.x, baseAxisData.y);
             renderMapState();
         }
 
@@ -474,11 +480,17 @@
             Plotly.react('map', traces, layout, { responsive: true });
         }
 
-        function updateAxisRanges(allX = [mapBounds.minX, mapBounds.maxX], allY = [mapBounds.minY, mapBounds.maxY]) {
-            const minX = Math.min(...allX);
-            const maxX = Math.max(...allX);
-            const minY = Math.min(...allY);
-            const maxY = Math.max(...allY);
+        function updateAxisRanges(allX = [], allY = []) {
+            if (!mapLayout) return;
+            const xValues = (allX && allX.length) ? allX : [mapDataBounds.minX, mapDataBounds.maxX];
+            const yValues = (allY && allY.length) ? allY : [mapDataBounds.minY, mapDataBounds.maxY];
+
+            const minX = Math.min(...xValues);
+            const maxX = Math.max(...xValues);
+            const minY = Math.min(...yValues);
+            const maxY = Math.max(...yValues);
+
+            mapDataBounds = { minX, maxX, minY, maxY };
 
             const padding = 5;
             const xRange = [
@@ -793,10 +805,9 @@
             };
 
             vehicleAnnotations = entries.map(([name, info], idx) => createVehicleArrow(name, info, colors[idx]));
-            updateAxisRanges(
-                [mapBounds.minX, mapBounds.maxX, ...x],
-                [mapBounds.minY, mapBounds.maxY, ...y]
-            );
+            const combinedX = x.length ? baseAxisData.x.concat(x) : baseAxisData.x;
+            const combinedY = y.length ? baseAxisData.y.concat(y) : baseAxisData.y;
+            updateAxisRanges(combinedX, combinedY);
             renderMapState();
         }
 

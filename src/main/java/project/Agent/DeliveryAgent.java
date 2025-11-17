@@ -12,6 +12,7 @@ import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
 import project.General.CustomerInfo;
 import project.Utils.AgentLogger;
+import project.Utils.BackendClient;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -91,6 +92,8 @@ public class DeliveryAgent extends Agent {
         this.depotY = 0.0;
         this.currentX = depotX;  // Start at depot
         this.currentY = depotY;
+        this.targetX = depotX;
+        this.targetY = depotY;
         
         // Initialize route queue
         this.routeQueue = new java.util.LinkedList<>();
@@ -106,7 +109,7 @@ public class DeliveryAgent extends Agent {
         info.addProperty("capacity", capacity);
         info.addProperty("speed", MOVEMENT_SPEED);
         info.addProperty("maxDistance", maxDistance);
-        project.Utils.BackendClient.reportAgentStatus(vehicleName, "da", "active", info);
+        BackendClient.reportAgentStatus(vehicleName, "da", "active", info);
         
         // Initialize logger
         logger = new AgentLogger("DA-" + vehicleName);
@@ -114,6 +117,7 @@ public class DeliveryAgent extends Agent {
         logger.logEvent("Agent started");
         logger.log("Capacity: " + capacity + ", Max Distance: " + maxDistance);
         logger.log("Initial position: (" + currentX + ", " + currentY + ")");
+        reportPositionToBackend("at_depot");
         
         // Register with DF (Yellow Pages) as "da-service"
         registerWithDF();
@@ -612,6 +616,7 @@ public class DeliveryAgent extends Agent {
                 currentY = targetY;
                 logger.logEvent("ARRIVED at customer " + customer.name + " (ID: " + customer.id + 
                               ") at (" + currentX + ", " + currentY + ")");
+                reportPositionToBackend("at_customer");
                 
                 // Move to next customer
                 currentCustomerIndex++;
@@ -634,6 +639,7 @@ public class DeliveryAgent extends Agent {
                 
                 currentX += dx * ratio;
                 currentY += dy * ratio;
+                reportPositionToBackend("moving");
             }
         }
         
@@ -655,6 +661,7 @@ public class DeliveryAgent extends Agent {
                 currentY = depotY;
                 String completedRouteId = assignedRouteId;
                 logger.logEvent("RETURNED to depot. Route " + completedRouteId + " completed.");
+                reportPositionToBackend("at_depot");
                 
                 // Clear current route
                 assignedRouteId = null;
@@ -681,6 +688,7 @@ public class DeliveryAgent extends Agent {
                 
                 currentX += dx * ratio;
                 currentY += dy * ratio;
+                reportPositionToBackend("moving");
             }
         }
     }
@@ -705,6 +713,9 @@ public class DeliveryAgent extends Agent {
                 if (distanceToDepot > ARRIVAL_THRESHOLD) {
                     currentX = depotX;
                     currentY = depotY;
+                    targetX = depotX;
+                    targetY = depotY;
+                    reportPositionToBackend("at_depot");
                 }
                 
                 // Check if there are routes in queue to process
@@ -741,7 +752,7 @@ public class DeliveryAgent extends Agent {
     @Override
     protected void takeDown() {
         // Report agent status before terminating
-        project.Utils.BackendClient.reportAgentStatus(vehicleName, "da", "terminated");
+        BackendClient.reportAgentStatus(vehicleName, "da", "terminated");
         logger.logEvent("Agent terminating");
         try {
             DFService.deregister(this);
@@ -750,6 +761,23 @@ public class DeliveryAgent extends Agent {
             logger.log("ERROR: Failed to deregister from DF: " + fe.getMessage());
         }
         logger.close();
+    }
+
+    /**
+     * Sends the current vehicle position to the backend for visualization
+     */
+    private void reportPositionToBackend(String status) {
+        Double targetXValue = Double.isFinite(targetX) ? targetX : null;
+        Double targetYValue = Double.isFinite(targetY) ? targetY : null;
+        BackendClient.updateVehiclePosition(
+            vehicleName,
+            currentX,
+            currentY,
+            status,
+            assignedRouteId,
+            targetXValue,
+            targetYValue
+        );
     }
 }
 

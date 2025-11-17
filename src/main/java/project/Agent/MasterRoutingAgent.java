@@ -446,6 +446,7 @@ public class MasterRoutingAgent extends Agent {
         
         // Prepare customers for solving
         List<CustomerInfo> allCustomersToSolve = prepareCustomersForSolving();
+        Map<Integer, CustomerInfo> customerLookup = buildCustomerLookup(allCustomersToSolve);
         List<CustomerRequest> customerRequests = convertToCustomerRequests(allCustomersToSolve);
         
         // Solve the VRP problem
@@ -453,6 +454,9 @@ public class MasterRoutingAgent extends Agent {
         if (result == null) {
             return; // Error already logged
         }
+        
+        // Populate coordinates and names for route customers before logging/submission
+        populateRouteCustomerDetails(result, customerLookup);
         
         // Update unserved customers tracking
         updateUnservedCustomersTracking(result);
@@ -517,6 +521,31 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
+     * Builds a lookup table of customer information (id -> customer details)
+     */
+    private Map<Integer, CustomerInfo> buildCustomerLookup(List<CustomerInfo> customers) {
+        Map<Integer, CustomerInfo> lookup = new HashMap<>();
+        if (customers == null) {
+            return lookup;
+        }
+        
+        for (CustomerInfo customer : customers) {
+            if (customer == null) {
+                continue;
+            }
+            CustomerInfo copy = new CustomerInfo(
+                customer.id,
+                customer.x,
+                customer.y,
+                customer.demand,
+                customer.name != null ? customer.name : "C" + customer.id
+            );
+            lookup.put(customer.id, copy);
+        }
+        return lookup;
+    }
+    
+    /**
      * Converts CustomerInfo list to CustomerRequest format for problem assembler
      */
     private List<CustomerRequest> convertToCustomerRequests(List<CustomerInfo> allCustomersToSolve) {
@@ -533,6 +562,37 @@ public class MasterRoutingAgent extends Agent {
             customerRequests.add(req);
         }
         return customerRequests;
+    }
+    
+    /**
+     * Populates route customer entries with coordinates, demand, and names for visualization/logging
+     */
+    private void populateRouteCustomerDetails(SolutionResult result, Map<Integer, CustomerInfo> customerLookup) {
+        if (result == null || result.routes == null || customerLookup == null || customerLookup.isEmpty()) {
+            return;
+        }
+        
+        for (RouteInfo route : result.routes) {
+            if (route.customers == null) {
+                continue;
+            }
+            for (CustomerInfo customer : route.customers) {
+                if (customer == null) {
+                    continue;
+                }
+                CustomerInfo reference = customerLookup.get(customer.id);
+                if (reference != null) {
+                    customer.x = reference.x;
+                    customer.y = reference.y;
+                    customer.name = reference.name;
+                    if (customer.demand <= 0) {
+                        customer.demand = reference.demand;
+                    }
+                } else {
+                    logger.logEvent("WARNING: Missing customer reference for ID " + customer.id + " when populating route details");
+                }
+            }
+        }
     }
     
     /**

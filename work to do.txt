@@ -81,10 +81,13 @@ detailed:
 - the depot location is 0,0 but make it in the middle of the visual map
 
 flaw:
-    - vehicle still not show up (seems to be some error with using the only favicon (400 or 404 error))
+    - continuous api call keep zoom the map out
+    - does not visualize the routes
+    - 
     - a customer that has a extreme large demand will cause the system to keep solving for that customer
 
 final upgrade (if possible):
-    - vehicle agents should have a terminate flag indicating if its about to terminate
-        - if it is then wont response to mra' request
-    - 
+    - visualize unserved customers
+    - visualize multiple requests
+
+
