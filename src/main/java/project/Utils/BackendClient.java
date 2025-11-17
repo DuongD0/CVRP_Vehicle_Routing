@@ -16,6 +16,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Client for communicating with Python Flask backend server
@@ -25,6 +26,76 @@ public class BackendClient {
     public static final String BACKEND_URL = "http://localhost:8000";
     private static final int POLL_INTERVAL_MS = 2000; // Poll every 2 seconds
     private static final Gson gson = new Gson();
+    
+    /**
+     * Polls the backend for vehicle configuration
+     * @return Vehicle configuration data, or null if not available
+     */
+    public static VehicleConfigResponse pollForVehicleConfig() {
+        try {
+            URL url = new URL(BACKEND_URL + "/api/vehicles/poll-config");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("GET");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setConnectTimeout(5000);
+            conn.setReadTimeout(5000);
+            
+            int responseCode = conn.getResponseCode();
+            
+            if (responseCode == 204) {
+                // No Content - no vehicle config available
+                return null;
+            } else if (responseCode == 200) {
+                // Vehicle config available
+                try (BufferedReader reader = new BufferedReader(
+                        new InputStreamReader(conn.getInputStream(), StandardCharsets.UTF_8))) {
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line);
+                    }
+                    
+                    JsonObject json = gson.fromJson(response.toString(), JsonObject.class);
+                    VehicleConfigResponse config = new VehicleConfigResponse();
+                    
+                    // Parse vehicles
+                    JsonArray vehiclesArray = json.getAsJsonArray("vehicles");
+                    config.vehicles = new ArrayList<>();
+                    for (int i = 0; i < vehiclesArray.size(); i++) {
+                        JsonObject v = vehiclesArray.get(i).getAsJsonObject();
+                        VehicleConfig vehicle = new VehicleConfig();
+                        vehicle.name = v.get("name").getAsString();
+                        vehicle.capacity = v.get("capacity").getAsInt();
+                        vehicle.maxDistance = v.get("maxDistance").getAsDouble();
+                        config.vehicles.add(vehicle);
+                    }
+                    
+                    // Parse depot
+                    JsonObject depotJson = json.getAsJsonObject("depot");
+                    config.depot = new DepotConfig();
+                    config.depot.name = depotJson.get("name").getAsString();
+                    config.depot.x = depotJson.get("x").getAsDouble();
+                    config.depot.y = depotJson.get("y").getAsDouble();
+                    
+                    return config;
+                }
+            } else {
+                System.err.println("Backend returned error code: " + responseCode);
+                return null;
+            }
+        } catch (Exception e) {
+            // Silently handle errors (backend might not be running or no config available)
+            return null;
+        }
+    }
+    
+    /**
+     * Response class for vehicle configuration
+     */
+    public static class VehicleConfigResponse {
+        public List<VehicleConfig> vehicles;
+        public DepotConfig depot;
+    }
     
     /**
      * Polls the backend for pending CVRP requests
@@ -76,47 +147,15 @@ public class BackendClient {
     public static CVRPConfig convertBackendRequestToConfig(JsonObject backendRequest) {
         CVRPConfig config = new CVRPConfig();
         
-        // Read depot
-        JsonObject depotObj = backendRequest.getAsJsonObject("depot");
+        // Depot is NOT in requests - it's set when vehicles are confirmed and MRA is created
+        // Use default depot (0,0) - MRA already has the correct depot from its creation
         config.depot = new DepotConfig();
-        config.depot.name = depotObj.get("name").getAsString();
-        config.depot.x = depotObj.get("x").getAsDouble();
-        config.depot.y = depotObj.get("y").getAsDouble();
+        config.depot.name = "Depot";
+        config.depot.x = 0.0;
+        config.depot.y = 0.0;
         
-        // Read vehicles
+        // Vehicles are NOT in requests - DAs are created separately when vehicles are confirmed
         config.vehicles = new ArrayList<>();
-        JsonArray vehiclesArray = backendRequest.getAsJsonArray("vehicles");
-        if (vehiclesArray == null) {
-            throw new IllegalArgumentException("Backend request missing 'vehicles' array");
-        }
-        
-        System.out.println("BackendClient: Reading " + vehiclesArray.size() + " vehicles from API");
-        for (int i = 0; i < vehiclesArray.size(); i++) {
-            JsonObject vehicleObj = vehiclesArray.get(i).getAsJsonObject();
-            VehicleConfig vehicle = new VehicleConfig();
-            
-            // Read vehicle name (required field)
-            if (!vehicleObj.has("name")) {
-                throw new IllegalArgumentException("Vehicle " + (i + 1) + " missing 'name' field");
-            }
-            vehicle.name = vehicleObj.get("name").getAsString();
-            
-            // Read capacity (required field)
-            if (!vehicleObj.has("capacity")) {
-                throw new IllegalArgumentException("Vehicle " + (i + 1) + " ('" + vehicle.name + "') missing 'capacity' field");
-            }
-            vehicle.capacity = vehicleObj.get("capacity").getAsInt();
-            
-            // Read maxDistance (required field)
-            if (!vehicleObj.has("maxDistance")) {
-                throw new IllegalArgumentException("Vehicle " + (i + 1) + " ('" + vehicle.name + "') missing 'maxDistance' field");
-            }
-            vehicle.maxDistance = vehicleObj.get("maxDistance").getAsDouble();
-            
-            System.out.println("BackendClient: Vehicle " + (i + 1) + " - name='" + vehicle.name + 
-                             "', capacity=" + vehicle.capacity + ", maxDistance=" + vehicle.maxDistance);
-            config.vehicles.add(vehicle);
-        }
         
         // Read customers
         config.customers = new ArrayList<>();
@@ -128,16 +167,6 @@ public class BackendClient {
             customer.x = customerObj.get("x").getAsDouble();
             customer.y = customerObj.get("y").getAsDouble();
             customer.demand = customerObj.get("demand").getAsInt();
-            
-            // Read optional time window
-            if (customerObj.has("timeWindow")) {
-                JsonArray timeWindowArray = customerObj.getAsJsonArray("timeWindow");
-                if (timeWindowArray.size() >= 2) {
-                    customer.timeWindow = new long[2];
-                    customer.timeWindow[0] = timeWindowArray.get(0).getAsLong();
-                    customer.timeWindow[1] = timeWindowArray.get(1).getAsLong();
-                }
-            }
             
             config.customers.add(customer);
         }
@@ -263,6 +292,121 @@ public class BackendClient {
      */
     public static int getPollInterval() {
         return POLL_INTERVAL_MS;
+    }
+    
+    /**
+     * Updates vehicle position in the backend movement tracking API
+     * @param vehicleName Name of the vehicle
+     * @param x Current X coordinate
+     * @param y Current Y coordinate
+     * @param status Vehicle status (idle, moving, at_customer, at_depot)
+     * @param routeId Current route ID (if executing a route)
+     * @param targetX Target X coordinate (if moving)
+     * @param targetY Target Y coordinate (if moving)
+     * @return true if update was successful, false otherwise
+     */
+    public static boolean updateVehiclePosition(String vehicleName, double x, double y, 
+                                                String status, String routeId, 
+                                                Double targetX, Double targetY) {
+        try {
+            URL url = new URL(BACKEND_URL + "/api/movement/update");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
+            
+            // Build JSON request
+            JsonObject requestJson = new JsonObject();
+            requestJson.addProperty("vehicle_name", vehicleName);
+            requestJson.addProperty("x", x);
+            requestJson.addProperty("y", y);
+            requestJson.addProperty("status", status);
+            if (routeId != null) {
+                requestJson.addProperty("route_id", routeId);
+            }
+            if (targetX != null) {
+                requestJson.addProperty("target_x", targetX);
+            }
+            if (targetY != null) {
+                requestJson.addProperty("target_y", targetY);
+            }
+            
+            // Send request
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = gson.toJson(requestJson).getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+            
+            int responseCode = conn.getResponseCode();
+            
+            if (responseCode == 200) {
+                return true;
+            } else {
+                // Silently fail - backend might not be running or endpoint might not be available
+                return false;
+            }
+        } catch (Exception e) {
+            // Silently fail - backend might not be running
+            return false;
+        }
+    }
+    
+    /**
+     * Reports agent status to the backend API
+     * @param agentName Name of the agent
+     * @param agentType Type of agent ('mra' or 'da')
+     * @param status Status ('active', 'inactive', 'terminated')
+     * @param info Additional agent information (depot coordinates for MRA, capacity/speed for DA)
+     * @return true if update was successful, false otherwise
+     */
+    public static boolean reportAgentStatus(String agentName, String agentType, String status, JsonObject info) {
+        try {
+            URL url = new URL(BACKEND_URL + "/api/agents/status");
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("POST");
+            conn.setRequestProperty("Content-Type", "application/json");
+            conn.setRequestProperty("Accept", "application/json");
+            conn.setDoOutput(true);
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
+            
+            // Build JSON request
+            JsonObject requestJson = new JsonObject();
+            requestJson.addProperty("agent_name", agentName);
+            requestJson.addProperty("agent_type", agentType);
+            requestJson.addProperty("status", status);
+            if (info != null) {
+                requestJson.add("info", info);
+            }
+            
+            // Send request
+            try (OutputStream os = conn.getOutputStream()) {
+                byte[] input = gson.toJson(requestJson).getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+            
+            int responseCode = conn.getResponseCode();
+            
+            if (responseCode == 200) {
+                return true;
+            } else {
+                // Silently fail - backend might not be running
+                return false;
+            }
+        } catch (Exception e) {
+            // Silently fail - backend might not be running
+            return false;
+        }
+    }
+    
+    /**
+     * Convenience method for reporting agent status without additional info
+     */
+    public static boolean reportAgentStatus(String agentName, String agentType, String status) {
+        return reportAgentStatus(agentName, agentType, status, null);
     }
 }
 

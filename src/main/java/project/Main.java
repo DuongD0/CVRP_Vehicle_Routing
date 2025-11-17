@@ -7,39 +7,46 @@ import jade.wrapper.AgentContainer;
 import jade.wrapper.AgentController;
 import project.Utils.JsonConfigReader;
 import project.Utils.JsonConfigReader.CVRPConfig;
-import project.Utils.BackendClient;
-import project.Utils.BackendClient.BackendRequest;
-import project.Utils.AgentLogger;
-import project.General.SolutionResult;
 
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
+import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Main entry point for the CVRP Multi-Agent System
- * Continuously polls the Python Flask backend for CVRP requests,
- * processes them using JADE agents, and submits solutions back to the backend.
+ * Initializes the JADE platform and waits for vehicle confirmation from frontend.
+ * MRA and DAs are created only after vehicles are confirmed, not at startup.
+ * The MRA polls the backend API directly for requests and processes them.
  * 
  * This system only operates in backend API mode - no local file processing.
  */
 public class Main {
     private static volatile boolean running = true;
-    private static AgentContainer mainContainer;
+    private static AgentContainer mainContainer;  // Made accessible for MRA to create DAs
+    private static AgentController persistentMRA = null;  // Single persistent MRA
+    private static String mraName = "mra-persistent";  // Name of persistent MRA
+    private static Set<String> createdDAs = new HashSet<>();  // Track created DAs by base name
+    
+    /**
+     * Gets the main container (for MRA to create DAs)
+     */
+    public static AgentContainer getMainContainer() {
+        return mainContainer;
+    }
     
     public static void main(String[] args) {
         runBackendMode();
     }
     
     /**
-     * Runs in backend polling mode - continuously polls backend for requests
+     * Runs in backend mode - initializes agents and lets MRA handle requests directly from API
      */
     private static void runBackendMode() {
         System.out.println("===============================================");
         System.out.println("  CVRP MULTI-AGENT SYSTEM - BACKEND MODE");
         System.out.println("===============================================\n");
-        System.out.println("Connecting to backend at: " + BackendClient.BACKEND_URL);
-        System.out.println("Polling interval: " + BackendClient.getPollInterval() + " ms");
-        System.out.println("Press Ctrl+C to stop\n");
+        System.out.println("Backend URL: http://localhost:8000");
+        System.out.println("Initializing agents...\n");
         
         // Initialize JADE runtime
         Runtime rt = Runtime.instance();
@@ -49,6 +56,15 @@ public class Main {
         p.setParameter(Profile.GUI, "false"); // Disable GUI in backend mode
         
         mainContainer = rt.createMainContainer(p);
+        
+        // Start polling for vehicle configuration to create MRA and DAs
+        // MRA and DAs are NOT created at startup - only after vehicle confirmation
+        startVehicleConfigPoller();
+        
+        System.out.println("\n✓ System initialized");
+        System.out.println("  Waiting for vehicle confirmation from frontend...");
+        System.out.println("  MRA and DAs will be created after vehicles are confirmed");
+        System.out.println("\nPress Ctrl+C to stop\n");
         
         // Add shutdown hook
         java.lang.Runtime.getRuntime().addShutdownHook(new Thread(() -> {
@@ -63,93 +79,135 @@ public class Main {
             }
         }));
         
-        // Main polling loop
-        while (running) {
-            try {
-                // Poll backend for requests
-                BackendRequest request = BackendClient.pollForRequest();
-                
-                if (request != null) {
-                    System.out.println("\n=== New CVRP Request Received ===");
-                    System.out.println("Request ID: " + request.requestId);
-                    
-                    // Process the request
-                    processBackendRequest(request);
-                } else {
-                    // No pending requests, wait before next poll
-                    Thread.sleep(BackendClient.getPollInterval());
-                }
-            } catch (InterruptedException e) {
-                System.out.println("Polling interrupted");
-                break;
-            } catch (Exception e) {
-                System.err.println("Error in polling loop: " + e.getMessage());
-                e.printStackTrace();
-                try {
-                    Thread.sleep(BackendClient.getPollInterval());
-                } catch (InterruptedException ie) {
-                    break;
-                }
+        // Keep main thread alive (agents run in separate threads)
+        try {
+            while (running) {
+                Thread.sleep(1000);
             }
+        } catch (InterruptedException e) {
+            System.out.println("Main thread interrupted");
         }
         
-        System.out.println("Backend main loop stopped");
+        System.out.println("System stopped");
+    }
+    
+    
+    /**
+     * Starts a background thread to poll for vehicle configuration and create DAs
+     */
+    private static void startVehicleConfigPoller() {
+        Thread pollerThread = new Thread(() -> {
+            while (running) {
+                try {
+                    // Poll for vehicle configuration
+                    project.Utils.BackendClient.VehicleConfigResponse config = 
+                        project.Utils.BackendClient.pollForVehicleConfig();
+                    
+                    if (config != null && config.vehicles != null && !config.vehicles.isEmpty()) {
+                        System.out.println("\n=== Received Vehicle Configuration ===");
+                        System.out.println("Creating MRA and " + config.vehicles.size() + " delivery agents...");
+                        
+                        // Create MRA first (if not already exists)
+                        ensureMRAExists(config.depot);
+                        
+                        // Create DAs from vehicle configuration
+                        ensureDAsExist(config.vehicles);
+                        
+                        System.out.println("✓ All agents created and ready");
+                        System.out.println("  MRA is now polling backend API for requests\n");
+                    }
+                    
+                    // Poll every 2 seconds
+                    Thread.sleep(2000);
+                } catch (InterruptedException e) {
+                    System.out.println("Vehicle config poller interrupted");
+                    break;
+                } catch (Exception e) {
+                    // Silently handle errors
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        break;
+                    }
+                }
+            }
+        });
+        pollerThread.setDaemon(true);
+        pollerThread.start();
     }
     
     /**
-     * Processes a CVRP request from the backend
+     * Creates MRA when vehicle configuration is received
+     * MRA is NOT created at startup - only after vehicle confirmation
      */
-    private static void processBackendRequest(BackendRequest request) {
+    private static void ensureMRAExists(JsonConfigReader.DepotConfig depot) {
         try {
-            // Reset log folder for this new request/conversation
-            // This ensures each request gets its own timestamped folder
-            AgentLogger.resetLogFolder();
-            
-            // DEBUG: Print raw backend request
-            System.out.println("\n=== DEBUG: Raw Backend Request ===");
-            System.out.println("Request ID: " + request.requestId);
-            System.out.println("Request Data (JSON):");
-            // Pretty print the JSON data
-            com.google.gson.Gson gson = new com.google.gson.GsonBuilder().setPrettyPrinting().create();
-            System.out.println(gson.toJson(request.data));
-            System.out.println("=====================================\n");
-            
-            // Convert backend request to CVRPConfig
-            CVRPConfig config = BackendClient.convertBackendRequestToConfig(request.data);
-            
-            System.out.println("Problem: " + config.customers.size() + " customers, " + 
-                             config.vehicles.size() + " vehicles");
-            
-            // Debug: Print vehicle names from API
-            System.out.println("\n=== Vehicles from API ===");
-            for (int i = 0; i < config.vehicles.size(); i++) {
-                JsonConfigReader.VehicleConfig v = config.vehicles.get(i);
-                System.out.println("  Vehicle " + (i + 1) + ": name='" + v.name + 
-                                 "', capacity=" + v.capacity + ", maxDistance=" + v.maxDistance);
+            // Check if MRA already exists
+            if (persistentMRA != null) {
+                try {
+                    // Try to get the agent to verify it's still alive
+                    jade.wrapper.AgentController existing = getMainContainer().getAgent(mraName);
+                    if (existing != null) {
+                        System.out.println("  MRA already exists, keeping it");
+                        return;
+                    }
+                } catch (Exception e) {
+                    // MRA doesn't exist, create it
+                    persistentMRA = null;
+                }
             }
-            System.out.println("==========================\n");
             
-            // Create a latch to wait for solution
-            CountDownLatch solutionLatch = new CountDownLatch(1);
-            SolutionHolder solutionHolder = new SolutionHolder();
+            // Create MRA with depot configuration
+            CVRPConfig mraConfig = new CVRPConfig();
+            mraConfig.depot = depot;
+            mraConfig.vehicles = new java.util.ArrayList<>();
+            mraConfig.customers = new java.util.ArrayList<>();
             
-            // Create MRA with callback for solution
-            Object[] mraArgs = new Object[]{config, request.requestId, solutionLatch, solutionHolder};
-            AgentController mraController = mainContainer.createNewAgent(
-                "mra-" + request.requestId,
+            Object[] mraArgs = new Object[]{mraConfig, mraName};
+            persistentMRA = getMainContainer().createNewAgent(
+                mraName,
                 "project.Agent.MasterRoutingAgent",
                 mraArgs
             );
-            mraController.start();
-            System.out.println("✓ Master Routing Agent started");
+            persistentMRA.start();
+            System.out.println("  ✓ MRA created: " + mraName);
             
             // Wait for MRA to initialize
-            Thread.sleep(1000);
-            
-            // Create Delivery Agents
-            System.out.println("=== Creating Delivery Agents ===");
-            for (JsonConfigReader.VehicleConfig vehicleConfig : config.vehicles) {
-                String daName = vehicleConfig.name + "-" + request.requestId;
+            Thread.sleep(2000);
+        } catch (Exception e) {
+            System.err.println("Error creating MRA: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Creates delivery agents for the given vehicles
+     * Called by MRA when it receives the first request, or by vehicle config poller
+     */
+    public static void ensureDAsExist(List<JsonConfigReader.VehicleConfig> vehicles) {
+        try {
+            System.out.println("=== Ensuring Delivery Agents Exist ===");
+            for (JsonConfigReader.VehicleConfig vehicleConfig : vehicles) {
+                String daName = vehicleConfig.name; // Use base name (DA1, DA2, etc.)
+                
+                // Check if DA already exists
+                if (createdDAs.contains(daName)) {
+                    System.out.println("  DA '" + daName + "' already exists, reusing it");
+                    continue;
+                }
+                
+                try {
+                    // Try to get existing agent
+                    jade.wrapper.AgentController existing = getMainContainer().getAgent(daName);
+                    if (existing != null) {
+                        System.out.println("  DA '" + daName + "' already exists, keeping it");
+                        createdDAs.add(daName);
+                        continue;
+                    }
+                } catch (Exception e) {
+                    // Agent doesn't exist, create it
+                }
+                
                 Object[] daArgs = new Object[]{
                     daName,
                     vehicleConfig.capacity,
@@ -157,63 +215,23 @@ public class Main {
                 };
                 
                 System.out.println("Creating DA: name='" + daName + 
-                                 "' (from API: '" + vehicleConfig.name + 
-                                 "', requestId: '" + request.requestId + "')" +
-                                 ", capacity=" + vehicleConfig.capacity + 
+                                 "', capacity=" + vehicleConfig.capacity + 
                                  ", maxDistance=" + vehicleConfig.maxDistance);
                 
-                AgentController daController = mainContainer.createNewAgent(
+                AgentController daController = getMainContainer().createNewAgent(
                     daName,
                     "project.Agent.DeliveryAgent",
                     daArgs
                 );
                 daController.start();
+                createdDAs.add(daName);
                 System.out.println("  ✓ DA '" + daName + "' started");
             }
             System.out.println("================================\n");
-            
-            System.out.println("✓ All agents started, waiting for solution...");
-            
-            // Wait for solution (with timeout)
-            boolean completed = solutionLatch.await(60, TimeUnit.SECONDS);
-            
-            if (completed && solutionHolder.solution != null) {
-                // Solution is already submitted to backend by MRA
-                // Routes have also been assigned to vehicles by MRA (before signaling completion)
-                System.out.println("\n=== Solution Ready ===");
-                System.out.println("✓ Solution received from MRA");
-                System.out.println("  Routes: " + solutionHolder.solution.routes.size());
-                System.out.println("  Items Delivered: " + solutionHolder.solution.itemsDelivered + "/" + solutionHolder.solution.itemsTotal);
-                System.out.println("  Total Distance: " + String.format("%.2f", solutionHolder.solution.totalDistance));
-                System.out.println("  Unserved Customers: " + solutionHolder.solution.unservedCustomers.size());
-                System.out.println("✓ Solution submitted to backend");
-                System.out.println("✓ Routes assigned to vehicles");
-                System.out.println("  (Route assignment communication logged in timestamped log folder)");
-            } else {
-                System.err.println("✗ Solution timeout or error for request " + request.requestId);
-                // Solution should have been submitted by MRA even on error, but log it
-                if (solutionHolder.solution == null) {
-                    // Submit empty solution to indicate failure
-                    SolutionResult errorResult = new SolutionResult();
-                    errorResult.itemsTotal = config.customers.stream().mapToInt(c -> c.demand).sum();
-                    BackendClient.submitSolution(request.requestId, errorResult, request.requestId);
-                }
-            }
-            
-            // Agents are kept running and will only be terminated when the program is forced to stop
-            System.out.println("Request processing complete");
-            System.out.println("Agents remain active and will only terminate on program shutdown\n");
-            
         } catch (Exception e) {
-            System.err.println("Error processing request: " + e.getMessage());
+            System.err.println("Error ensuring DAs exist: " + e.getMessage());
             e.printStackTrace();
         }
     }
     
-    /**
-     * Holder class for solution result
-     */
-    private static class SolutionHolder {
-        SolutionResult solution = null;
-    }
 }

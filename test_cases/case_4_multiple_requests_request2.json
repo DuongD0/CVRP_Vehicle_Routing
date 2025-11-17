@@ -1,0 +1,56 @@
+{
+  "depot": {
+    "name": "Depot",
+    "x": 0.0,
+    "y": 0.0
+  },
+  "vehicles": [
+    {
+      "name": "DA1",
+      "capacity": 40,
+      "maxDistance": 1000.0
+    },
+    {
+      "name": "DA2",
+      "capacity": 40,
+      "maxDistance": 1000.0
+    },
+    {
+      "name": "DA3",
+      "capacity": 40,
+      "maxDistance": 1000.0
+    },
+    {
+      "name": "DA4",
+      "capacity": 40,
+      "maxDistance": 1000.0
+    }
+  ],
+  "customers": [
+    {
+      "id": "5",
+      "demand": 22,
+      "x": 25.0,
+      "y": 15.0
+    },
+    {
+      "id": "6",
+      "demand": 28,
+      "x": 35.0,
+      "y": 20.0
+    },
+    {
+      "id": "7",
+      "demand": 30,
+      "x": 40.0,
+      "y": 10.0
+    },
+    {
+      "id": "8",
+      "demand": 19,
+      "x": 18.0,
+      "y": 30.0
+    }
+  ]
+}
+

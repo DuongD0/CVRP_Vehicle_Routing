@@ -21,7 +21,6 @@ import project.Utils.JsonResultLogger;
 import project.Utils.BackendClient;
 
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
 
 /**
  * Master Routing Agent (MRA) for CVRP
@@ -37,11 +36,19 @@ public class MasterRoutingAgent extends Agent {
     private double depotX;
     private double depotY;
     
-    // Problem data (from config)
-    private List<CustomerInfo> customers;
+    // Request queue - stores incoming requests to process
+    private java.util.Queue<RequestQueueItem> requestQueue;
+    
+    // Accumulated unrouted nodes (up to 6 before processing)
+    private List<CustomerInfo> accumulatedUnroutedNodes;
+    private static final int MAX_ACCUMULATED_UNROUTED = 6;
     
     // Persistent tracking of unserved customers across solving sessions
     private List<CustomerInfo> unservedCustomers;
+    
+    // Request processing state
+    private boolean isProcessingRequest;
+    private RequestQueueItem currentRequest;
     
     // Vehicle management
     private Map<String, VehicleInfo> registeredVehicles;
@@ -60,9 +67,6 @@ public class MasterRoutingAgent extends Agent {
     private JsonConfigReader.CVRPConfig config;
     private String configName;
     
-    // Backend mode support
-    private CountDownLatch solutionLatch;
-    private Object solutionHolder; // Will be cast to Main.SolutionHolder
     
     @Override
     protected void setup() {
@@ -71,81 +75,35 @@ public class MasterRoutingAgent extends Agent {
             this.config = (JsonConfigReader.CVRPConfig) args[0];
             this.configName = (String) args[1];
             
-            // Check if backend mode (has solutionLatch and solutionHolder)
-            if (args.length >= 4 && args[2] instanceof CountDownLatch) {
-                this.solutionLatch = (CountDownLatch) args[2];
-                this.solutionHolder = args[3];
-            }
         } else {
-            System.err.println("ERROR: MRA requires config and configName as arguments");
             doDelete();
             return;
         }
         
-        System.out.println("Master Routing Agent (MRA) " + getAID().getName() + " is ready.");
         
         // Initialize logger
         logger = new AgentLogger("MRA");
         logger.setAgentAID(this);
         logger.logEvent("Agent started");
         
-        // DEBUG: Print request details from frontend/backend
-        System.out.println("\n=== MRA: DEBUG - Request Details from Frontend/Backend ===");
-        System.out.println("Request ID/Config Name: " + configName);
-        System.out.println("\nDepot:");
-        System.out.println("  Name: " + config.depot.name);
-        System.out.println("  Location: (" + config.depot.x + ", " + config.depot.y + ")");
-        System.out.println("\nVehicles (" + config.vehicles.size() + "):");
-        for (int i = 0; i < config.vehicles.size(); i++) {
-            JsonConfigReader.VehicleConfig v = config.vehicles.get(i);
-            System.out.println("  Vehicle " + (i + 1) + ":");
-            System.out.println("    Name: " + v.name);
-            System.out.println("    Capacity: " + v.capacity + " items");
-            System.out.println("    Max Distance: " + v.maxDistance);
-        }
-        System.out.println("\nCustomers (" + config.customers.size() + "):");
-        int totalDemand = 0;
-        for (int i = 0; i < config.customers.size(); i++) {
-            JsonConfigReader.CustomerConfig c = config.customers.get(i);
-            totalDemand += c.demand;
-            System.out.println("  Customer " + (i + 1) + ":");
-            System.out.println("    ID: " + c.id);
-            System.out.println("    Location: (" + c.x + ", " + c.y + ")");
-            System.out.println("    Demand: " + c.demand + " items");
-            if (c.timeWindow != null && c.timeWindow.length >= 2) {
-                System.out.println("    Time Window: [" + c.timeWindow[0] + ", " + c.timeWindow[1] + "]");
-            } else {
-                System.out.println("    Time Window: None");
-            }
-        }
-        int totalCapacity = config.vehicles.stream().mapToInt(v -> v.capacity).sum();
-        System.out.println("\nSummary:");
-        System.out.println("  Total Demand: " + totalDemand + " items");
-        System.out.println("  Total Capacity: " + totalCapacity + " items");
-        if (totalDemand > totalCapacity) {
-            System.out.println("  ⚠ WARNING: Total demand exceeds total capacity (capacity shortfall)");
-        }
-        System.out.println("========================================================\n");
-        
         // Initialize depot location from config
         depotX = config.depot.x;
         depotY = config.depot.y;
         
-        // Initialize customers from config
-        customers = new ArrayList<>();
-        for (JsonConfigReader.CustomerConfig customerConfig : config.customers) {
-            CustomerInfo customer = new CustomerInfo(
-                Integer.parseInt(customerConfig.id.replaceAll("[^0-9]", "")), // Extract numeric ID
-                customerConfig.x,
-                customerConfig.y,
-                customerConfig.demand,
-                customerConfig.id
-            );
-            customers.add(customer);
-        }
+        // Report agent status to backend with depot coordinates
+        com.google.gson.JsonObject info = new com.google.gson.JsonObject();
+        info.addProperty("depot_x", depotX);
+        info.addProperty("depot_y", depotY);
+        BackendClient.reportAgentStatus(getLocalName(), "mra", "active", info);
         
         // Initialize unserved customers list (starts empty, accumulates over time)
         unservedCustomers = new ArrayList<>();
+        
+        // Initialize request queue and accumulated unrouted nodes
+        requestQueue = new java.util.LinkedList<>();
+        accumulatedUnroutedNodes = new ArrayList<>();
+        isProcessingRequest = false;
+        currentRequest = null;
         
         // Initialize collections
         registeredVehicles = new HashMap<>();
@@ -156,21 +114,19 @@ public class MasterRoutingAgent extends Agent {
         // Initialize solver
         solver = new ORToolsSolver();
         problemAssembler = new DepotProblemAssembler(solver, logger);
-        
-        System.out.println("MRA: Depot located at (" + depotX + ", " + depotY + ")");
-        System.out.println("MRA: Problem loaded - " + customers.size() + " customers");
         logger.logEvent("Depot at (" + depotX + ", " + depotY + ")");
-        logger.logEvent("Problem loaded: " + customers.size() + " customers");
+        logger.logEvent("Ready to receive requests from backend API");
         
         // Register with DF for automatic discovery
         registerWithDF();
         logger.logEvent("Registered with DF as 'mra-service'");
         
-        // Wait a bit for DAs to register, then query them and solve
+        // Wait a bit for DAs to register, then start processing requests
         addBehaviour(new WakerBehaviour(this, 3000) {
             @Override
             protected void onWake() {
-                queryVehiclesAndSolve();
+                // Start processing request queue
+                logger.logEvent("Ready to process requests from queue");
             }
         });
         
@@ -179,65 +135,28 @@ public class MasterRoutingAgent extends Agent {
         
         // Add behavior to handle route assignment responses from DAs
         addBehaviour(new RouteAssignmentResponseHandler());
+        
+        // Add behavior to handle DA arrival notifications
+        addBehaviour(new DAArrivalNotificationHandler());
+        
+        // Add behavior to poll backend API for requests directly
+        addBehaviour(new BackendAPIPoller());
+        
+        // Add behavior to process request queue
+        addBehaviour(new RequestQueueProcessor());
     }
     
     /**
-     * Queries all Delivery Agents for their vehicle information, then solves and assigns routes
+     * Inner class to represent a request in the queue
      */
-    private void queryVehiclesAndSolve() {
-        System.out.println("\n=== MRA: Querying Delivery Agents ===");
-        logger.logEvent("Querying Delivery Agents for vehicle information");
+    private static class RequestQueueItem {
+        String requestId;
+        List<CustomerInfo> customers;
         
-        // Find DAs via DF
-        List<AID> daAIDs = findDeliveryAgentsViaDF();
-        if (daAIDs.isEmpty()) {
-            System.err.println("MRA: ERROR - No Delivery Agents found via DF");
-            logger.logEvent("ERROR: No Delivery Agents found via DF");
-            return;
+        RequestQueueItem(String requestId, List<CustomerInfo> customers) {
+            this.requestId = requestId;
+            this.customers = new ArrayList<>(customers);
         }
-        
-        System.out.println("MRA: Found " + daAIDs.size() + " Delivery Agents via DF");
-        logger.logEvent("Found " + daAIDs.size() + " Delivery Agents via DF");
-        
-        // Set expected vehicle count
-        expectedVehicleCount = daAIDs.size();
-        receivedVehicleCount = 0;
-        allVehiclesReceived = false;
-        
-        System.out.println("MRA: Expecting " + expectedVehicleCount + " vehicle information responses");
-        logger.logEvent("Expecting " + expectedVehicleCount + " vehicle information responses");
-        
-        // Query each DA for vehicle information using FIPA-Request
-        for (AID daAID : daAIDs) {
-            String daName = daAID.getLocalName();
-            try {
-                System.out.println("MRA: Querying DA: " + daName);
-                logger.logEvent("Querying DA: " + daName);
-                
-                ACLMessage query = new ACLMessage(ACLMessage.REQUEST);
-                query.addReceiver(daAID);
-                query.setContent("QUERY_VEHICLE_INFO");
-                query.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
-                String queryConversationId = "vehicle-info-query-" + daName + "-" + System.currentTimeMillis();
-                query.setConversationId(queryConversationId);
-                
-                logger.logConversationStart(queryConversationId, 
-                    "Vehicle info query to DA " + daName);
-                
-                logger.logSent(query);
-                send(query);
-                
-                System.out.println("MRA: Sent vehicle info query to " + daName);
-                
-            } catch (Exception e) {
-                System.err.println("MRA: Error querying DA " + daName + ": " + e.getMessage());
-                logger.log("ERROR: Failed to query DA " + daName + ": " + e.getMessage());
-            }
-        }
-        
-        // Wait for all vehicles to respond (with timeout)
-        // Check every 500ms if all vehicles have responded
-        addBehaviour(new WaitForVehiclesBehaviour(this, 500, 10000)); // Check every 500ms, timeout after 10 seconds
     }
     
     /**
@@ -246,7 +165,7 @@ public class MasterRoutingAgent extends Agent {
     private class VehicleInfoResponseHandler extends CyclicBehaviour {
         @Override
         public void action() {
-            // Use a more specific template to match vehicle info responses
+            // Use a specific template to match vehicle info responses
             // Vehicle info responses have INFORM performative, FIPA_REQUEST protocol
             // We'll filter out route assignment responses manually by checking conversation ID and content
             MessageTemplate baseTemplate = MessageTemplate.and(
@@ -263,29 +182,12 @@ public class MasterRoutingAgent extends Agent {
                 String conversationId = msg.getConversationId();
                 String content = msg.getContent();
                 
-                if (conversationId != null && conversationId.startsWith("route-assignment-")) {
-                    // This is a route assignment response, skip it (will be handled by RouteAssignmentResponseHandler)
-                    continue;
-                }
-                
-                if (content != null && 
-                    (content.startsWith("ROUTE_ACCEPTED:") || content.startsWith("ROUTE_REJECTED:"))) {
-                    // This is a route assignment response, skip it
-                    continue;
-                }
-                
                 // This should be a vehicle info response
                 logger.logReceived(msg);
                 if (content == null) {
-                    System.err.println("MRA: WARNING - Received vehicle info message with null content from " + 
-                                     (msg.getSender() != null ? msg.getSender().getLocalName() : "unknown"));
                     logger.log("WARNING: Received vehicle info message with null content");
                     continue;
                 }
-                
-                System.out.println("MRA: Processing vehicle info response from " + 
-                                 (msg.getSender() != null ? msg.getSender().getLocalName() : "unknown") + 
-                                 ": " + content);
                 logger.log("Processing vehicle info response: " + content);
                 
                 String[] parts = content.split("\\|");
@@ -300,14 +202,12 @@ public class MasterRoutingAgent extends Agent {
                         try {
                             capacity = Integer.parseInt(part.substring("CAPACITY:".length()).trim());
                         } catch (NumberFormatException e) {
-                            System.err.println("MRA: ERROR - Failed to parse CAPACITY: " + part);
                             logger.log("ERROR: Failed to parse CAPACITY: " + part);
                         }
                     } else if (part.startsWith("MAX_DISTANCE:")) {
                         try {
                             maxDistance = Double.parseDouble(part.substring("MAX_DISTANCE:".length()).trim());
                         } catch (NumberFormatException e) {
-                            System.err.println("MRA: ERROR - Failed to parse MAX_DISTANCE: " + part);
                             logger.log("ERROR: Failed to parse MAX_DISTANCE: " + part);
                         }
                     }
@@ -320,10 +220,8 @@ public class MasterRoutingAgent extends Agent {
                 if (name == null || name.isEmpty()) {
                     if (senderName != null) {
                         name = senderName;
-                        System.out.println("MRA: Using sender name as vehicle name: " + name);
                         logger.log("Using sender name as vehicle name: " + name);
                     } else {
-                        System.err.println("MRA: ERROR - Cannot determine vehicle name from message");
                         logger.log("ERROR: Cannot determine vehicle name from message");
                         continue;
                     }
@@ -331,14 +229,12 @@ public class MasterRoutingAgent extends Agent {
                     // Verify that the name in content matches the sender name (they should match)
                     // If they don't match, use the sender name as it's the authoritative source
                     if (senderName != null && !name.equals(senderName)) {
-                        System.out.println("MRA: WARNING - Name in content (" + name + ") doesn't match sender name (" + 
-                                         senderName + "). Using sender name as authoritative.");
                         logger.log("WARNING: Name mismatch - content: " + name + ", sender: " + senderName + ". Using sender name.");
                         name = senderName;
                     }
                 }
 
-                if (msg.getConversationId() != null) {
+                if (conversationId != null) {
                     StringBuilder convSummary = new StringBuilder();
                     convSummary.append("Vehicle info received - ").append(name);
                     if (capacity != null) {
@@ -359,8 +255,6 @@ public class MasterRoutingAgent extends Agent {
                     double initialMaxDistance = maxDistance != null ? maxDistance : 1000.0;
                     vehicle = new VehicleInfo(name, initialCapacity, initialMaxDistance);
                     registeredVehicles.put(name, vehicle);
-                    System.out.println("MRA: Registered vehicle " + name +
-                                     " (capacity: " + initialCapacity + ", maxDistance: " + initialMaxDistance + ")");
                     logger.logEvent("Registered vehicle " + name +
                                   ": capacity=" + initialCapacity + ", maxDistance=" + initialMaxDistance);
                 } else {
@@ -372,7 +266,6 @@ public class MasterRoutingAgent extends Agent {
                         vehicle.maxDistance = maxDistance;
                     }
                     if (capacity != null || maxDistance != null) {
-                        System.out.println("MRA: Updated vehicle " + name + " capacity/maxDistance");
                         logger.logEvent("Updated vehicle " + name + ": capacity=" + vehicle.capacity +
                                       ", maxDistance=" + vehicle.maxDistance);
                     }
@@ -381,20 +274,15 @@ public class MasterRoutingAgent extends Agent {
                 // Increment received count only for new vehicles (to avoid counting duplicates)
                 if (isNewVehicle) {
                     receivedVehicleCount++;
-                    System.out.println("MRA: Received vehicle info " + receivedVehicleCount + "/" + expectedVehicleCount + 
-                                     " (Vehicle: " + name + ")");
                     logger.logEvent("Received vehicle info " + receivedVehicleCount + "/" + expectedVehicleCount + 
                                   " (Vehicle: " + name + ")");
                     
                     // Check if all vehicles have responded
                     if (receivedVehicleCount >= expectedVehicleCount) {
                         allVehiclesReceived = true;
-                        System.out.println("MRA: All " + expectedVehicleCount + " vehicles have responded");
                         logger.logEvent("All " + expectedVehicleCount + " vehicles have responded");
                     }
                 } else {
-                    System.out.println("MRA: Received duplicate/update for vehicle " + name + 
-                                     " (already registered, not counting)");
                     logger.logEvent("Received duplicate/update for vehicle " + name);
                 }
             }
@@ -432,8 +320,6 @@ public class MasterRoutingAgent extends Agent {
             if (allVehiclesReceived) {
                 // Ensure minimum wait time has passed
                 if (elapsedTime >= minWaitMs) {
-                    System.out.println("MRA: All vehicles responded. Proceeding to solve after " + 
-                                     (elapsedTime / 1000.0) + " seconds");
                     logger.logEvent("All vehicles responded. Proceeding to solve after " + 
                                   (elapsedTime / 1000.0) + " seconds");
                     shouldStop = true;
@@ -442,26 +328,14 @@ public class MasterRoutingAgent extends Agent {
                 } else {
                     // Still waiting for minimum wait time
                     long remainingMs = minWaitMs - elapsedTime;
-                    System.out.println("MRA: All vehicles responded, waiting " + 
-                                     (remainingMs / 1000.0) + " more seconds before solving...");
                 }
             } else if (elapsedTime >= timeoutMs) {
                 // Timeout reached - proceed with whatever vehicles we have
-                System.out.println("MRA: Timeout reached (" + (timeoutMs / 1000.0) + 
-                                 " seconds). Received " + receivedVehicleCount + "/" + expectedVehicleCount + 
-                                 " vehicle responses. Proceeding to solve...");
                 logger.logEvent("Timeout reached. Received " + receivedVehicleCount + "/" + expectedVehicleCount + 
                               " vehicle responses. Proceeding to solve");
                 shouldStop = true;
                 myAgent.removeBehaviour(this);
                 solveAndAssignRoutes();
-            } else {
-                // Still waiting for vehicles (only log every few ticks to avoid spam)
-                if (getTickCount() % 2 == 0) {  // Log every 2 ticks (every 1 second)
-                    System.out.println("MRA: Waiting for vehicles... (" + receivedVehicleCount + "/" + 
-                                     expectedVehicleCount + " received, " + 
-                                     String.format("%.1f", (timeoutMs - elapsedTime) / 1000.0) + " seconds remaining)");
-                }
             }
         }
     }
@@ -497,11 +371,6 @@ public class MasterRoutingAgent extends Agent {
                     String content = msg.getContent();
                     String senderName = (msg.getSender() != null) ? msg.getSender().getLocalName() : "unknown";
                     
-                    System.out.println("\n=== MRA: Received Route Assignment Response ===");
-                    System.out.println("MRA: Response from DA: " + senderName);
-                    System.out.println("MRA: Conversation ID: " + (msg.getConversationId() != null ? msg.getConversationId() : "N/A"));
-                    System.out.println("MRA: Response Content: " + content);
-                    
                     String[] parts = content != null ? content.split("\\|") : new String[0];
                     String routeId = null;
                     String vehicleName = null;
@@ -529,24 +398,6 @@ public class MasterRoutingAgent extends Agent {
                         }
                     }
                     
-                    System.out.println("MRA: Parsed Response:");
-                    System.out.println("  Route ID: " + (routeId != null ? routeId : "N/A"));
-                    System.out.println("  Vehicle: " + (vehicleName != null ? vehicleName : "N/A"));
-                    System.out.println("  Status: " + (status != null ? status : "N/A"));
-                    if (reason != null) {
-                        System.out.println("  Reason: " + reason);
-                    }
-                    if (details != null) {
-                        System.out.println("  Details: " + details);
-                    }
-                    if (demand != null) {
-                        System.out.println("  Demand: " + demand + " items");
-                    }
-                    if (distance != null) {
-                        System.out.println("  Distance: " + distance);
-                    }
-                    System.out.println("==============================================\n");
-                    
                     if (msg.getConversationId() != null) {
                         StringBuilder convSummary = new StringBuilder();
                         convSummary.append("Route assignment response - Route ").append(routeId != null ? routeId : "unknown");
@@ -563,18 +414,14 @@ public class MasterRoutingAgent extends Agent {
                     }
                     
                     if (isAccepted && routeId != null && vehicleName != null && "ACCEPTED".equals(status)) {
-                        System.out.println("MRA: ✓ Route " + routeId + " ACCEPTED by vehicle " + vehicleName);
                         logger.logEvent("Route " + routeId + " ACCEPTED by vehicle " + vehicleName + 
                                       " (demand: " + (demand != null ? demand : "N/A") + 
                                       ", distance: " + (distance != null ? distance : "N/A") + ")");
                     } else if (isRejected && routeId != null && vehicleName != null) {
-                        System.out.println("MRA: ✗ Route " + routeId + " REJECTED by vehicle " + vehicleName + 
-                                         (reason != null ? " - Reason: " + reason : ""));
                         logger.logEvent("Route " + routeId + " REJECTED by vehicle " + vehicleName + 
                                       (reason != null ? " - Reason: " + reason : "") +
                                       (details != null ? " - Details: " + details : ""));
                     } else {
-                        System.out.println("MRA: Route assignment response received from " + senderName);
                         logger.logEvent("Route assignment response received from " + senderName + ": " + content);
                     }
                 } else {
@@ -588,67 +435,112 @@ public class MasterRoutingAgent extends Agent {
     
     /**
      * Solves the CVRP problem and assigns routes to DAs
+     * Uses currentRequest from queue and accumulates unrouted nodes
      */
     private void solveAndAssignRoutes() {
-        System.out.println("\n=== MRA: Solving CVRP Problem ===");
-        logger.logEvent("Solving CVRP problem");
+        // Validate request and vehicles
+        List<VehicleInfo> availableVehicles = validateAndPrepareSolving();
+        if (availableVehicles == null) {
+            return; // Error already logged
+        }
+        
+        // Prepare customers for solving
+        List<CustomerInfo> allCustomersToSolve = prepareCustomersForSolving();
+        List<CustomerRequest> customerRequests = convertToCustomerRequests(allCustomersToSolve);
+        
+        // Solve the VRP problem
+        SolutionResult result = solveVRPProblem(availableVehicles, customerRequests, allCustomersToSolve);
+        if (result == null) {
+            return; // Error already logged
+        }
+        
+        // Update unserved customers tracking
+        updateUnservedCustomersTracking(result);
+        
+        // Print solution summary
+        printSolutionSummary(result);
+        
+        // Set vehicle names for routes
+        setVehicleNamesForRoutes(result, availableVehicles);
+        
+        // Log result as JSON (use requestId if available, otherwise use configName)
+        String resultName = (currentRequest != null && currentRequest.requestId != null) 
+            ? currentRequest.requestId 
+            : configName;
+        JsonResultLogger.logResult(result, resultName);
+        
+        // Submit solution to backend
+        submitSolutionToBackend(result);
+        
+        // Assign routes and complete request
+        assignRoutesAndComplete(result, availableVehicles);
+    }
+    
+    /**
+     * Validates current request and vehicles, returns available vehicles or null if invalid
+     */
+    private List<VehicleInfo> validateAndPrepareSolving() {
+        if (currentRequest == null) {
+            logger.logEvent("ERROR: No current request to solve");
+            isProcessingRequest = false;
+            return null;
+        }
+        
+        logger.logEvent("Solving CVRP problem for request: " + currentRequest.requestId);
         
         // Collect all registered vehicles
         List<VehicleInfo> availableVehicles = new ArrayList<>(registeredVehicles.values());
         
         if (availableVehicles.isEmpty()) {
-            System.err.println("MRA: ERROR - No vehicles registered");
             logger.logEvent("ERROR: No vehicles registered");
-            return;
+            isProcessingRequest = false;
+            return null;
         }
         
-        System.out.println("MRA: Using " + availableVehicles.size() + " available vehicles");
         logger.logEvent("Using " + availableVehicles.size() + " available vehicles");
         
-        // Combine current customers with previously unserved customers for solving
+        return availableVehicles;
+    }
+    
+    /**
+     * Prepares customers for solving by combining request customers with unserved customers
+     */
+    private List<CustomerInfo> prepareCustomersForSolving() {
         List<CustomerInfo> allCustomersToSolve = new ArrayList<>();
-        allCustomersToSolve.addAll(customers);
+        allCustomersToSolve.addAll(currentRequest.customers);
         allCustomersToSolve.addAll(unservedCustomers);
         
-        System.out.println("MRA: Solving with " + customers.size() + " new customers + " + 
-                         unservedCustomers.size() + " previously unserved customers = " + 
-                         allCustomersToSolve.size() + " total");
-        logger.logEvent("Solving with " + customers.size() + " new + " + 
+        logger.logEvent("Solving with " + currentRequest.customers.size() + " request + " + 
                       unservedCustomers.size() + " unserved = " + allCustomersToSolve.size() + " total");
         
-        // Convert all customers to CustomerRequest format for problem assembler
+        return allCustomersToSolve;
+    }
+    
+    /**
+     * Converts CustomerInfo list to CustomerRequest format for problem assembler
+     */
+    private List<CustomerRequest> convertToCustomerRequests(List<CustomerInfo> allCustomersToSolve) {
         List<CustomerRequest> customerRequests = new ArrayList<>();
-        for (int i = 0; i < allCustomersToSolve.size(); i++) {
-            CustomerInfo customer = allCustomersToSolve.get(i);
-            CustomerRequest req;
-            
-            // Check if config has time window for this customer (only for new customers)
-            if (i < customers.size() && i < config.customers.size() && config.customers.get(i).timeWindow != null) {
-                req = new CustomerRequest(
-                    customer.name,
-                    customer.name,
-                    customer.x,
-                    customer.y,
-                    "package", // Item name (not used in CVRP)
-                    customer.demand,
-                    config.customers.get(i).timeWindow
-                );
-            } else {
-                req = new CustomerRequest(
-                    customer.name,
-                    customer.name,
-                    customer.x,
-                    customer.y,
-                    "package", // Item name (not used in CVRP)
-                    customer.demand
-                );
-            }
+        for (CustomerInfo customer : allCustomersToSolve) {
+            CustomerRequest req = new CustomerRequest(
+                customer.name,
+                customer.name,
+                customer.x,
+                customer.y,
+                "package", // Item name (not used in CVRP)
+                customer.demand
+            );
             customerRequests.add(req);
         }
-        
-        // Solve
-        System.out.println("MRA: Calling VRP solver with " + availableVehicles.size() + 
-                         " vehicles and " + allCustomersToSolve.size() + " customers");
+        return customerRequests;
+    }
+    
+    /**
+     * Solves the VRP problem using the problem assembler
+     */
+    private SolutionResult solveVRPProblem(List<VehicleInfo> availableVehicles, 
+                                          List<CustomerRequest> customerRequests,
+                                          List<CustomerInfo> allCustomersToSolve) {
         logger.logEvent("Calling VRP solver: " + availableVehicles.size() + 
                       " vehicles, " + allCustomersToSolve.size() + " customers");
         
@@ -660,17 +552,38 @@ public class MasterRoutingAgent extends Agent {
         );
         
         if (result == null) {
-            System.err.println("MRA: ERROR - Solver returned null result");
             logger.logEvent("ERROR: Solver returned null result");
-            return;
+            isProcessingRequest = false;
+            currentRequest = null;
         }
         
+        return result;
+    }
+    
+    /**
+     * Updates unserved customers tracking: updates coordinates, removes served customers, adds to accumulated list
+     */
+    private void updateUnservedCustomersTracking(SolutionResult result) {
         // Update unserved customers with proper coordinates and names
-        // Check both new customers and previously unserved customers
-        for (CustomerInfo unserved : result.unservedCustomers) {
+        updateUnservedCustomerCoordinates(result.unservedCustomers);
+        
+        // Remove customers that were served from unserved list
+        removeServedCustomersFromUnservedList(result.routes);
+        
+        // Add new unserved customers to accumulated unrouted nodes
+        addToAccumulatedUnroutedNodes(result.unservedCustomers);
+        
+        logger.logEvent("Accumulated unrouted nodes: " + accumulatedUnroutedNodes.size());
+    }
+    
+    /**
+     * Updates coordinates and names for unserved customers from result
+     */
+    private void updateUnservedCustomerCoordinates(List<CustomerInfo> unservedCustomers) {
+        for (CustomerInfo unserved : unservedCustomers) {
             boolean found = false;
-            // First check in new customers
-            for (CustomerInfo originalCustomer : customers) {
+            // First check in request customers
+            for (CustomerInfo originalCustomer : currentRequest.customers) {
                 if (originalCustomer.id == unserved.id) {
                     unserved.x = originalCustomer.x;
                     unserved.y = originalCustomer.y;
@@ -679,9 +592,9 @@ public class MasterRoutingAgent extends Agent {
                     break;
                 }
             }
-            // If not found in new customers, check in previously unserved
+            // If not found in request customers, check in previously unserved
             if (!found) {
-                for (CustomerInfo prevUnserved : unservedCustomers) {
+                for (CustomerInfo prevUnserved : this.unservedCustomers) {
                     if (prevUnserved.id == unserved.id) {
                         unserved.x = prevUnserved.x;
                         unserved.y = prevUnserved.y;
@@ -691,22 +604,22 @@ public class MasterRoutingAgent extends Agent {
                 }
             }
         }
-        
-        // Update persistent unserved customers list
-        // Remove customers that were served (in routes) and add new unserved customers
+    }
+    
+    /**
+     * Removes customers that were served (in routes) from the unserved customers list
+     */
+    private void removeServedCustomersFromUnservedList(List<RouteInfo> routes) {
         List<CustomerInfo> servedCustomerIds = new ArrayList<>();
-        for (RouteInfo route : result.routes) {
+        for (RouteInfo route : routes) {
             for (CustomerInfo customer : route.customers) {
                 servedCustomerIds.add(customer);
             }
         }
         
-        // Remove served customers from unserved list
         unservedCustomers.removeIf(unserved -> {
             for (CustomerInfo served : servedCustomerIds) {
                 if (served.id == unserved.id) {
-                    System.out.println("MRA: Customer " + unserved.name + " (ID: " + unserved.id + 
-                                     ") was previously unserved but is now served. Removing from unserved list.");
                     logger.logEvent("Customer " + unserved.name + " (ID: " + unserved.id + 
                                   ") removed from unserved list - now served");
                     return true;
@@ -714,166 +627,120 @@ public class MasterRoutingAgent extends Agent {
             }
             return false;
         });
-        
-        // Add new unserved customers to the persistent list (avoid duplicates)
-        for (CustomerInfo newUnserved : result.unservedCustomers) {
+    }
+    
+    /**
+     * Adds new unserved customers to accumulated unrouted nodes (up to threshold)
+     */
+    private void addToAccumulatedUnroutedNodes(List<CustomerInfo> newUnservedCustomers) {
+        for (CustomerInfo newUnserved : newUnservedCustomers) {
+            // Check if already in accumulated list
             boolean alreadyExists = false;
-            for (CustomerInfo existingUnserved : unservedCustomers) {
-                if (existingUnserved.id == newUnserved.id) {
+            for (CustomerInfo existing : accumulatedUnroutedNodes) {
+                if (existing.id == newUnserved.id) {
                     alreadyExists = true;
                     break;
                 }
             }
+            
             if (!alreadyExists) {
                 CustomerInfo unservedCopy = new CustomerInfo(newUnserved.id, newUnserved.x, newUnserved.y, newUnserved.demand, newUnserved.name);
-                unservedCustomers.add(unservedCopy);
-                System.out.println("MRA: Added customer " + newUnserved.name + " (ID: " + newUnserved.id + 
-                                 ") to persistent unserved list");
+                accumulatedUnroutedNodes.add(unservedCopy);
                 logger.logEvent("Added customer " + newUnserved.name + " (ID: " + newUnserved.id + 
-                              ") to persistent unserved list");
+                              ") to accumulated unrouted nodes (count: " + accumulatedUnroutedNodes.size() + ")");
             }
         }
-        
-        System.out.println("MRA: Persistent unserved customers count: " + unservedCustomers.size());
-        logger.logEvent("Persistent unserved customers count: " + unservedCustomers.size());
-        
-        System.out.println("\n=== MRA: VRP Solution Summary ===");
+    }
+    
+    /**
+     * Logs solution summary
+     */
+    private void printSolutionSummary(SolutionResult result) {
         if (result.routes.isEmpty()) {
-            System.out.println("MRA: No solution found - no routes generated");
-            System.out.println("MRA: All customers are unserved: " + result.unservedCustomers.size());
             logger.logEvent("No solution found - all " + result.unservedCustomers.size() + " customers unserved");
         } else {
-            System.out.println("MRA: Solution found with " + result.routes.size() + " routes");
-            System.out.println("MRA: Items delivered: " + result.itemsDelivered + "/" + result.itemsTotal);
-            System.out.println("MRA: Total distance: " + String.format("%.2f", result.totalDistance));
-            System.out.println("MRA: Unserved customers: " + result.unservedCustomers.size());
             logger.logEvent("VRP solution found: " + result.routes.size() + " routes, " + 
                            result.itemsDelivered + "/" + result.itemsTotal + " items delivered, " +
                            "total distance: " + String.format("%.2f", result.totalDistance) +
                            ", unserved: " + result.unservedCustomers.size());
         }
-        
-        // Set vehicle names for all routes (needed for both backend and file mode)
-        // Use original vehicle names from config, not the registered names (which may have request ID suffix)
+    }
+    
+    /**
+     * Sets vehicle names for all routes using registered vehicle names from DAs
+     * (Vehicles are no longer in requests - DAs are created when vehicles are confirmed)
+     */
+    private void setVehicleNamesForRoutes(SolutionResult result, List<VehicleInfo> availableVehicles) {
         for (RouteInfo route : result.routes) {
             int vehicleIndex = route.vehicleId - 1;
             if (vehicleIndex >= 0 && vehicleIndex < availableVehicles.size()) {
-                // Get the original vehicle name from config (not the registered name which may have suffix)
-                if (vehicleIndex < config.vehicles.size()) {
-                    route.vehicleName = config.vehicles.get(vehicleIndex).name;
-                } else {
-                    // Fallback to registered vehicle name if config doesn't have it
-                    VehicleInfo targetVehicle = availableVehicles.get(vehicleIndex);
-                    // Remove request ID suffix if present (format: "name-request-id")
-                    String vehicleName = targetVehicle.name;
-                    if (vehicleName.contains("-") && vehicleName.lastIndexOf("-") > 0) {
-                        // Try to extract original name by removing last segment after last dash
-                        // But be careful - only do this if it looks like a request ID pattern
-                        int lastDash = vehicleName.lastIndexOf("-");
-                        String possibleSuffix = vehicleName.substring(lastDash + 1);
-                        // If suffix looks like a UUID or request ID, remove it
-                        if (possibleSuffix.length() > 10 || possibleSuffix.matches(".*[0-9a-f]{8}.*")) {
-                            route.vehicleName = vehicleName.substring(0, lastDash);
-                        } else {
-                            route.vehicleName = vehicleName;
-                        }
-                    } else {
-                        route.vehicleName = vehicleName;
-                    }
-                }
+                // Use registered vehicle name from DAs (extract base name if it has suffix)
+                VehicleInfo targetVehicle = availableVehicles.get(vehicleIndex);
+                route.vehicleName = extractVehicleName(targetVehicle.name);
             } else {
                 route.vehicleName = "unknown";
             }
         }
-        
-        // Always log result as JSON, even if no routes (will show empty routes array and all unserved customers)
-        JsonResultLogger.logResult(result, configName);
-        
-        // If in backend mode, submit solution first, then assign routes, then signal completion
-        if (solutionLatch != null && solutionHolder != null) {
+    }
+    
+    /**
+     * Extracts vehicle name by removing request ID suffix if present
+     */
+    private String extractVehicleName(String vehicleName) {
+        if (vehicleName.contains("-") && vehicleName.lastIndexOf("-") > 0) {
+            int lastDash = vehicleName.lastIndexOf("-");
+            String possibleSuffix = vehicleName.substring(lastDash + 1);
+            // If suffix looks like a UUID or request ID, remove it
+            if (possibleSuffix.length() > 10 || possibleSuffix.matches(".*[0-9a-f]{8}.*")) {
+                return vehicleName.substring(0, lastDash);
+            }
+        }
+        return vehicleName;
+    }
+    
+    /**
+     * Submits solution to backend API
+     */
+    private void submitSolutionToBackend(SolutionResult result) {
+        if (currentRequest != null && currentRequest.requestId != null) {
             try {
-                // Use reflection to set solution in holder
-                java.lang.reflect.Field solutionField = solutionHolder.getClass().getDeclaredField("solution");
-                solutionField.setAccessible(true);
-                solutionField.set(solutionHolder, result);
-                
-                // Submit to backend
-                System.out.println("MRA: Submitting solution to backend...");
-                logger.logEvent("Submitting solution to backend");
-                boolean success = BackendClient.submitSolution(configName, result, configName);
+                logger.logEvent("Submitting solution to backend for request " + currentRequest.requestId);
+                boolean success = BackendClient.submitSolution(currentRequest.requestId, result, currentRequest.requestId);
                 if (success) {
-                    System.out.println("MRA: Solution submitted to backend successfully");
                     logger.logEvent("Solution submitted to backend successfully");
                 } else {
-                    System.err.println("MRA: Failed to submit solution to backend");
                     logger.logEvent("Failed to submit solution to backend");
                 }
             } catch (Exception e) {
-                System.err.println("MRA: Error submitting to backend: " + e.getMessage());
                 logger.log("ERROR: Failed to submit solution to backend: " + e.getMessage());
                 e.printStackTrace();
             }
-            
-            // After submitting to backend, assign routes to vehicles so they can deliver
-            // This allows vehicles to execute deliveries and log all delivery events
-            // We assign routes BEFORE signaling completion to ensure agents are still alive
-            if (!result.routes.isEmpty()) {
-                System.out.println("MRA: Assigning routes to vehicles for delivery execution...");
-                logger.logEvent("Assigning routes to vehicles for delivery execution");
-                assignRoutes(result, availableVehicles);
-                
-                // Use WakerBehaviour to wait for route assignment responses without blocking agent thread
-                // This allows RouteAssignmentResponseHandler to process responses during the wait
-                System.out.println("MRA: Waiting for route assignment responses (non-blocking)...");
-                logger.logEvent("Waiting for route assignment responses (non-blocking)");
-                
-                // Add a WakerBehaviour that will signal completion after a delay
-                // This doesn't block the agent thread, so RouteAssignmentResponseHandler can process messages
-                addBehaviour(new WakerBehaviour(this, 8000) { // Wait 8 seconds for responses
-                    @Override
-                    protected void onWake() {
-                        System.out.println("MRA: Route assignment wait period completed");
-                        logger.logEvent("Route assignment wait period completed");
-                        
-                        // Signal completion to Main AFTER routes have been assigned and wait period completed
-                        // This ensures agents are still alive to receive route assignments
-                        if (solutionLatch != null && solutionLatch.getCount() > 0) {
-                            solutionLatch.countDown();
-                            System.out.println("MRA: Signaled completion to Main (solution ready, routes assigned)");
-                            logger.logEvent("Signaled completion to Main");
-                        }
-                    }
-                });
-                
-                // Don't signal completion here - let the WakerBehaviour do it after the wait
-                // This allows RouteAssignmentResponseHandler to process responses during the wait
-                return; // Exit this method, let behaviors handle the rest
-            } else {
-                System.out.println("MRA: No routes to assign - all customers unserved");
-                logger.logEvent("No routes to assign - all customers unserved");
-            }
-            
-            // Signal completion to Main (only if no routes to assign)
-            // If routes were assigned, WakerBehaviour will signal completion after wait period
-            solutionLatch.countDown();
-            System.out.println("MRA: Signaled completion to Main (solution ready, no routes to assign)");
-            logger.logEvent("Signaled completion to Main");
-        } else {
-            // File mode: assign routes to DAs if there are routes
-            if (!result.routes.isEmpty()) {
-                assignRoutes(result, availableVehicles);
-            } else {
-                System.out.println("MRA: No routes to assign - all customers unserved");
-                logger.logEvent("No routes to assign - all customers unserved");
-            }
         }
+    }
+    
+    /**
+     * Assigns routes to DAs and marks request as complete
+     */
+    private void assignRoutesAndComplete(SolutionResult result, List<VehicleInfo> availableVehicles) {
+        if (!result.routes.isEmpty()) {
+            logger.logEvent("Assigning routes to vehicles for delivery execution");
+            assignRoutes(result, availableVehicles);
+            
+            logger.logEvent("Routes assigned. Moving to next request/unserved nodes");
+        } else {
+            logger.logEvent("No routes to assign - all customers unserved");
+        }
+        
+        // Mark request processing as complete immediately
+        // The RequestQueueProcessor will pick up the next request or unserved nodes
+        isProcessingRequest = false;
+        currentRequest = null;
     }
     
     /**
      * Assigns routes to Delivery Agents
      */
     private void assignRoutes(SolutionResult result, List<VehicleInfo> availableVehicles) {
-        System.out.println("\n=== MRA: Assigning Routes to Delivery Agents ===");
         logger.logEvent("Starting route assignment to " + result.routes.size() + " routes");
 
         for (int i = 0; i < result.routes.size(); i++) {
@@ -882,7 +749,6 @@ public class MasterRoutingAgent extends Agent {
             int vehicleIndex = route.vehicleId - 1;
 
             if (vehicleIndex < 0 || vehicleIndex >= availableVehicles.size()) {
-                System.err.println("MRA: ERROR - Vehicle index " + vehicleIndex + " out of range for route " + routeId);
                 logger.log("ERROR: Route " + routeId + " vehicle index " + vehicleIndex + " out of range");
                 continue;
             }
@@ -891,22 +757,22 @@ public class MasterRoutingAgent extends Agent {
             String targetVehicleName = targetVehicle.name;
             route.vehicleName = targetVehicleName;
             
-            System.out.println("MRA: Assigning route " + routeId + " to vehicle index " + vehicleIndex + 
-                             " (registered name: " + targetVehicleName + ")");
             logger.logEvent("Assigning route " + routeId + " to vehicle: " + targetVehicleName);
 
             // Update customer details for the route
             List<String> customerAgentIds = new ArrayList<>();
             for (int j = 0; j < route.customers.size(); j++) {
                 CustomerInfo customer = route.customers.get(j);
-                // Find matching customer from our list
-                for (CustomerInfo originalCustomer : customers) {
-                    if (originalCustomer.id == customer.id) {
-                        customer.x = originalCustomer.x;
-                        customer.y = originalCustomer.y;
-                        customer.name = originalCustomer.name;
-                        customerAgentIds.add(originalCustomer.name);
-                        break;
+                // Find matching customer from current request
+                if (currentRequest != null) {
+                    for (CustomerInfo originalCustomer : currentRequest.customers) {
+                        if (originalCustomer.id == customer.id) {
+                            customer.x = originalCustomer.x;
+                            customer.y = originalCustomer.y;
+                            customer.name = originalCustomer.name;
+                            customerAgentIds.add(originalCustomer.name);
+                            break;
+                        }
                     }
                 }
             }
@@ -939,17 +805,13 @@ public class MasterRoutingAgent extends Agent {
             // Find DA by vehicle name (should match exactly with DA local name)
             AID daAID = findDAByName(targetVehicleName);
             if (daAID == null) {
-                System.err.println("MRA: ERROR - Could not find DA for vehicle " + targetVehicleName);
                 logger.log("ERROR: Could not find DA for vehicle " + targetVehicleName);
-                System.err.println("MRA: Available vehicles in registeredVehicles: " + 
-                                 registeredVehicles.keySet().toString());
                 logger.log("Available vehicles in registeredVehicles: " + 
                           registeredVehicles.keySet().toString());
                 continue;
             }
             
             String daName = daAID.getLocalName();
-            System.out.println("MRA: Found DA " + daName + " for vehicle " + targetVehicleName);
             logger.logEvent("Found DA " + daName + " for vehicle " + targetVehicleName);
 
             // Create route assignment message
@@ -961,41 +823,9 @@ public class MasterRoutingAgent extends Agent {
             routeAssignment.setConversationId(conversationId);
             routeAssignment.setContent("ROUTE_ASSIGNMENT:" + routeContent);
 
-            // Log route assignment details before sending
-            System.out.println("\n=== MRA: Assigning Route " + routeId + " to DA ===");
-            System.out.println("MRA: Route Assignment Message Details:");
-            System.out.println("  Route ID: " + routeId);
-            System.out.println("  Vehicle: " + targetVehicleName);
-            System.out.println("  DA: " + daName);
-            System.out.println("  To: " + daAID.getName());
-            System.out.println("  Performative: REQUEST");
-            System.out.println("  Protocol: " + FIPANames.InteractionProtocol.FIPA_REQUEST);
-            System.out.println("  Ontology: route-assignment");
-            System.out.println("  Conversation ID: " + conversationId);
-            System.out.println("  Customers: " + route.customers.size());
-            System.out.println("  Total Demand: " + route.totalDemand + " items");
-            System.out.println("  Total Distance: " + String.format("%.2f", route.totalDistance));
-            
-            // List customer details
-            System.out.println("  Customer List:");
-            for (int j = 0; j < route.customers.size(); j++) {
-                CustomerInfo customer = route.customers.get(j);
-                System.out.println("    " + (j + 1) + ". Customer " + customer.name + 
-                                 " (ID: " + customer.id + ") at (" + 
-                                 String.format("%.2f", customer.x) + ", " + 
-                                 String.format("%.2f", customer.y) + 
-                                 "), demand: " + customer.demand);
-            }
             
             // Log the message content (truncated if too long)
             String fullContent = "ROUTE_ASSIGNMENT:" + routeContent;
-            if (fullContent.length() > 500) {
-                System.out.println("  Message Content (first 500 chars): " + fullContent.substring(0, 500) + "...");
-                System.out.println("  Message Content Length: " + fullContent.length() + " characters");
-            } else {
-                System.out.println("  Message Content: " + fullContent);
-            }
-            System.out.println("=====================================\n");
 
             // Log conversation start with detailed information
             logger.logConversationStart(conversationId,
@@ -1014,13 +844,10 @@ public class MasterRoutingAgent extends Agent {
             // Send the route assignment
             send(routeAssignment);
 
-            System.out.println("MRA: ✓ Route assignment message sent to DA " + daName + 
-                             " for route " + routeId);
             logger.logEvent("Route assignment message sent successfully to DA " + daName + 
                           " for route " + routeId);
         }
 
-        System.out.println("MRA: Completed route assignment for " + result.routes.size() + " routes");
         logger.logEvent("Completed route assignment for " + result.routes.size() + " routes");
     }
     
@@ -1031,15 +858,11 @@ public class MasterRoutingAgent extends Agent {
     private AID findDAByName(String vehicleName) {
         try {
             List<AID> daAIDs = findDeliveryAgentsViaDF();
-            System.out.println("MRA: Searching for DA with vehicle name: " + vehicleName);
-            System.out.println("MRA: Found " + daAIDs.size() + " DAs via DF:");
             for (AID daAID : daAIDs) {
                 String daName = daAID.getLocalName();
-                System.out.println("MRA:   - DA: " + daName);
                 
                 // Exact match (most common case - both have request ID)
                 if (daName.equals(vehicleName)) {
-                    System.out.println("MRA: Found exact match: " + daName + " = " + vehicleName);
                     logger.logEvent("Found DA by exact name match: " + daName);
                     return daAID;
                 }
@@ -1047,23 +870,15 @@ public class MasterRoutingAgent extends Agent {
                 // Check if vehicle name is a prefix of DA name (e.g., "DA1" in "DA1-request-id")
                 // This handles cases where vehicle name doesn't include request ID
                 if (daName.startsWith(vehicleName + "-")) {
-                    System.out.println("MRA: Found prefix match: " + daName + " starts with " + vehicleName);
                     logger.logEvent("Found DA by prefix match: " + daName + " starts with " + vehicleName);
                     return daAID;
                 }
             }
-            
-            System.err.println("MRA: ERROR - Could not find DA with vehicle name: " + vehicleName);
-            System.err.println("MRA: Available DAs: " + daAIDs.stream()
-                .map(AID::getLocalName)
-                .collect(java.util.stream.Collectors.joining(", ")));
             logger.log("ERROR: Could not find DA with vehicle name: " + vehicleName);
             logger.log("Available DAs: " + daAIDs.stream()
                 .map(AID::getLocalName)
                 .collect(java.util.stream.Collectors.joining(", ")));
         } catch (Exception e) {
-            System.err.println("MRA: Error finding DA by name: " + e.getMessage());
-            e.printStackTrace();
             logger.log("ERROR: Exception while finding DA by name: " + e.getMessage());
         }
         return null;
@@ -1084,10 +899,9 @@ public class MasterRoutingAgent extends Agent {
             dfd.addServices(sd);
             
             DFService.register(this, dfd); 
-            System.out.println("MRA: Registered with DF as 'mra-service'");
             logger.logEvent("DF Registration successful");
         } catch (FIPAException fe) {
-            System.err.println("MRA: Failed to register with DF: " + fe.getMessage());
+            logger.log("ERROR: Failed to register with DF: " + fe.getMessage());
         }
     }
     
@@ -1106,27 +920,224 @@ public class MasterRoutingAgent extends Agent {
             for (DFAgentDescription result : results) {
                 daAIDs.add(result.getName());
             }
-            System.out.println("MRA: Found " + daAIDs.size() + " Delivery Agents via DF");
             logger.log("DF Search: Found " + daAIDs.size() + " Delivery Agents via 'da-service'");
         } catch (FIPAException fe) {
-            System.err.println("MRA: Error searching DF for Delivery Agents: " + fe.getMessage());
+            logger.log("ERROR: Error searching DF for Delivery Agents: " + fe.getMessage());
         }
         return daAIDs;
     }
     
     @Override
     protected void takeDown() {
+        // Report agent status before terminating
+        BackendClient.reportAgentStatus(getLocalName(), "mra", "terminated");
         logger.logEvent("Agent terminating");
         try {
             DFService.deregister(this);
-            System.out.println("MRA: Deregistered from DF");
             logger.logEvent("Deregistered from DF");
         } catch (FIPAException fe) {
-            System.err.println("MRA: Error deregistering from DF: " + fe.getMessage());
             logger.log("ERROR: Failed to deregister from DF: " + fe.getMessage());
         }
-        System.out.println("Master Routing Agent " + getAID().getName() + " terminating.");
         logger.close();
+    }
+    
+    /**
+     * Behavior to handle DA arrival notifications
+     * DAs notify MRA when they return to depot
+     */
+    private class DAArrivalNotificationHandler extends CyclicBehaviour {
+        @Override
+        public void action() {
+            MessageTemplate template = MessageTemplate.and(
+                MessageTemplate.MatchPerformative(ACLMessage.INFORM),
+                MessageTemplate.MatchContent("DA_ARRIVED_AT_DEPOT")
+            );
+            
+            ACLMessage msg = receive(template);
+            if (msg != null) {
+                String daName = msg.getSender().getLocalName();
+                logger.logReceived(msg);
+                logger.logEvent("DA " + daName + " arrived at depot - ready for next route");
+                
+                // DA is ready, can process next request if queue is not empty
+                // The RequestQueueProcessor will handle this
+            } else {
+                block();
+            }
+        }
+    }
+    
+    /**
+     * Behavior to poll backend API for requests directly
+     * Polls the backend API and adds requests to the queue
+     */
+    private class BackendAPIPoller extends TickerBehaviour {
+        public BackendAPIPoller() {
+            super(MasterRoutingAgent.this, 2000); // Poll every 2 seconds
+        }
+        
+        @Override
+        protected void onTick() {
+            try {
+                // Poll backend for requests
+                BackendClient.BackendRequest backendRequest = BackendClient.pollForRequest();
+                
+                if (backendRequest != null) {
+                    logger.logEvent("Received request from backend API: " + backendRequest.requestId);
+                    
+                    // Convert backend request to CVRPConfig
+                    JsonConfigReader.CVRPConfig requestConfig = BackendClient.convertBackendRequestToConfig(backendRequest.data);
+                    
+                    // Note: Depot is NOT in requests - it's already set when MRA was created
+                    // Note: DAs are already created when vehicles are confirmed in frontend
+                    // Requests now only contain customer data
+                    
+                    // Convert customers to CustomerInfo
+                    List<CustomerInfo> requestCustomers = new ArrayList<>();
+                    for (JsonConfigReader.CustomerConfig customerConfig : requestConfig.customers) {
+                        CustomerInfo customer = new CustomerInfo(
+                            Integer.parseInt(customerConfig.id.replaceAll("[^0-9]", "")),
+                            customerConfig.x,
+                            customerConfig.y,
+                            customerConfig.demand,
+                            customerConfig.id
+                        );
+                        requestCustomers.add(customer);
+                    }
+                    
+                    // Add to request queue
+                    RequestQueueItem newRequest = new RequestQueueItem(backendRequest.requestId, requestCustomers);
+                    requestQueue.offer(newRequest);
+                    
+                    logger.logEvent("Added request from API to queue: " + backendRequest.requestId);
+                }
+            } catch (Exception e) {
+                // Silently handle errors (backend might not be running or no requests available)
+                // Don't spam logs with connection errors
+            }
+        }
+    }
+    
+    /**
+     * Behavior to process requests from the queue
+     * Processes requests one by one, accumulates unrouted nodes (up to 6) before processing
+     */
+    private class RequestQueueProcessor extends CyclicBehaviour {
+        @Override
+        public void action() {
+            // Don't process if already processing a request
+            if (isProcessingRequest) {
+                block(1000); // Check every second
+                return;
+            }
+            
+            // Check if we should process accumulated unrouted nodes (if >= 6 or no more requests)
+            boolean shouldProcessUnrouted = false;
+            if (accumulatedUnroutedNodes.size() >= MAX_ACCUMULATED_UNROUTED) {
+                shouldProcessUnrouted = true;
+                logger.logEvent("Processing accumulated unrouted nodes: " + accumulatedUnroutedNodes.size());
+            } else if (requestQueue.isEmpty() && !accumulatedUnroutedNodes.isEmpty()) {
+                shouldProcessUnrouted = true;
+                logger.logEvent("No more requests, processing accumulated unrouted nodes: " + 
+                              accumulatedUnroutedNodes.size());
+            }
+            
+            if (shouldProcessUnrouted) {
+                // Process accumulated unrouted nodes
+                List<CustomerInfo> nodesToProcess = new ArrayList<>(accumulatedUnroutedNodes);
+                accumulatedUnroutedNodes.clear();
+                
+                RequestQueueItem unroutedRequest = new RequestQueueItem(
+                    "unrouted-" + System.currentTimeMillis(), 
+                    nodesToProcess
+                );
+                processRequest(unroutedRequest);
+                block(1000);
+                return;
+            }
+            
+            // Process next request from queue
+            if (!requestQueue.isEmpty()) {
+                RequestQueueItem request = requestQueue.poll();
+                logger.logEvent("Processing request from queue: " + request.requestId);
+                processRequest(request);
+            } else {
+                block(1000); // Check every second if queue is empty
+            }
+        }
+    }
+    
+    /**
+     * Processes a single request: queries vehicles, solves, assigns routes
+     */
+    private void processRequest(RequestQueueItem request) {
+        isProcessingRequest = true;
+        currentRequest = request;
+        
+        logger.logEvent("Processing request " + request.requestId + ": " + request.customers.size() + " customers");
+        
+        // Query all vehicles (always query all, even if processing queue)
+        queryAllVehicles();
+    }
+    
+    /**
+     * Queries all vehicles for information
+     */
+    private void queryAllVehicles() {
+        // Find all DAs via DF
+        DFAgentDescription template = new DFAgentDescription();
+        ServiceDescription sd = new ServiceDescription();
+        sd.setType("da-service");
+        template.addServices(sd);
+        
+        List<AID> daAIDs = new ArrayList<>();
+        try {
+            DFAgentDescription[] results = DFService.search(this, template);
+            for (DFAgentDescription result : results) {
+                daAIDs.add(result.getName());
+            }
+        } catch (FIPAException fe) {
+            logger.log("ERROR: Failed to search DF for DAs: " + fe.getMessage());
+            isProcessingRequest = false;
+            return;
+        }
+        
+        if (daAIDs.isEmpty()) {
+            logger.logEvent("No DAs found via DF");
+            isProcessingRequest = false;
+            return;
+        }
+        
+        logger.logEvent("Found " + daAIDs.size() + " DAs, querying vehicle info");
+        
+        // Reset vehicle tracking
+        registeredVehicles.clear();
+        expectedVehicleCount = daAIDs.size();
+        receivedVehicleCount = 0;
+        allVehiclesReceived = false;
+        
+        // Query each DA
+        for (AID daAID : daAIDs) {
+            String daName = daAID.getLocalName();
+            try {
+                ACLMessage query = new ACLMessage(ACLMessage.REQUEST);
+                query.addReceiver(daAID);
+                query.setContent("QUERY_VEHICLE_INFO");
+                query.setProtocol(FIPANames.InteractionProtocol.FIPA_REQUEST);
+                String queryConversationId = "vehicle-info-query-" + daName + "-" + System.currentTimeMillis();
+                query.setConversationId(queryConversationId);
+                
+                logger.logConversationStart(queryConversationId, "Vehicle info query to DA " + daName);
+                logger.logSent(query);
+                send(query);
+                
+            } catch (Exception e) {
+                logger.log("ERROR: Failed to query DA " + daName + ": " + e.getMessage());
+            }
+        }
+        
+        // Wait for all vehicles to respond
+        addBehaviour(new WaitForVehiclesBehaviour(this, 500, 10000));
     }
 }
 

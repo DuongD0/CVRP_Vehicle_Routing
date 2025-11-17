@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVRP System - Main Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .header h1 {
+            font-size: 24px;
+        }
+        
+        .header-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .btn {
+            padding: 8px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+            border: 1px solid #667eea;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            border-color: #5568d3;
+        }
+        
+        .container {
+            display: flex;
+            height: calc(100vh - 60px);
+        }
+        
+        .sidebar {
+            width: 350px;
+            background: white;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+        
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            background: white;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .tab-btn {
+            padding: 15px 25px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            color: #666;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s;
+        }
+        
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+        
+        .tab-btn:hover {
+            background: #f5f5f5;
+        }
+        
+        .tab-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+        }
+        
+        .section {
+            margin-bottom: 30px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 15px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .customer-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        .customer-item {
+            background: #f5f5f5;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .customer-info {
+            flex: 1;
+        }
+        
+        .customer-name {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .customer-details {
+            font-size: 12px;
+            color: #666;
+            margin-top: 3px;
+        }
+        
+        .remove-btn {
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .map-container {
+            flex: 1;
+            background: white;
+            margin: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .log-viewer {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            padding: 15px;
+            height: 100%;
+            overflow-y: auto;
+            border-radius: 5px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+        }
+        
+        .log-timestamp {
+            color: #858585;
+        }
+        
+        .log-level-info {
+            color: #4ec9b0;
+        }
+        
+        .log-level-warning {
+            color: #dcdcaa;
+        }
+        
+        .log-level-error {
+            color: #f48771;
+        }
+        
+        .status-panel {
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .status-item:last-child {
+            border-bottom: none;
+        }
+        
+        .status-label {
+            color: #666;
+            font-weight: 500;
+        }
+        
+        .agent-info {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
+        
+        .status-value {
+            font-weight: 600;
+            color: #27ae60;
+        }
+        
+        .status-value.error {
+            color: #e74c3c;
+        }
+        
+        .btn-success {
+            background: #27ae60;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #229954;
+        }
+        
+        .message {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            display: none;
+        }
+        
+        .message.success {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .message.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🚚 CVRP Multi-Agent System</h1>
+        <div class="header-actions">
+            <button class="btn btn-primary" onclick="window.location.href='/vehicles'">Manage Vehicles</button>
+        </div>
+    </div>
+    
+    <div class="container">
+        <div class="sidebar">
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('customers')">Customers</button>
+                <button class="tab-btn" onclick="switchTab('agents')">Agents</button>
+                <button class="tab-btn" onclick="switchTab('logs')">Logs</button>
+            </div>
+            
+            <div class="tab-content">
+                <!-- Customers Tab -->
+                <div id="customers-tab" class="tab-panel">
+                    <div class="section">
+                        <h2 class="section-title">Add Customer</h2>
+                        <div id="customerMessage" class="message"></div>
+                        <div class="form-group">
+                            <label>Customer ID</label>
+                            <input type="text" id="customerId" placeholder="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Demand (items)</label>
+                            <input type="number" id="customerDemand" placeholder="10" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>X Coordinate</label>
+                            <input type="number" id="customerX" placeholder="10.0" step="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label>Y Coordinate</label>
+                            <input type="number" id="customerY" placeholder="10.0" step="0.1">
+                        </div>
+                        <button class="btn btn-primary" onclick="addCustomer()" style="width: 100%;">Add Customer</button>
+                    </div>
+                    
+                    <div class="section">
+                        <h2 class="section-title">Customers List</h2>
+                        <div id="customerList" class="customer-list">
+                            <div style="text-align: center; color: #999; padding: 20px;">No customers added yet</div>
+                        </div>
+                        <button class="btn btn-success" onclick="submitRequest()" style="width: 100%; margin-top: 15px;">Submit Request</button>
+                    </div>
+                </div>
+                
+                <!-- Agents Tab -->
+                <div id="agents-tab" class="tab-panel" style="display: none;">
+                    <div class="section">
+                        <h2 class="section-title">Agent Status</h2>
+                        <div id="agentStatus" class="status-panel">
+                            <div class="status-item">
+                                <span class="status-label">MRA Status:</span>
+                                <span class="status-value" id="mraStatus">Unknown</span>
+                            </div>
+                            <div class="status-item">
+                                <span class="status-label">Active DAs:</span>
+                                <span class="status-value" id="daCount">0</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="section">
+                        <h2 class="section-title">Available Agents</h2>
+                        <div id="agentList"></div>
+                    </div>
+                </div>
+                
+                <!-- Logs Tab -->
+                <div id="logs-tab" class="tab-panel" style="display: none;">
+                    <div class="section">
+                        <h2 class="section-title">Agent Logs</h2>
+                        <div class="form-group">
+                            <label>Select Agent</label>
+                            <div style="display: flex; gap: 10px; align-items: center;">
+                                <select id="agentSelect" onchange="loadAgentLog()" style="flex: 1; padding: 10px; border: 2px solid #ddd; border-radius: 5px;">
+                                    <option value="">Select an agent...</option>
+                                </select>
+                                <button onclick="loadAgentLog()" style="padding: 10px 20px; background: #4CAF50; color: white; border: none; border-radius: 5px; cursor: pointer;">Refresh</button>
+                            </div>
+                        </div>
+                        <div id="logViewer" class="log-viewer">
+                            <div style="color: #858585;">Select an agent to view logs</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="map-container">
+                <div id="map"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let customers = [];
+        let currentSolution = null;
+        let currentRequestId = null;
+        let agentStatusInterval = null;
+        let mapData = {
+            depot: { x: 0, y: 0 },
+            customers: [],
+            routes: [],
+            vehicles: {},
+            unserved: []
+        };
+        let mapLayout = null;
+        let mapUpdateInterval = null;
+        
+        // Initialize map
+        function initMap() {
+            const data = [];
+            
+            // Depot (centered at 0,0, but will be displayed in middle)
+            data.push({
+                x: [0],
+                y: [0],
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Depot',
+                marker: { size: 15, color: 'red', symbol: 'square' },
+                text: ['Depot (0,0)'],
+                hovertemplate: 'Depot<br>Location: (0, 0)<extra></extra>'
+            });
+            
+            mapLayout = {
+                title: 'CVRP Route Visualization',
+                xaxis: { title: 'X Coordinate', scaleanchor: 'y', scaleratio: 1 },
+                yaxis: { title: 'Y Coordinate' },
+                hovermode: 'closest',
+                showlegend: true,
+                width: document.getElementById('map').offsetWidth,
+                height: document.getElementById('map').offsetHeight
+            };
+            
+            Plotly.newPlot('map', data, mapLayout, {responsive: true});
+        }
+        
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-panel').forEach(panel => {
+                panel.style.display = 'none';
+            });
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+            
+            if (tabName === 'agents') {
+                loadAgentList();
+                loadAgentSelect();
+                // Start polling agent status every 2 seconds
+                if (agentStatusInterval) clearInterval(agentStatusInterval);
+                agentStatusInterval = setInterval(loadAgentList, 2000);
+            } else if (tabName === 'logs') {
+                loadAgentSelect();
+                // Stop polling when leaving agents tab
+                if (agentStatusInterval) clearInterval(agentStatusInterval);
+            } else {
+                // Stop polling when leaving agents tab
+                if (agentStatusInterval) clearInterval(agentStatusInterval);
+            }
+        }
+        
+        function addCustomer() {
+            const id = document.getElementById('customerId').value.trim();
+            const demand = parseInt(document.getElementById('customerDemand').value);
+            const x = parseFloat(document.getElementById('customerX').value);
+            const y = parseFloat(document.getElementById('customerY').value);
+            
+            if (!id || !demand || isNaN(x) || isNaN(y)) {
+                showMessage('customerMessage', 'Please fill in all fields', 'error');
+                return;
+            }
+            
+            if (customers.find(c => c.id === id)) {
+                showMessage('customerMessage', 'Customer with this ID already exists', 'error');
+                return;
+            }
+            
+            customers.push({ id, demand, x, y });
+            renderCustomers();
+            updateMap();
+            
+            // Clear form
+            document.getElementById('customerId').value = '';
+            document.getElementById('customerDemand').value = '';
+            document.getElementById('customerX').value = '';
+            document.getElementById('customerY').value = '';
+            
+            showMessage('customerMessage', 'Customer added', 'success');
+        }
+        
+        function removeCustomer(id) {
+            customers = customers.filter(c => c.id !== id);
+            renderCustomers();
+            updateMap();
+        }
+        
+        function renderCustomers() {
+            const container = document.getElementById('customerList');
+            if (customers.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #999; padding: 20px;">No customers added yet</div>';
+                return;
+            }
+            
+            container.innerHTML = customers.map(c => `
+                <div class="customer-item">
+                    <div class="customer-info">
+                        <div class="customer-name">Customer ${c.id}</div>
+                        <div class="customer-details">Demand: ${c.demand} | Location: (${c.x}, ${c.y})</div>
+                    </div>
+                    <button class="remove-btn" onclick="removeCustomer('${c.id}')">Remove</button>
+                </div>
+            `).join('');
+        }
+        
+        async function submitRequest() {
+            if (customers.length === 0) {
+                showMessage('customerMessage', 'Please add at least one customer', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/submit-request', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ customers })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    currentRequestId = data.request_id;
+                    showMessage('customerMessage', 'Request submitted! Waiting for solution...', 'success');
+                    pollForSolution();
+                } else {
+                    showMessage('customerMessage', data.error || 'Error submitting request', 'error');
+                }
+            } catch (error) {
+                showMessage('customerMessage', 'Error: ' + error.message, 'error');
+            }
+        }
+        
+        async function pollForSolution() {
+            if (!currentRequestId) return;
+            
+            try {
+                const response = await fetch(`/api/solution/${currentRequestId}`);
+                const data = await response.json();
+                
+                if (data.status === 'completed' && data.solution) {
+                    currentSolution = data.solution;
+                    updateMapWithSolution();
+                    showMessage('customerMessage', 'Solution received!', 'success');
+                } else if (data.status === 'processing' || data.status === 'pending') {
+                    setTimeout(pollForSolution, 2000);
+                }
+            } catch (error) {
+                console.error('Error polling solution:', error);
+                setTimeout(pollForSolution, 2000);
+            }
+        }
+        
+        function updateMap() {
+            const data = [];
+            
+            // Depot
+            data.push({
+                x: [0],
+                y: [0],
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Depot',
+                marker: { size: 15, color: 'red', symbol: 'square' },
+                text: ['Depot (0,0)'],
+                hovertemplate: 'Depot<br>Location: (0, 0)<extra></extra>'
+            });
+            
+            // Customers
+            if (customers.length > 0) {
+                data.push({
+                    x: customers.map(c => c.x),
+                    y: customers.map(c => c.y),
+                    mode: 'markers+text',
+                    type: 'scatter',
+                    name: 'Customers',
+                    marker: { size: 10, color: 'blue' },
+                    text: customers.map(c => c.id),
+                    textposition: 'top center',
+                    hovertemplate: 'Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
+                    customdata: customers.map(c => c.demand)
+                });
+            }
+            
+            // Center map around all points (with depot at center)
+            const allX = [0, ...customers.map(c => c.x)];
+            const allY = [0, ...customers.map(c => c.y)];
+            const xRange = [Math.min(...allX) - 10, Math.max(...allX) + 10];
+            const yRange = [Math.min(...allY) - 10, Math.max(...allY) + 10];
+            
+            mapLayout.xaxis.range = xRange;
+            mapLayout.yaxis.range = yRange;
+            
+            Plotly.redraw('map', data, mapLayout);
+        }
+        
+        function updateMapWithSolution() {
+            if (!currentSolution) return;
+            
+            const data = [];
+            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+            
+            // Depot
+            data.push({
+                x: [0],
+                y: [0],
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Depot',
+                marker: { size: 15, color: 'red', symbol: 'square' },
+                text: ['Depot (0,0)'],
+                hovertemplate: 'Depot<br>Location: (0, 0)<extra></extra>'
+            });
+            
+            // Routes
+            if (currentSolution.routes) {
+                currentSolution.routes.forEach((route, idx) => {
+                    const routeX = [0];
+                    const routeY = [0];
+                    
+                    route.customers.forEach(customer => {
+                        routeX.push(customer.x);
+                        routeY.push(customer.y);
+                    });
+                    
+                    routeX.push(0);
+                    routeY.push(0);
+                    
+                    data.push({
+                        x: routeX,
+                        y: routeY,
+                        mode: 'lines+markers',
+                        type: 'scatter',
+                        name: `Route ${route.vehicleName || idx + 1}`,
+                        line: { color: colors[idx % colors.length], width: 2 },
+                        marker: { size: 8, color: colors[idx % colors.length] },
+                        hovertemplate: `Route ${route.vehicleName || idx + 1}<br>Distance: ${route.totalDistance.toFixed(2)}<br>Demand: ${route.totalDemand}<extra></extra>`
+                    });
+                });
+            }
+            
+            // Unserved customers
+            if (currentSolution.unservedCustomers && currentSolution.unservedCustomers.length > 0) {
+                data.push({
+                    x: currentSolution.unservedCustomers.map(c => c.x),
+                    y: currentSolution.unservedCustomers.map(c => c.y),
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: 'Unserved',
+                    marker: { size: 12, color: 'orange', symbol: 'x' },
+                    text: currentSolution.unservedCustomers.map(c => c.id || c.name),
+                    textposition: 'top center',
+                    hovertemplate: 'Unserved Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
+                    customdata: currentSolution.unservedCustomers.map(c => c.demand)
+                });
+            }
+            
+            // Update layout ranges
+            const allX = [0];
+            const allY = [0];
+            if (currentSolution.routes) {
+                currentSolution.routes.forEach(route => {
+                    route.customers.forEach(c => {
+                        allX.push(c.x);
+                        allY.push(c.y);
+                    });
+                });
+            }
+            if (currentSolution.unservedCustomers) {
+                currentSolution.unservedCustomers.forEach(c => {
+                    allX.push(c.x);
+                    allY.push(c.y);
+                });
+            }
+            
+            const xRange = [Math.min(...allX) - 10, Math.max(...allX) + 10];
+            const yRange = [Math.min(...allY) - 10, Math.max(...allY) + 10];
+            
+            mapLayout.xaxis.range = xRange;
+            mapLayout.yaxis.range = yRange;
+            
+            Plotly.redraw('map', data, mapLayout);
+            
+            // Start tracking vehicle movement
+            startMovementTracking();
+        }
+        
+        async function startMovementTracking() {
+            if (mapUpdateInterval) clearInterval(mapUpdateInterval);
+            
+            mapUpdateInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/movement/all');
+                    const data = await response.json();
+                    
+                    if (data.vehicles) {
+                        // Update vehicle positions on map
+                        updateVehiclePositions(data.vehicles);
+                    }
+                } catch (error) {
+                    console.error('Error fetching movement:', error);
+                }
+            }, 500);
+        }
+        
+        function updateVehiclePositions(vehicleData) {
+            // This would update vehicle positions on the map
+            // For now, we'll just log it
+            console.log('Vehicle positions:', vehicleData);
+        }
+        
+        async function loadAgentList() {
+            try {
+                const response = await fetch('/api/agents/status');
+                const data = await response.json();
+                
+                const agentList = document.getElementById('agentList');
+                if (data.agents && data.agents.length > 0) {
+                    agentList.innerHTML = data.agents.map(agent => {
+                        const statusClass = agent.status === 'active' ? 'status-value' : 'status-value error';
+                        const statusText = agent.status === 'active' ? 'Active' : 
+                                         agent.status === 'inactive' ? 'Inactive' : 'Terminated';
+                        const typeLabel = agent.type === 'mra' ? 'MRA' : 'DA';
+                        
+                        // Build info display
+                        let infoHtml = '';
+                        if (agent.info) {
+                            if (agent.type === 'mra') {
+                                // MRA: show depot coordinates
+                                const x = agent.info.depot_x !== undefined ? agent.info.depot_x : 0;
+                                const y = agent.info.depot_y !== undefined ? agent.info.depot_y : 0;
+                                infoHtml = `<div class="agent-info">Depot: (${x.toFixed(1)}, ${y.toFixed(1)})</div>`;
+                            } else if (agent.type === 'da') {
+                                // DA: show capacity, speed, and max distance
+                                const capacity = agent.info.capacity !== undefined ? agent.info.capacity : 'N/A';
+                                const speed = agent.info.speed !== undefined ? agent.info.speed : 'N/A';
+                                const maxDistance = agent.info.maxDistance !== undefined ? agent.info.maxDistance : 'N/A';
+                                infoHtml = `<div class="agent-info">Capacity: ${capacity} | Speed: ${speed} units/s | Max Distance: ${maxDistance}</div>`;
+                            }
+                        }
+                        
+                        return `
+                            <div class="status-panel">
+                                <div class="status-item">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                                        <div>
+                                            <span class="status-label">${typeLabel}: ${agent.name}</span>
+                                            ${infoHtml}
+                                        </div>
+                                        <span class="${statusClass}">${statusText}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+                    
+                    // Update status counts
+                    document.getElementById('daCount').textContent = data.da_count || 0;
+                    const mraActive = data.agents && data.agents.find(a => a.type === 'mra' && a.status === 'active');
+                    document.getElementById('mraStatus').textContent = mraActive ? 'Active' : 'Inactive';
+                } else {
+                    agentList.innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">No agents found. Please confirm vehicles to create agents.</div>';
+                    document.getElementById('daCount').textContent = '0';
+                    document.getElementById('mraStatus').textContent = 'Inactive';
+                }
+            } catch (error) {
+                console.error('Error loading agents:', error);
+                document.getElementById('daCount').textContent = '0';
+                document.getElementById('mraStatus').textContent = 'Unknown';
+            }
+        }
+        
+        async function loadAgentSelect() {
+            try {
+                // Use agent status API to get list of active agents
+                const response = await fetch('/api/agents/status');
+                const data = await response.json();
+                
+                const select = document.getElementById('agentSelect');
+                select.innerHTML = '<option value="">Select an agent...</option>';
+                
+                if (data.agents && data.agents.length > 0) {
+                    // Filter to only show active agents
+                    const activeAgents = data.agents.filter(agent => agent.status === 'active');
+                    activeAgents.forEach(agent => {
+                        const option = document.createElement('option');
+                        // Use agent name, but for MRA use 'mra' for log lookup
+                        const logName = agent.type === 'mra' ? 'mra' : agent.name;
+                        option.value = logName;
+                        option.textContent = `${agent.type === 'mra' ? 'MRA' : 'DA'}: ${agent.name}`;
+                        select.appendChild(option);
+                    });
+                }
+            } catch (error) {
+                console.error('Error loading agent select:', error);
+            }
+        }
+        
+        async function loadAgentLog() {
+            const agentName = document.getElementById('agentSelect').value;
+            if (!agentName) {
+                document.getElementById('logViewer').innerHTML = '<div style="color: #858585;">Select an agent to view logs</div>';
+                return;
+            }
+            
+            const logViewer = document.getElementById('logViewer');
+            logViewer.innerHTML = '<div style="color: #858585;">Loading log...</div>';
+            
+            try {
+                const response = await fetch(`/api/logs/${agentName}`);
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                    logViewer.innerHTML = `<div style="color: #f48771;">Error: ${errorData.error || 'Failed to load log'}</div>`;
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.content) {
+                    const lines = data.content.split('\n');
+                    if (lines.length === 0 || (lines.length === 1 && !lines[0].trim())) {
+                        logViewer.innerHTML = '<div style="color: #858585;">Log file is empty</div>';
+                        return;
+                    }
+                    
+                    logViewer.innerHTML = lines.map(line => {
+                        if (!line.trim()) return '<div class="log-entry log-level-info">&nbsp;</div>';
+                        
+                        let className = 'log-entry';
+                        if (line.includes('ERROR') || line.includes('error')) {
+                            className += ' log-level-error';
+                        } else if (line.includes('WARNING') || line.includes('warning')) {
+                            className += ' log-level-warning';
+                        } else {
+                            className += ' log-level-info';
+                        }
+                        
+                        return `<div class="${className}">${escapeHtml(line)}</div>`;
+                    }).join('');
+                    
+                    logViewer.scrollTop = logViewer.scrollHeight;
+                } else if (data.error) {
+                    let errorMsg = `<div style="color: #f48771;">Error: ${data.error}</div>`;
+                    if (data.message) {
+                        errorMsg += `<div style="color: #858585; margin-top: 10px; font-size: 11px;">${data.message}</div>`;
+                    }
+                    if (data.searched_files) {
+                        errorMsg += `<div style="color: #858585; margin-top: 5px; font-size: 11px;">Searched for: ${data.searched_files.join(', ')}</div>`;
+                    }
+                    logViewer.innerHTML = errorMsg;
+                } else {
+                    logViewer.innerHTML = '<div style="color: #858585;">No log content available</div>';
+                }
+            } catch (error) {
+                console.error('Error loading log:', error);
+                logViewer.innerHTML = `<div style="color: #f48771;">Error loading log: ${error.message}</div>`;
+            }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        function showMessage(elementId, text, type) {
+            const msg = document.getElementById(elementId);
+            msg.textContent = text;
+            msg.className = `message ${type}`;
+            msg.style.display = 'block';
+            setTimeout(() => {
+                msg.style.display = 'none';
+            }, 3000);
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', () => {
+            initMap();
+            loadAgentList();
+        });
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            Plotly.Plots.resize('map');
+        });
+    </script>
+</body>
+</html>
+

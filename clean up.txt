@@ -1,6 +1,0 @@
-- split the prj into multiple test cases (!w max distance, /w max distance, /w time window, /w bidding (if possible))
-- all the scenarios, logs must be described as detailed as possible in the report as well as the video & presentation
-- practice presenting for the final w
-- must done within this week !!!
-- have a complete scenario & overall workflow diagram
-- report

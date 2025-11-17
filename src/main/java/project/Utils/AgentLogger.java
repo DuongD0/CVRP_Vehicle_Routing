@@ -15,67 +15,31 @@ import java.util.List;
 /**
  * Utility class for logging agent conversations to files
  * Logs all ACL messages (sent and received) with full details
- * All logs for a single conversation/run are stored in a timestamped folder
+ * All logs are stored directly in the logs/ folder and append to existing files
  */
 public class AgentLogger {
     private PrintWriter writer;
     private String agentName;
     private AID agentAID;  // Store agent AID for proper logging
     private static final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
-    private static final SimpleDateFormat folderDateFormat = new SimpleDateFormat("yyyy-MM-dd_HH-mm-ss");
-    
-    // Static variable to track the current log folder (shared across all agents in a run)
-    private static String currentLogFolder = null;
-    private static final Object folderLock = new Object();
-    
-    /**
-     * Gets or creates the current timestamped log folder
-     * All agents in the same run will use the same folder
-     */
-    private static String getCurrentLogFolder() {
-        synchronized (folderLock) {
-            if (currentLogFolder == null) {
-                // Create new timestamped folder
-                currentLogFolder = folderDateFormat.format(new Date());
-            }
-            return currentLogFolder;
-        }
-    }
-    
-    /**
-     * Resets the log folder (useful for starting a new conversation/run)
-     */
-    public static void resetLogFolder() {
-        synchronized (folderLock) {
-            currentLogFolder = null;
-        }
-    }
     
     public AgentLogger(String agentName) {
         this.agentName = agentName;
         this.agentAID = null;
         try {
-            // Get the current timestamped log folder
-            String timestampFolder = getCurrentLogFolder();
-            
-            // Create log directory structure: logs/YYYY-MM-DD_HH-MM-SS/
+            // Create log directory if it doesn't exist: logs/
             String logBaseDir = "logs";
-            String logDir = logBaseDir + "/" + timestampFolder;
             java.io.File baseDir = new java.io.File(logBaseDir);
             if (!baseDir.exists()) {
                 baseDir.mkdirs();
             }
-            java.io.File dir = new java.io.File(logDir);
-            if (!dir.exists()) {
-                dir.mkdirs();
-            }
             
-            String fileName = logDir + "/" + agentName + "_conversations.log";
+            // Log file directly in logs/ folder, append mode
+            String fileName = logBaseDir + "/" + agentName + "_conversations.log";
             writer = new PrintWriter(new FileWriter(fileName, true)); // Append mode
             
             log("=== Agent Logger Initialized ===");
             log("Agent: " + agentName);
-            log("Log folder: " + logDir);
             log("Log file: " + fileName);
             
         } catch (IOException e) {

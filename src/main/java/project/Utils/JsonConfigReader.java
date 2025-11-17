@@ -32,7 +32,6 @@ public class JsonConfigReader {
         public int demand;  // Number of items
         public double x;
         public double y;
-        public long[] timeWindow;  // Optional time window [earliest, latest] in minutes from depot start
     }
     
     public static class VehicleConfig {
@@ -72,16 +71,6 @@ public class JsonConfigReader {
                     customer.demand = customerJson.get("demand").getAsInt();
                     customer.x = customerJson.get("x").getAsDouble();
                     customer.y = customerJson.get("y").getAsDouble();
-                    
-                    // Read optional time window
-                    if (customerJson.has("timeWindow")) {
-                        JsonArray timeWindowArray = customerJson.getAsJsonArray("timeWindow");
-                        if (timeWindowArray.size() >= 2) {
-                            customer.timeWindow = new long[2];
-                            customer.timeWindow[0] = timeWindowArray.get(0).getAsLong();
-                            customer.timeWindow[1] = timeWindowArray.get(1).getAsLong();
-                        }
-                    }
                     
                     config.customers.add(customer);
                 }

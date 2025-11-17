@@ -46,7 +46,8 @@ vehicle agents should have a list of assigned routes from the mra
         - like test case 1, but now with max distance
 
     - test case 4: multiple request when das have not arrived back
-        - no busy/free state, das now have a list of routes that it needs to completely
+        - combination of all the above test cases, but now mra store unserved nodes in a separate list, until reached 6 (or no more requests left), take out for processing (before process the next request)
+
     - test case 5: with time window
         - mra: ask for capacity, speed, and maximum distance, assign route
         - da: now 
@@ -60,3 +61,21 @@ new frontend (in python completely) (implement in "frontend 2" folder):
 - visualize movement of das when executing route
 - load test cases (scenarios), pass to the backend, and visualize it
 - let the user to pick nodes with demand
+
+current implementation:
+- just let the mra receive request directly from the frontend (customer only list)
+- vehicle only list will be sent to the main to terminate/create da agents
+
+final res:
+a website that:
+- let user define vehicles ONCE
+- define customers and their demands
+- view information about the agents, their logs
+- visualize the routes and the movement of vehicles on the solved routes
+- visualization of unserved customers, how those are taken into the next request/solve independently
+- visualization of logs
+
+detailed:
+- requests only send customer info as all agents are defined at first to be initiated by the main
+- make use of the current apis and implement more if needed
+- the depot location is 0,0 but make it in the middle of the visual map

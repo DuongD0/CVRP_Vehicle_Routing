@@ -79,41 +79,8 @@ public class DepotProblemAssembler {
             }
         }
 
-        // Extract time windows if available
-        long[][] timeWindows = null;
-        boolean hasTimeWindows = false;
-        for (CustomerRequest req : requests) {
-            if (req.timeWindow != null && req.timeWindow.length >= 2) {
-                hasTimeWindows = true;
-                break;
-            }
-        }
-        
-        if (hasTimeWindows) {
-            timeWindows = new long[numNodes][];
-            // Depot time window: [0, large_value] - vehicles can start anytime
-            timeWindows[0] = new long[]{0, Long.MAX_VALUE / 2}; // Use large but safe value
-            
-            // Customer time windows
-            for (int i = 0; i < numCustomers; i++) {
-                CustomerRequest req = requests.get(i);
-                int idx = i + 1;
-                if (req.timeWindow != null && req.timeWindow.length >= 2) {
-                    timeWindows[idx] = new long[]{req.timeWindow[0], req.timeWindow[1]};
-                } else {
-                    // No time window for this customer - use very wide window
-                    timeWindows[idx] = new long[]{0, Long.MAX_VALUE / 2};
-                }
-            }
-            
-            if (logger != null) {
-                logger.logEvent("Time windows detected: TWVRP mode enabled");
-            }
-        }
-
         if (logger != null) {
-            logger.logEvent("Calling VRP solver: " + numVehicles + " vehicles, " + numCustomers + " customers" +
-                           (hasTimeWindows ? " (with time windows)" : ""));
+            logger.logEvent("Calling VRP solver: " + numVehicles + " vehicles, " + numCustomers + " customers");
         }
 
         return solver.solve(
@@ -123,8 +90,7 @@ public class DepotProblemAssembler {
             vehicleCapacities,
             vehicleMaxDistances,
             demand,
-            distance,
-            timeWindows
+            distance
         );
     }
 }

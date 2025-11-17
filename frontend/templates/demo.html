@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CVRP Multi-Agent System - Real-time Demo</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            grid-template-rows: auto 1fr;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        .header {
+            grid-column: 1 / -1;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 15px 20px;
+            border-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            color: white;
+            font-size: 24px;
+        }
+        
+        .test-case-selector {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            overflow-y: auto;
+        }
+        
+        .test-case-selector h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .test-case-card {
+            background: #333;
+            border: 2px solid #444;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .test-case-card:hover {
+            border-color: #667eea;
+            transform: translateX(5px);
+        }
+        
+        .test-case-card.active {
+            border-color: #4caf50;
+            background: #2d4a2d;
+        }
+        
+        .test-case-card h3 {
+            color: #4caf50;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+        
+        .test-case-card p {
+            color: #aaa;
+            font-size: 12px;
+            line-height: 1.4;
+        }
+        
+        .test-case-card .status {
+            margin-top: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.ready {
+            background: #3a3a3a;
+            color: #aaa;
+        }
+        
+        .status.running {
+            background: #4caf50;
+            color: white;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .main-content {
+            display: grid;
+            grid-template-rows: 1fr 300px;
+            gap: 10px;
+        }
+        
+        .map-container {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+        }
+        
+        .map-container h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+        
+        #map-plot {
+            width: 100%;
+            height: 100%;
+            background: white;
+            border-radius: 5px;
+        }
+        
+        .logs-container {
+            background: #2a2a2a;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .logs-container h2 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .log-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .log-controls select, .log-controls button {
+            padding: 8px 12px;
+            background: #333;
+            border: 1px solid #555;
+            border-radius: 5px;
+            color: #e0e0e0;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        
+        .log-controls button:hover {
+            background: #444;
+        }
+        
+        .log-controls button.active {
+            background: #667eea;
+            border-color: #667eea;
+        }
+        
+        #log-viewer {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 3px 0;
+            border-left: 3px solid transparent;
+            padding-left: 8px;
+        }
+        
+        .log-entry.error {
+            border-left-color: #f44336;
+            color: #ff6b6b;
+        }
+        
+        .log-entry.warning {
+            border-left-color: #ff9800;
+            color: #ffb74d;
+        }
+        
+        .log-entry.info {
+            border-left-color: #2196f3;
+            color: #64b5f6;
+        }
+        
+        .log-entry.event {
+            border-left-color: #4caf50;
+            color: #81c784;
+        }
+        
+        .log-entry.message {
+            border-left-color: #9c27b0;
+            color: #ba68c8;
+        }
+        
+        .log-timestamp {
+            color: #888;
+            margin-right: 8px;
+        }
+        
+        .log-agent {
+            color: #667eea;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .map-legend {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            background: rgba(42, 42, 42, 0.95);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 11px;
+            border: 1px solid #555;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .speed-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(42, 42, 42, 0.95);
+            padding: 10px 15px;
+            border-radius: 5px;
+            font-size: 12px;
+            border: 1px solid #555;
+        }
+        
+        .speed-indicator h3 {
+            color: #667eea;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .vehicle-speed {
+            color: #4caf50;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚚 CVRP Multi-Agent System - Real-time Demo</h1>
+            <div style="color: white; font-size: 14px;">
+                <span id="system-status">Ready</span>
+            </div>
+        </div>
+        
+        <div class="test-case-selector">
+            <h2>📋 Test Cases</h2>
+            <div id="test-cases-list"></div>
+        </div>
+        
+        <div class="main-content">
+            <div class="map-container">
+                <h2>🗺️ Real-time Map</h2>
+                <div id="map-plot"></div>
+                <div class="map-legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff0000;"></div>
+                        <span>Depot</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2196f3;"></div>
+                        <span>Customer</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4caf50;"></div>
+                        <span>Vehicle</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff9800;"></div>
+                        <span>Route</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f44336;"></div>
+                        <span>Unserved</span>
+                    </div>
+                </div>
+                <div class="speed-indicator">
+                    <h3>⚡ Vehicle Speed</h3>
+                    <div class="vehicle-speed" id="speed-display">10.0 units/sec</div>
+                </div>
+            </div>
+            
+            <div class="logs-container">
+                <h2>
+                    <span>📝 Agent Logs</span>
+                    <span style="font-size: 12px; color: #888;" id="log-count">0 entries</span>
+                </h2>
+                <div class="log-controls">
+                    <select id="agent-select">
+                        <option value="all">All Agents</option>
+                    </select>
+                    <button id="auto-scroll-btn" class="active">Auto-scroll</button>
+                    <button id="clear-logs-btn">Clear</button>
+                </div>
+                <div id="log-viewer"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global state
+        let currentTestCase = null;
+        let currentRequestId = null;
+        let mapData = {
+            depot: { x: 0, y: 0 },
+            customers: [],
+            vehicles: {},
+            routes: {},
+            unserved: []
+        };
+        let logEntries = [];
+        let updateInterval = null;
+        let logUpdateInterval = null;
+        let autoScroll = true;
+        const VEHICLE_SPEED = 10.0; // units per second
+        
+        // Test cases
+        const testCases = [
+            {
+                id: 1,
+                name: 'Basic Agent Communication',
+                file: 'case_agent_communication_basic.json',
+                description: 'Basic CVRP with all customers served in one go'
+            },
+            {
+                id: 2,
+                name: 'Demand Exceeds Capacity',
+                file: 'case_demand_exceeds_capacity.json',
+                description: 'Tests favor items over distance with unserved customers'
+            },
+            {
+                id: 3,
+                name: 'Maximum Distance Constraint',
+                file: 'case_maximum_distance.json',
+                description: 'Basic CVRP with maximum distance limits'
+            },
+            {
+                id: 4,
+                name: 'Multiple Requests (Queued)',
+                file: 'case_multiple_requests_queued.json',
+                description: 'Multiple requests while DAs haven\'t returned'
+            }
+        ];
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTestCases();
+            initializeMap();
+            setupLogControls();
+        });
+        
+        function loadTestCases() {
+            const listDiv = document.getElementById('test-cases-list');
+            listDiv.innerHTML = testCases.map(tc => `
+                <div class="test-case-card" onclick="runTestCase(${tc.id}, '${tc.file}')" id="tc-${tc.id}">
+                    <h3>Test Case ${tc.id}</h3>
+                    <p>${tc.name}</p>
+                    <p style="margin-top: 5px; color: #888;">${tc.description}</p>
+                    <div class="status ready" id="status-${tc.id}">Ready</div>
+                </div>
+            `).join('');
+        }
+        
+        async function runTestCase(id, filename) {
+            // Update UI
+            document.querySelectorAll('.test-case-card').forEach(c => c.classList.remove('active'));
+            document.getElementById(`tc-${id}`).classList.add('active');
+            const statusEl = document.getElementById(`status-${id}`);
+            statusEl.textContent = 'Running...';
+            statusEl.classList.remove('ready');
+            statusEl.classList.add('running');
+            
+            document.getElementById('system-status').textContent = 'Running Test Case ' + id;
+            
+            // Clear previous data
+            clearMap();
+            clearLogs();
+            
+            try {
+                // Load test case
+                const response = await fetch(`/api/test-cases/${filename}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    alert('Error loading test case: ' + data.error);
+                    return;
+                }
+                
+                currentTestCase = data;
+                
+                // Initialize map with test case data
+                mapData.depot = { x: data.depot.x, y: data.depot.y };
+                mapData.customers = (data.customers || []).map(c => ({
+                    id: c.id || String(c.id),
+                    x: parseFloat(c.x) || 0,
+                    y: parseFloat(c.y) || 0,
+                    demand: parseInt(c.demand) || 0
+                }));
+                
+                // Initialize vehicles
+                (data.vehicles || []).forEach(v => {
+                    // Store both with and without "DA-" prefix for compatibility
+                    const vehicleData = {
+                        name: v.name,
+                        x: data.depot.x,
+                        y: data.depot.y,
+                        targetX: data.depot.x,
+                        targetY: data.depot.y,
+                        route: [],
+                        currentRouteIndex: -1,
+                        status: 'idle'
+                    };
+                    mapData.vehicles[v.name] = vehicleData;
+                    // Also store without "DA-" prefix if present
+                    if (v.name.startsWith('DA')) {
+                        mapData.vehicles[v.name.replace(/^DA-?/, '')] = vehicleData;
+                    }
+                });
+                
+                // Render map immediately with customers
+                renderMap();
+                
+                updateMap();
+                
+                // Submit to backend
+                const requestData = {
+                    depot: data.depot,
+                    vehicles: data.vehicles,
+                    customers: data.customers
+                };
+                
+                const submitResponse = await fetch('http://localhost:8000/api/solve-cvrp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                
+                const submitData = await submitResponse.json();
+                
+                if (submitResponse.ok && submitData.request_id) {
+                    currentRequestId = submitData.request_id;
+                    startMonitoring();
+                } else {
+                    alert('Error submitting: ' + (submitData.error || 'Unknown error'));
+                    statusEl.textContent = 'Error';
+                    statusEl.classList.remove('running');
+                    statusEl.classList.add('ready');
+                }
+            } catch (error) {
+                console.error('Error running test case:', error);
+                alert('Error: ' + error.message);
+                statusEl.textContent = 'Error';
+                statusEl.classList.remove('running');
+                statusEl.classList.add('ready');
+            }
+        }
+        
+        function startMonitoring() {
+            // Stop any existing intervals
+            if (updateInterval) clearInterval(updateInterval);
+            if (logUpdateInterval) clearInterval(logUpdateInterval);
+            
+            // Update map and logs every 500ms
+            updateInterval = setInterval(() => {
+                updateMap();
+            }, 500);
+            
+            logUpdateInterval = setInterval(() => {
+                updateLogs();
+            }, 1000);
+            
+            // Initial updates
+            updateMap();
+            updateLogs();
+        }
+        
+        async function updateMap() {
+            try {
+                // If we have a request ID, get solution
+                if (currentRequestId) {
+                    const solutionResponse = await fetch(`/api/solution/${currentRequestId}`);
+                    if (solutionResponse.ok) {
+                        const solutionData = await solutionResponse.json();
+                        
+                        if (solutionData.status === 'completed' && solutionData.solution) {
+                            const solution = solutionData.solution;
+                            
+                            // Update routes
+                            if (solution.routes) {
+                                solution.routes.forEach(route => {
+                                    if (route.vehicleName && route.customers) {
+                                        mapData.routes[route.vehicleName] = route.customers;
+                                        
+                                        // Update vehicle position based on route
+                                        const vehicleName = route.vehicleName;
+                                        const vehicle = mapData.vehicles[vehicleName] || 
+                                                      mapData.vehicles[vehicleName.replace(/^DA-/, '')];
+                                        
+                                        if (vehicle && route.customers.length > 0) {
+                                            // Vehicle is moving to first customer in route
+                                            const firstCustomer = route.customers[0];
+                                            vehicle.targetX = firstCustomer.x;
+                                            vehicle.targetY = firstCustomer.y;
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            // Update unserved
+                            if (solution.unservedCustomers) {
+                                mapData.unserved = solution.unservedCustomers;
+                            }
+                        }
+                    }
+                }
+                
+                // Get vehicle movements from API
+                await updateVehiclePositions();
+                
+                // Always render map to show current state
+                renderMap();
+            } catch (error) {
+                console.error('Error updating map:', error);
+                // Still render map even if update fails
+                renderMap();
+            }
+        }
+        
+        async function updateVehiclePositions() {
+            try {
+                // Try to get real-time positions from API first
+                try {
+                    const apiResponse = await fetch('http://localhost:8000/api/movement/all');
+                    if (apiResponse.ok) {
+                        const apiData = await apiResponse.json();
+                        if (apiData.vehicles && Object.keys(apiData.vehicles).length > 0) {
+                            // Use API data (real-time)
+                            Object.entries(apiData.vehicles).forEach(([vehicleName, posData]) => {
+                                // Handle both "DA1" and "DA-DA1" formats
+                                const cleanName = vehicleName.replace(/^DA-/, '').replace(/-.*$/, '');
+                                const vehicle = mapData.vehicles[cleanName] || mapData.vehicles[vehicleName];
+                                
+                                if (vehicle && posData.x !== undefined && posData.y !== undefined) {
+                                    vehicle.targetX = posData.x;
+                                    vehicle.targetY = posData.y;
+                                    
+                                    // Smooth interpolation based on speed
+                                    const dx = vehicle.targetX - vehicle.x;
+                                    const dy = vehicle.targetY - vehicle.y;
+                                    const distance = Math.sqrt(dx * dx + dy * dy);
+                                    
+                                    if (distance > 0.1) {
+                                        const moveDistance = Math.min(VEHICLE_SPEED * 0.5, distance);
+                                        vehicle.x += (dx / distance) * moveDistance;
+                                        vehicle.y += (dy / distance) * moveDistance;
+                                    } else {
+                                        vehicle.x = vehicle.targetX;
+                                        vehicle.y = vehicle.targetY;
+                                    }
+                                    
+                                    // Update status
+                                    if (posData.status) {
+                                        vehicle.status = posData.status;
+                                    }
+                                }
+                            });
+                            return; // Successfully updated from API
+                        }
+                    }
+                } catch (apiError) {
+                    console.log('API movement tracking not available, falling back to logs:', apiError);
+                }
+                
+                // Fallback: If API not available, vehicles stay at their current positions
+                // Vehicle positions will be updated when solution is received
+            } catch (error) {
+                console.log('Error updating vehicle positions:', error);
+            }
+        }
+        
+        function initializeMap() {
+            renderMap();
+        }
+        
+        function renderMap() {
+            const traces = [];
+            
+            // Depot
+            traces.push({
+                x: [mapData.depot.x],
+                y: [mapData.depot.y],
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Depot',
+                marker: {
+                    size: 20,
+                    color: '#ff0000',
+                    symbol: 'square'
+                },
+                text: ['Depot'],
+                textposition: 'top center',
+                textfont: { color: '#000', size: 12 }
+            });
+            
+            // Customers
+            if (mapData.customers.length > 0) {
+                traces.push({
+                    x: mapData.customers.map(c => c.x),
+                    y: mapData.customers.map(c => c.y),
+                    mode: 'markers+text',
+                    type: 'scatter',
+                    name: 'Customers',
+                    marker: {
+                        size: 15,
+                        color: '#2196f3'
+                    },
+                    text: mapData.customers.map(c => `C${c.id} (${c.demand})`),
+                    textposition: 'top center',
+                    textfont: { color: '#000', size: 10 }
+                });
+            }
+            
+            // Routes
+            Object.entries(mapData.routes).forEach(([vehicleName, customers]) => {
+                if (customers && customers.length > 0) {
+                    const routeX = [mapData.depot.x];
+                    const routeY = [mapData.depot.y];
+                    
+                    customers.forEach(c => {
+                        routeX.push(c.x);
+                        routeY.push(c.y);
+                    });
+                    
+                    routeX.push(mapData.depot.x);
+                    routeY.push(mapData.depot.y);
+                    
+                    traces.push({
+                        x: routeX,
+                        y: routeY,
+                        mode: 'lines',
+                        type: 'scatter',
+                        name: `${vehicleName} Route`,
+                        line: {
+                            color: '#ff9800',
+                            width: 2,
+                            dash: 'dash'
+                        },
+                        showlegend: false
+                    });
+                }
+            });
+            
+            // Vehicles (current positions) - deduplicate by name and update positions
+            const vehicleMap = new Map();
+            Object.entries(mapData.vehicles).forEach(([key, vehicle]) => {
+                // Use the original name if available, otherwise use key
+                const vehicleName = vehicle.name || key;
+                if (!vehicleMap.has(vehicleName)) {
+                    // Smooth interpolation towards target
+                    if (vehicle.targetX !== undefined && vehicle.targetY !== undefined) {
+                        const dx = vehicle.targetX - vehicle.x;
+                        const dy = vehicle.targetY - vehicle.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance > 0.1) {
+                            // Move towards target at VEHICLE_SPEED
+                            const moveDistance = Math.min(VEHICLE_SPEED * 0.5, distance); // 0.5s update interval
+                            vehicle.x += (dx / distance) * moveDistance;
+                            vehicle.y += (dy / distance) * moveDistance;
+                        } else {
+                            vehicle.x = vehicle.targetX;
+                            vehicle.y = vehicle.targetY;
+                        }
+                    }
+                    vehicleMap.set(vehicleName, vehicle);
+                }
+            });
+            
+            vehicleMap.forEach(vehicle => {
+                traces.push({
+                    x: [vehicle.x],
+                    y: [vehicle.y],
+                    mode: 'markers+text',
+                    type: 'scatter',
+                    name: vehicle.name || 'Vehicle',
+                    marker: {
+                        size: 18,
+                        color: '#4caf50',
+                        symbol: 'triangle-up'
+                    },
+                    text: [vehicle.name || 'Vehicle'],
+                    textposition: 'bottom center',
+                    textfont: { color: '#000', size: 11, weight: 'bold' },
+                    showlegend: false
+                });
+            });
+            
+            // Unserved customers
+            if (mapData.unserved.length > 0) {
+                traces.push({
+                    x: mapData.unserved.map(c => c.x || c.coordinates?.x),
+                    y: mapData.unserved.map(c => c.y || c.coordinates?.y),
+                    mode: 'markers',
+                    type: 'scatter',
+                    name: 'Unserved',
+                    marker: {
+                        size: 15,
+                        color: '#f44336',
+                        symbol: 'x'
+                    },
+                    showlegend: false
+                });
+            }
+            
+            const layout = {
+                title: {
+                    text: 'Real-time Vehicle Routing',
+                    font: { color: '#e0e0e0', size: 16 }
+                },
+                xaxis: {
+                    title: 'X Coordinate',
+                    gridcolor: '#444',
+                    color: '#aaa'
+                },
+                yaxis: {
+                    title: 'Y Coordinate',
+                    gridcolor: '#444',
+                    color: '#aaa'
+                },
+                plot_bgcolor: '#ffffff',
+                paper_bgcolor: 'transparent',
+                showlegend: false,
+                margin: { l: 60, r: 20, t: 40, b: 60 }
+            };
+            
+            Plotly.newPlot('map-plot', traces, layout, {
+                responsive: true,
+                displayModeBar: false
+            });
+        }
+        
+        async function updateLogs() {
+            try {
+                const logResponse = await fetch('/api/latest-logs');
+                if (!logResponse.ok) {
+                    // Logs directory might not exist yet - this is OK
+                    return;
+                }
+                const logData = await logResponse.json();
+                
+                if (!logData.agents || logData.agents.length === 0) {
+                    // No agents yet - this is OK
+                    return;
+                }
+                
+                const selectedAgent = document.getElementById('agent-select').value;
+                const agents = selectedAgent === 'all' ? logData.agents : [selectedAgent];
+                
+                for (const agent of agents) {
+                    try {
+                        const response = await fetch(`/log/${agent}`);
+                        if (!response.ok) {
+                            continue; // Skip if log file doesn't exist
+                        }
+                        const data = await response.json();
+                        
+                        if (data.content) {
+                            // Parse log content into entries
+                            const lines = data.content.split('\n');
+                            lines.forEach(line => {
+                                if (line.trim()) {
+                                    // Extract timestamp and message
+                                    const timestampMatch = line.match(/\[([^\]]+)\]/);
+                                    const timestamp = timestampMatch ? timestampMatch[1] : new Date().toISOString();
+                                    const message = line.replace(/\[[^\]]+\]\s*/, '').trim();
+                                    
+                                    if (message) {
+                                        const exists = logEntries.find(e => 
+                                            e.timestamp === timestamp && 
+                                            e.message === message &&
+                                            e.agent === agent
+                                        );
+                                        
+                                        if (!exists) {
+                                            logEntries.push({
+                                                timestamp: timestamp,
+                                                message: message,
+                                                agent: agent
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
+                    } catch (error) {
+                        // Silently skip if log file doesn't exist
+                        console.log(`Log file for ${agent} not available yet`);
+                    }
+                }
+                
+                // Sort by timestamp
+                logEntries.sort((a, b) => {
+                    return new Date(a.timestamp) - new Date(b.timestamp);
+                });
+                
+                // Keep only last 1000 entries
+                if (logEntries.length > 1000) {
+                    logEntries = logEntries.slice(-1000);
+                }
+                
+                renderLogs();
+            } catch (error) {
+                console.error('Error updating logs:', error);
+            }
+        }
+        
+        function renderLogs() {
+            const viewer = document.getElementById('log-viewer');
+            const selectedAgent = document.getElementById('agent-select').value;
+            
+            let filteredEntries = logEntries;
+            if (selectedAgent !== 'all') {
+                filteredEntries = logEntries.filter(e => e.agent === selectedAgent);
+            }
+            
+            viewer.innerHTML = filteredEntries.map(entry => {
+                const level = entry.level || 'info';
+                return `
+                    <div class="log-entry ${level}">
+                        <span class="log-timestamp">[${entry.timestamp || ''}]</span>
+                        <span class="log-agent">[${entry.agent || 'SYSTEM'}]</span>
+                        <span>${escapeHtml(entry.message || '')}</span>
+                    </div>
+                `;
+            }).join('');
+            
+            document.getElementById('log-count').textContent = `${filteredEntries.length} entries`;
+            
+            if (autoScroll) {
+                viewer.scrollTop = viewer.scrollHeight;
+            }
+        }
+        
+        function setupLogControls() {
+            // Auto-scroll toggle
+            document.getElementById('auto-scroll-btn').addEventListener('click', function() {
+                autoScroll = !autoScroll;
+                this.classList.toggle('active');
+                this.textContent = autoScroll ? 'Auto-scroll' : 'Pause';
+            });
+            
+            // Clear logs
+            document.getElementById('clear-logs-btn').addEventListener('click', () => {
+                logEntries = [];
+                renderLogs();
+            });
+            
+            // Agent selector
+            document.getElementById('agent-select').addEventListener('change', () => {
+                renderLogs();
+            });
+        }
+        
+        function clearMap() {
+            mapData = {
+                depot: { x: 0, y: 0 },
+                customers: [],
+                vehicles: {},
+                routes: {},
+                unserved: []
+            };
+            renderMap();
+        }
+        
+        function clearLogs() {
+            logEntries = [];
+            renderLogs();
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Update agent selector when logs are available
+        async function updateAgentSelector() {
+            try {
+                const response = await fetch('/api/latest-logs');
+                const data = await response.json();
+                
+                const select = document.getElementById('agent-select');
+                const currentValue = select.value;
+                
+                // Clear options except "All Agents"
+                select.innerHTML = '<option value="all">All Agents</option>';
+                
+                if (data.agents) {
+                    data.agents.forEach(agent => {
+                        const option = document.createElement('option');
+                        option.value = agent;
+                        option.textContent = agent;
+                        select.appendChild(option);
+                    });
+                }
+                
+                // Restore selection
+                if (currentValue) {
+                    select.value = currentValue;
+                }
+            } catch (error) {
+                console.error('Error updating agent selector:', error);
+            }
+        }
+        
+        // Update agent selector periodically
+        setInterval(updateAgentSelector, 5000);
+    </script>
+</body>
+</html>
+

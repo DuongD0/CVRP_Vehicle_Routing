@@ -34,22 +34,16 @@ public class ORToolsSolver implements VRPSolver {
     @Override
     public SolutionResult solve(int numNodes, int numCustomers, int numVehicles,
                                int[] vehicleCapacities, double[] vehicleMaxDistances,
-                               int[] demand, int[][] distance, long[][] timeWindows) {
+                               int[] demand, int[][] distance) {
         long startTime = System.currentTimeMillis();
         
         // Load OR-Tools native library
         Loader.loadNativeLibraries();
         
-        boolean hasTimeWindows = (timeWindows != null && timeWindows.length > 0);
-        String problemType = hasTimeWindows ? "TWVRP" : "CVRP";
-        
-        System.out.println("=== OR-Tools " + problemType + " Solver (Basic Requirements 1 & 2) ===");
+        System.out.println("=== OR-Tools CVRP Solver (Basic Requirements 1 & 2) ===");
         System.out.println("Nodes: " + numNodes + " (including depot)");
         System.out.println("Customers: " + numCustomers);
         System.out.println("Vehicles: " + numVehicles);
-        if (hasTimeWindows) {
-            System.out.println("Time Windows: Enabled");
-        }
         
         // Calculate total items requested
         int totalItems = 0;
@@ -129,59 +123,6 @@ public class ORToolsSolver implements VRPSolver {
                 "Distance"
             );
             
-            // Add time window constraints if provided (TWVRP)
-            com.google.ortools.constraintsolver.RoutingDimension timeDimension = null;
-            if (hasTimeWindows) {
-                // Default vehicle speed: 10 units per unit time
-                // Transit time = distance / speed = distance / 10
-                // Note: Service time at nodes is assumed to be 0 (no unloading time)
-                final double DEFAULT_SPEED = 10.0; // units per unit time
-                final int timeCallbackIndex = routing.registerTransitCallback((long fromIndex, long toIndex) -> {
-                    int fromNode = manager.indexToNode(fromIndex);
-                    int toNode = manager.indexToNode(toIndex);
-                    // Transit time = distance / speed
-                    // Round to nearest integer for time units
-                    return Math.round(distance[fromNode][toNode] / DEFAULT_SPEED);
-                });
-                
-                // Find maximum time window end to set as capacity
-                long maxTime = 0;
-                if (timeWindows[0] != null && timeWindows[0].length >= 2) {
-                    maxTime = timeWindows[0][1];
-                }
-                for (int node = 1; node < numNodes; node++) {
-                    if (timeWindows[node] != null && timeWindows[node].length >= 2) {
-                        maxTime = Math.max(maxTime, timeWindows[node][1]);
-                    }
-                }
-                // Add buffer for travel time
-                maxTime += 10000; // Large buffer to accommodate travel time
-                
-                // Add time dimension
-                // Parameters: transit callback, slack max, capacity, fix_start_cumul_to_zero, name
-                routing.addDimension(
-                    timeCallbackIndex,
-                    (long) 30,  // Allow 30 units of waiting time (slack max)
-                    maxTime,    // Maximum time per vehicle
-                    false,      // Don't force start cumul to zero (allows vehicles to start at different times)
-                    "Time"
-                );
-                
-                timeDimension = routing.getDimensionOrDie("Time");
-                
-                // Set time windows for each node
-                for (int node = 0; node < numNodes; node++) {
-                    if (timeWindows[node] != null && timeWindows[node].length >= 2) {
-                        long earliest = timeWindows[node][0];
-                        long latest = timeWindows[node][1];
-                        long index = manager.nodeToIndex(node);
-                        timeDimension.cumulVar(index).setRange(earliest, latest);
-                    }
-                }
-                
-                System.out.println("Time window constraints added for " + numCustomers + " customers");
-            }
-            
             // Set search parameters
             RoutingSearchParameters searchParameters = main.defaultRoutingSearchParameters()
                 .toBuilder()
@@ -190,7 +131,7 @@ public class ORToolsSolver implements VRPSolver {
                 .setTimeLimit(com.google.protobuf.Duration.newBuilder().setSeconds(30).build())
                 .build();
             
-            System.out.println("Solving " + problemType + " with capacity and maximum distance constraints...");
+            System.out.println("Solving CVRP with capacity and maximum distance constraints...");
             System.out.println("Objective: Maximize items delivered (primary), minimize distance (secondary)");
             
             // Solve
