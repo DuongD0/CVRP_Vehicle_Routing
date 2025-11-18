@@ -86,8 +86,15 @@ flaw:
     - 
     - a customer that has a extreme large demand will cause the system to keep solving for that customer
 
-final upgrade (if possible):
-    - visualize unserved customers
-    - visualize multiple requests
 
 
+- if delete the customer right after posting a request, the map should still be able to generate the routes with corresponding customer node from previous request (
+- remove das, add
+
+frontend: send vehicle list with metadata
+backend: main check & adjust the vehicle agent list
+
+case 1: vehicle still delivering
+    - can just straight up delete the route that it is taking and the vehicle itself
+
+case 2: the icon may still visible
