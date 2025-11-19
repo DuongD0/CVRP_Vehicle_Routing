@@ -59,6 +59,16 @@
             border-color: #5568d3;
         }
         
+        .btn-secondary {
+            background: #ecf0f1;
+            color: #2c3e50;
+            border: 1px solid #d5d8dc;
+        }
+        
+        .btn-secondary:hover {
+            background: #d5d8dc;
+        }
+        
         .container {
             display: flex;
             height: calc(100vh - 60px);
@@ -136,7 +146,7 @@
             font-size: 14px;
         }
         
-        input {
+        input, select, textarea {
             width: 100%;
             padding: 10px;
             border: 2px solid #ddd;
@@ -144,9 +154,14 @@
             font-size: 14px;
         }
         
-        input:focus {
+        input:focus, select:focus, textarea:focus {
             outline: none;
             border-color: #667eea;
+        }
+        
+        textarea {
+            min-height: 120px;
+            resize: vertical;
         }
         
         .customer-list {
@@ -301,13 +316,225 @@
             background: #f8d7da;
             color: #721c24;
         }
+
+        .vehicle-manager-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .vehicle-manager-overlay.active {
+            display: flex;
+        }
+
+        .vehicle-manager-panel {
+            background: white;
+            width: 640px;
+            max-height: 90vh;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .vehicle-manager-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .vehicle-manager-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .vehicle-manager-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .vehicle-manager-close {
+            background: transparent;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            line-height: 1;
+            color: #666;
+        }
+
+        .vehicle-manager-close:hover {
+            color: #000;
+        }
+
+        .vehicle-manager-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 16px;
+        }
+
+        .vehicle-manager-list {
+            border: 1px solid #eee;
+            border-radius: 8px;
+            max-height: 240px;
+            overflow-y: auto;
+        }
+
+        .vehicle-manager-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .vehicle-manager-item:last-child {
+            border-bottom: none;
+        }
+
+        .vehicle-manager-item-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .vehicle-manager-item-details {
+            font-size: 13px;
+            color: #7f8c8d;
+        }
+
+        .vehicle-manager-empty {
+            padding: 24px;
+            text-align: center;
+            color: #999;
+        }
+
+        .vehicle-manager-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .vehicle-manager-actions .btn {
+            flex: 1;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            padding: 20px;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal-panel {
+            background: white;
+            max-height: 90vh;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #eee;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        .modal-close {
+            background: transparent;
+            border: none;
+            font-size: 22px;
+            cursor: pointer;
+            line-height: 1;
+            color: #666;
+        }
+
+        .modal-close:hover {
+            color: #000;
+        }
+
+        .vehicle-manager-overlay .modal-panel {
+            width: 640px;
+        }
+
+        .json-import-overlay .modal-panel {
+            width: 520px;
+        }
+
+        .json-import-textarea {
+            min-height: 200px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .scenario-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .scenario-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .scenario-actions select {
+            flex: 1;
+        }
+
+        .file-input {
+            margin-top: 10px;
+            font-size: 13px;
+        }
+
+        .helper-text {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🚚 CVRP Multi-Agent System</h1>
         <div class="header-actions">
-            <button class="btn btn-primary" onclick="window.location.href='/vehicles'">Manage Vehicles</button>
+            <button class="btn btn-primary" onclick="openVehicleManager()">Manage Vehicles</button>
         </div>
     </div>
     
@@ -342,6 +569,29 @@
                             <input type="number" id="customerY" placeholder="10.0" step="0.1">
                         </div>
                         <button class="btn btn-primary" onclick="addCustomer()" style="width: 100%;">Add Customer</button>
+                    </div>
+                    
+                    <div class="section">
+                        <h2 class="section-title">Scenarios & Data</h2>
+                        <div class="scenario-controls">
+                            <div>
+                                <label>Load Test Case</label>
+                                <div class="scenario-actions">
+                                    <select id="testCaseSelect">
+                                        <option value="">Select a test case...</option>
+                                    </select>
+                                    <button class="btn btn-secondary" onclick="applySelectedTestCase()">Load</button>
+                                </div>
+                                <div class="helper-text">Loads predefined vehicles & customers from documentation.</div>
+                            </div>
+                            <div>
+                                <label>Customer JSON</label>
+                                <div class="scenario-actions" style="justify-content: flex-start;">
+                                    <button class="btn btn-primary" onclick="openJsonImport()">Import JSON</button>
+                                </div>
+                                <div class="helper-text">Paste or upload JSON to replace the current customer list.</div>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="section">
@@ -402,28 +652,158 @@
             </div>
         </div>
     </div>
+
+    <div id="vehicleManagerOverlay" class="modal-overlay vehicle-manager-overlay" aria-hidden="true">
+        <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="vehicleManagerTitle">
+            <div class="modal-header">
+                <div>
+                    <h2 id="vehicleManagerTitle" style="margin: 0;">Manage Vehicles</h2>
+                    <p style="margin: 4px 0 0; color: #777; font-size: 14px;">Update your delivery fleet without leaving this page.</p>
+                </div>
+                <button class="modal-close" onclick="closeVehicleManager()" aria-label="Close vehicle manager">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="vehicleManagerMessage" class="message"></div>
+                <div class="vehicle-manager-grid">
+                    <div class="form-group" style="margin: 0;">
+                        <label>Vehicle Name</label>
+                        <input type="text" id="vehicleManagerName" placeholder="DA1">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label>Capacity</label>
+                        <input type="number" id="vehicleManagerCapacity" placeholder="50" min="1">
+                    </div>
+                    <div class="form-group" style="margin: 0;">
+                        <label>Max Distance</label>
+                        <input type="number" id="vehicleManagerMaxDistance" placeholder="1000" step="0.1" min="0">
+                    </div>
+                </div>
+                <button class="btn btn-primary" style="width: 100%; margin-bottom: 15px;" onclick="vehicleManagerAddVehicle()">Add Vehicle</button>
+                <div id="vehicleManagerList" class="vehicle-manager-list">
+                    <div class="vehicle-manager-empty">Loading vehicles...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="vehicle-manager-actions" style="width: 100%;">
+                    <button class="btn" style="background: #ecf0f1; color: #2c3e50;" onclick="vehicleManagerClearAll()">Clear All</button>
+                    <button class="btn btn-success" onclick="vehicleManagerSave()">Save Vehicles</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="jsonImportOverlay" class="modal-overlay json-import-overlay" aria-hidden="true">
+        <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="jsonImportTitle">
+            <div class="modal-header">
+                <div>
+                    <h2 id="jsonImportTitle" style="margin: 0;">Import Customer JSON</h2>
+                    <p class="helper-text" style="margin: 4px 0 0;">Paste JSON (array or {"customers": []}) or upload a file to override the current customer list.</p>
+                </div>
+                <button class="modal-close" onclick="closeJsonImport()" aria-label="Close customer import">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="jsonImportMessage" class="message"></div>
+                <textarea id="jsonCustomerInput" class="json-import-textarea" placeholder='{
+    "customers": [
+        {"id": "1", "demand": 10, "x": 10.0, "y": 10.0}
+    ]
+}'></textarea>
+                <div class="file-input">
+                    <label for="jsonFileInput">Upload JSON file</label>
+                    <input type="file" id="jsonFileInput" accept="application/json" onchange="handleJsonFileSelected(event)">
+                    <div class="helper-text">Uploading a file replaces the text above.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeJsonImport()">Cancel</button>
+                <button class="btn btn-primary" onclick="applyJsonImport()">Apply Customers</button>
+            </div>
+        </div>
+    </div>
     
     <script>
-        let customers = [];
-        let currentSolution = null;
-        let currentRequestId = null;
-        let agentStatusInterval = null;
-        let mapData = {
-            depot: { x: 0, y: 0 },
-            customers: [],
-            routes: [],
-            vehicles: {},
-            unserved: []
+let customers = [];
+let currentSolution = null;
+let currentRequestId = null;
+let agentStatusInterval = null;
+let mapData = {
+    depot: { x: 0, y: 0 },
+    customers: [],
+    routes: [],
+    vehicles: {},
+    unserved: []
+};
+let mapLayout = null;
+let mapUpdateInterval = null;
+let baseMapTraces = [];
+let vehicleOverlayTrace = null;
+let vehicleAnnotations = [];
+let vehicleDirections = {};
+let vehicleManagerState = {
+    vehicles: [],
+    loading: false
+};
+let lastUnservedCustomerIds = new Set();
+let lastSolutionSnapshot = null;
+let solutionPollTimeout = null;
+const TEST_CASES = {
+            basic_cvrp: {
+                name: 'Test Case 1 – Basic CVRP',
+                vehicles: [
+                    { name: 'DA1', capacity: 50, maxDistance: 1000 },
+                    { name: 'DA2', capacity: 50, maxDistance: 1000 },
+                    { name: 'DA3', capacity: 50, maxDistance: 1000 },
+                    { name: 'DA4', capacity: 50, maxDistance: 1000 }
+                ],
+                customers: [
+                    { id: '1', demand: 10, x: 10, y: 10 },
+                    { id: '2', demand: 15, x: 20, y: 20 },
+                    { id: '3', demand: 20, x: 30, y: 10 },
+                    { id: '4', demand: 12, x: 15, y: 25 },
+                    { id: '5', demand: 18, x: 25, y: 15 }
+                ]
+            },
+            demand_shortfall: {
+                name: 'Test Case 2 – Demand Exceeds Capacity',
+                vehicles: [
+                    { name: 'DA1', capacity: 30, maxDistance: 1000 },
+                    { name: 'DA2', capacity: 30, maxDistance: 1000 },
+                    { name: 'DA3', capacity: 30, maxDistance: 1000 },
+                    { name: 'DA4', capacity: 30, maxDistance: 1000 }
+                ],
+                customers: [
+                    { id: '1', demand: 20, x: 10, y: 10 },
+                    { id: '2', demand: 25, x: 20, y: 20 },
+                    { id: '3', demand: 30, x: 30, y: 10 },
+                    { id: '4', demand: 22, x: 15, y: 25 },
+                    { id: '5', demand: 28, x: 25, y: 15 },
+                    { id: '6', demand: 15, x: 35, y: 20 }
+                ]
+            },
+            distance_constraint: {
+                name: 'Test Case 3 – Max Distance Constraint',
+                vehicles: [
+                    { name: 'DA1', capacity: 50, maxDistance: 50 },
+                    { name: 'DA2', capacity: 50, maxDistance: 50 },
+                    { name: 'DA3', capacity: 50, maxDistance: 50 },
+                    { name: 'DA4', capacity: 50, maxDistance: 50 }
+                ],
+                customers: [
+                    { id: '1', demand: 10, x: 10, y: 10 },
+                    { id: '2', demand: 15, x: 20, y: 20 },
+                    { id: '3', demand: 20, x: 30, y: 10 },
+                    { id: '4', demand: 12, x: 15, y: 25 },
+                    { id: '5', demand: 18, x: 25, y: 15 },
+                    { id: '6', demand: 25, x: 100, y: 100 }
+                ]
+            }
         };
-        let mapLayout = null;
-        let mapUpdateInterval = null;
-        let baseMapTraces = [];
-        let vehicleOverlayTrace = null;
-        let vehicleAnnotations = [];
-        let vehicleDirections = {};
-        let mapBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
-        let mapDataBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
-        let baseAxisData = { x: [0], y: [0] };
+let mapBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+let mapDataBounds = { minX: -10, maxX: 10, minY: -10, maxY: 10 };
+let baseAxisData = { x: [0], y: [0] };
+let routeHistory = [];
+let servedCustomerMap = new Map();
+let unservedCustomerMap = new Map();
         
         // Initialize map
         function initMap() {
@@ -611,6 +991,8 @@
                 const data = await response.json();
                 if (data.success) {
                     currentRequestId = data.request_id;
+                    lastSolutionSnapshot = null;
+                    clearSolutionPoll();
                     showMessage('customerMessage', 'Request submitted! Waiting for solution...', 'success');
                     pollForSolution();
                 } else {
@@ -629,115 +1011,207 @@
                 const data = await response.json();
                 
                 if (data.status === 'completed' && data.solution) {
-                    currentSolution = data.solution;
-                    updateMapWithSolution();
-                    showMessage('customerMessage', 'Solution received!', 'success');
+                    const snapshot = JSON.stringify(data.solution);
+                    const isNewSolution = snapshot !== lastSolutionSnapshot;
+                    if (isNewSolution) {
+                        lastSolutionSnapshot = snapshot;
+                        currentSolution = data.solution;
+                        updateMapWithSolution();
+                        showMessage('customerMessage', 'Solution received!', 'success');
+                    }
+                    
+                    const remainingUnserved = (data.solution.unservedCustomers || []).length;
+                    if (remainingUnserved > 0) {
+                        showMessage('customerMessage', `${remainingUnserved} customers remain unserved. Monitoring follow-up run...`, 'error', 4000);
+                        scheduleSolutionPoll();
+                        return;
+                    }
+                    
+                    currentRequestId = null;
+                    clearSolutionPoll();
                 } else if (data.status === 'processing' || data.status === 'pending') {
-                    setTimeout(pollForSolution, 2000);
+                    scheduleSolutionPoll();
                 }
             } catch (error) {
                 console.error('Error polling solution:', error);
-                setTimeout(pollForSolution, 2000);
+                scheduleSolutionPoll();
             }
         }
         
-        function updateMap() {
-            const traces = [createDepotTrace()];
+        function resetVisualizationState() {
+            routeHistory = [];
+            servedCustomerMap.clear();
+            unservedCustomerMap.clear();
+            lastUnservedCustomerIds.clear();
+        }
 
-            if (customers.length > 0) {
-                traces.push({
-                    x: customers.map(c => c.x),
-                    y: customers.map(c => c.y),
-                    mode: 'markers+text',
-                    type: 'scatter',
-                    name: 'Customers',
-                    marker: { size: 10, color: '#1f77b4' },
-                    text: customers.map(c => c.id),
-                    textposition: 'top center',
-                    hovertemplate: 'Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
-                    customdata: customers.map(c => c.demand)
-                });
-            }
+        function buildManualCustomerTrace() {
+            if (!customers.length) return null;
+            return {
+                x: customers.map(c => c.x),
+                y: customers.map(c => c.y),
+                mode: 'markers+text',
+                type: 'scatter',
+                name: 'Customers',
+                marker: { size: 10, color: '#1f77b4' },
+                text: customers.map(c => c.id),
+                textposition: 'top center',
+                hovertemplate: 'Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
+                customdata: customers.map(c => c.demand)
+            };
+        }
 
-            const allX = [0, ...customers.map(c => c.x)];
-            const allY = [0, ...customers.map(c => c.y)];
-
+        function rebuildBaseTraces(additionalTraces = []) {
+            const traces = [createDepotTrace(), ...routeHistory];
+            const servedTrace = buildServedMarkerTrace();
+            const unservedTrace = buildUnservedMarkerTrace();
+            if (servedTrace) traces.push(servedTrace);
+            if (unservedTrace) traces.push(unservedTrace);
+            if (additionalTraces.length) traces.push(...additionalTraces);
+            const { x: allX, y: allY } = collectTracePoints(traces);
             setBaseMapTraces(traces, allX, allY);
+        }
+
+        function updateMap() {
+            resetVisualizationState();
+            const manualTrace = buildManualCustomerTrace();
+            rebuildBaseTraces(manualTrace ? [manualTrace] : []);
         }
         
         function updateMapWithSolution() {
             if (!currentSolution) return;
             
-            const data = [];
-            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+            const previousUnserved = new Set(lastUnservedCustomerIds);
+            const currentUnservedIds = new Set(
+                (currentSolution.unservedCustomers || []).map(c => getCustomerKey(c))
+            );
+            const resolvedUnservedIds = new Set(
+                [...previousUnserved].filter(id => !currentUnservedIds.has(id))
+            );
+            lastUnservedCustomerIds = currentUnservedIds;
             
-            data.push(createDepotTrace());
-            
-            // Routes
             if (currentSolution.routes) {
                 currentSolution.routes.forEach((route, idx) => {
-                    const routeX = [0];
-                    const routeY = [0];
-                    
+                    const trace = buildRouteTrace(route, idx, resolvedUnservedIds);
+                    routeHistory.push(trace);
                     route.customers.forEach(customer => {
-                        routeX.push(customer.x);
-                        routeY.push(customer.y);
-                    });
-                    
-                    routeX.push(0);
-                    routeY.push(0);
-                    
-                    data.push({
-                        x: routeX,
-                        y: routeY,
-                        mode: 'lines+markers',
-                        type: 'scatter',
-                        name: `Route ${route.vehicleName || idx + 1}`,
-                        line: { color: colors[idx % colors.length], width: 2 },
-                        marker: { size: 8, color: colors[idx % colors.length] },
-                        hovertemplate: `Route ${route.vehicleName || idx + 1}<br>Distance: ${route.totalDistance.toFixed(2)}<br>Demand: ${route.totalDemand}<extra></extra>`
+                        const key = getCustomerKey(customer);
+                        servedCustomerMap.set(key, {
+                            ...customer,
+                            resolved: resolvedUnservedIds.has(key)
+                        });
+                        unservedCustomerMap.delete(key);
                     });
                 });
             }
             
-            // Unserved customers
-            if (currentSolution.unservedCustomers && currentSolution.unservedCustomers.length > 0) {
-                data.push({
-                    x: currentSolution.unservedCustomers.map(c => c.x),
-                    y: currentSolution.unservedCustomers.map(c => c.y),
-                    mode: 'markers',
-                    type: 'scatter',
-                    name: 'Unserved',
-                    marker: { size: 12, color: 'orange', symbol: 'x' },
-                    text: currentSolution.unservedCustomers.map(c => c.id || c.name),
-                    textposition: 'top center',
-                    hovertemplate: 'Unserved Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
-                    customdata: currentSolution.unservedCustomers.map(c => c.demand)
-                });
-            }
-            
-            // Update layout ranges
-            const allX = [0];
-            const allY = [0];
-            if (currentSolution.routes) {
-                currentSolution.routes.forEach(route => {
-                    route.customers.forEach(c => {
-                        allX.push(c.x);
-                        allY.push(c.y);
-                    });
-                });
-            }
             if (currentSolution.unservedCustomers) {
-                currentSolution.unservedCustomers.forEach(c => {
-                    allX.push(c.x);
-                    allY.push(c.y);
+                currentSolution.unservedCustomers.forEach(customer => {
+                    const key = getCustomerKey(customer);
+                    unservedCustomerMap.set(key, { ...customer });
                 });
             }
             
-            setBaseMapTraces(data, allX, allY);
-            
-            // Start tracking vehicle movement
+            rebuildBaseTraces();
             startMovementTracking();
+        }
+
+        function getCustomerKey(customer) {
+            if (customer && customer.name) {
+                return String(customer.name);
+            }
+            if (customer && customer.id !== undefined && customer.id !== null) {
+                return String(customer.id);
+            }
+            return `${customer?.x},${customer?.y}`;
+        }
+
+        function buildRouteTrace(route, idx, resolvedIds) {
+            const colors = ['#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd', '#8c564b'];
+            const routeX = [0];
+            const routeY = [0];
+            route.customers.forEach(customer => {
+                routeX.push(customer.x);
+                routeY.push(customer.y);
+            });
+            routeX.push(0);
+            routeY.push(0);
+            const containsResolved = route.customers.some(customer =>
+                resolvedIds.has(getCustomerKey(customer))
+            );
+            const routeColor = colors[idx % colors.length];
+            const labelSuffix = containsResolved ? ' (resolved unserved)' : '';
+            
+            return {
+                x: routeX,
+                y: routeY,
+                mode: 'lines+markers',
+                type: 'scatter',
+                name: `Route ${route.vehicleName || idx + 1}${labelSuffix}`,
+                line: {
+                    color: routeColor,
+                    width: containsResolved ? 4 : 2
+                },
+                marker: {
+                    size: containsResolved ? 10 : 8,
+                    color: routeColor
+                },
+                hovertemplate: `Route ${route.vehicleName || idx + 1}<br>Distance: ${route.totalDistance.toFixed(2)}<br>Demand: ${route.totalDemand}<extra></extra>`
+            };
+        }
+
+        function buildServedMarkerTrace() {
+            if (servedCustomerMap.size === 0) return null;
+            const customers = Array.from(servedCustomerMap.values());
+            return {
+                x: customers.map(c => c.x),
+                y: customers.map(c => c.y),
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Served Customers',
+                marker: {
+                    size: customers.map(c => c.resolved ? 14 : 9),
+                    color: customers.map(c => c.resolved ? '#2ecc71' : '#95a5a6'),
+                    symbol: 'circle'
+                },
+                text: customers.map(c => c.name || c.id || 'Customer'),
+                hovertemplate: 'Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
+                customdata: customers.map(c => c.demand)
+            };
+        }
+
+        function buildUnservedMarkerTrace() {
+            if (unservedCustomerMap.size === 0) return null;
+            const customers = Array.from(unservedCustomerMap.values());
+            return {
+                x: customers.map(c => c.x),
+                y: customers.map(c => c.y),
+                mode: 'markers',
+                type: 'scatter',
+                name: 'Unserved',
+                marker: { size: 12, color: 'orange', symbol: 'x' },
+                text: customers.map(c => c.name || c.id || 'Unserved'),
+                textposition: 'top center',
+                hovertemplate: 'Unserved Customer %{text}<br>Demand: %{customdata}<br>Location: (%{x}, %{y})<extra></extra>',
+                customdata: customers.map(c => c.demand)
+            };
+        }
+
+        function collectTracePoints(traces) {
+            const allX = [];
+            const allY = [];
+            traces.forEach(trace => {
+                if (Array.isArray(trace.x)) {
+                    allX.push(...trace.x);
+                }
+                if (Array.isArray(trace.y)) {
+                    allY.push(...trace.y);
+                }
+            });
+            return {
+                x: allX.length ? allX : [0],
+                y: allY.length ? allY : [0]
+            };
         }
         
         async function startMovementTracking() {
@@ -1011,20 +1485,317 @@
             return div.innerHTML;
         }
         
-        function showMessage(elementId, text, type) {
+        function showMessage(elementId, text, type, duration = 3000) {
             const msg = document.getElementById(elementId);
             msg.textContent = text;
             msg.className = `message ${type}`;
             msg.style.display = 'block';
-            setTimeout(() => {
-                msg.style.display = 'none';
-            }, 3000);
+            if (duration !== null) {
+                setTimeout(() => {
+                    msg.style.display = 'none';
+                }, duration);
+            }
         }
+
+        function populateTestCaseSelect() {
+            const select = document.getElementById('testCaseSelect');
+            if (!select) return;
+            select.innerHTML = '<option value="">Select a test case...</option>';
+            Object.entries(TEST_CASES).forEach(([id, info]) => {
+                const option = document.createElement('option');
+                option.value = id;
+                option.textContent = info.name;
+                select.appendChild(option);
+            });
+        }
+
+        async function applySelectedTestCase() {
+            const select = document.getElementById('testCaseSelect');
+            if (!select || !select.value) {
+                showMessage('customerMessage', 'Please select a test case to load', 'error');
+                return;
+            }
+            const testCase = TEST_CASES[select.value];
+            if (!testCase) {
+                showMessage('customerMessage', 'Unknown test case', 'error');
+                return;
+            }
+            await syncTestCaseVehicles(testCase);
+            customers = testCase.customers.map(c => ({ ...c }));
+            renderCustomers();
+            updateMap();
+            showMessage('customerMessage', `${testCase.name} loaded`, 'success');
+        }
+
+        async function syncTestCaseVehicles(testCase) {
+            if (!testCase || !testCase.vehicles) return;
+            try {
+                const response = await fetch('/api/vehicles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vehicles: testCase.vehicles })
+                });
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to sync vehicles');
+                }
+                showMessage('customerMessage', 'Vehicle list updated for test case', 'success');
+            } catch (error) {
+                console.error('Test case vehicle sync error:', error);
+                showMessage('customerMessage', `Vehicle sync failed: ${error.message}`, 'error');
+            }
+        }
+
+        function openJsonImport() {
+            const overlay = document.getElementById('jsonImportOverlay');
+            if (!overlay) return;
+            const textarea = document.getElementById('jsonCustomerInput');
+            textarea.value = JSON.stringify({ customers }, null, 2);
+            document.getElementById('jsonFileInput').value = '';
+            const msg = document.getElementById('jsonImportMessage');
+            if (msg) msg.style.display = 'none';
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+        }
+
+        function closeJsonImport() {
+            const overlay = document.getElementById('jsonImportOverlay');
+            if (!overlay) return;
+            overlay.classList.remove('active');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        function handleJsonFileSelected(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                document.getElementById('jsonCustomerInput').value = e.target.result;
+                showMessage('jsonImportMessage', `Loaded ${file.name}`, 'success', 2000);
+            };
+            reader.onerror = () => {
+                showMessage('jsonImportMessage', 'Failed to read file', 'error', null);
+            };
+            reader.readAsText(file);
+        }
+
+        function applyJsonImport() {
+            const raw = document.getElementById('jsonCustomerInput').value.trim();
+            if (!raw) {
+                showMessage('jsonImportMessage', 'Please provide JSON content', 'error', null);
+                return;
+            }
+            try {
+                const parsed = JSON.parse(raw);
+                const importedCustomers = extractCustomersFromJson(parsed);
+                customers = importedCustomers;
+                renderCustomers();
+                updateMap();
+                closeJsonImport();
+                showMessage('customerMessage', `Imported ${importedCustomers.length} customers from JSON`, 'success');
+            } catch (error) {
+                console.error('JSON import error:', error);
+                showMessage('jsonImportMessage', error.message, 'error', null);
+            }
+        }
+
+        function extractCustomersFromJson(parsed) {
+            const list = Array.isArray(parsed) ? parsed : parsed.customers;
+            if (!Array.isArray(list)) {
+                throw new Error('JSON must be an array or an object with a "customers" array');
+            }
+            return list.map((customer, index) => normalizeCustomerFromJson(customer, index));
+        }
+
+        function normalizeCustomerFromJson(customer, index) {
+            if (customer == null) {
+                throw new Error(`Customer at index ${index} is invalid`);
+            }
+            const id = customer.id !== undefined ? String(customer.id) : null;
+            const demand = Number(customer.demand);
+            const x = Number(customer.x);
+            const y = Number(customer.y);
+            if (!id || Number.isNaN(demand) || Number.isNaN(x) || Number.isNaN(y)) {
+                throw new Error(`Customer ${index + 1} is missing id, demand, x, or y`);
+            }
+            if (demand <= 0) {
+                throw new Error(`Customer ${id} must have demand > 0`);
+            }
+            return { id, demand, x, y };
+        }
+
+        function scheduleSolutionPoll(delay = 2000) {
+            clearSolutionPoll();
+            solutionPollTimeout = setTimeout(pollForSolution, delay);
+        }
+
+        function clearSolutionPoll() {
+            if (solutionPollTimeout) {
+                clearTimeout(solutionPollTimeout);
+                solutionPollTimeout = null;
+            }
+        }
+
+        function openVehicleManager() {
+            const overlay = document.getElementById('vehicleManagerOverlay');
+            overlay.classList.add('active');
+            overlay.setAttribute('aria-hidden', 'false');
+            loadVehicleManagerData();
+        }
+
+        function closeVehicleManager() {
+            const overlay = document.getElementById('vehicleManagerOverlay');
+            overlay.classList.remove('active');
+            overlay.setAttribute('aria-hidden', 'true');
+        }
+
+        async function loadVehicleManagerData() {
+            if (vehicleManagerState.loading) return;
+            vehicleManagerState.loading = true;
+            const list = document.getElementById('vehicleManagerList');
+            list.innerHTML = '<div class="vehicle-manager-empty">Loading vehicles...</div>';
+
+            try {
+                const response = await fetch('/api/vehicles');
+                if (!response.ok) {
+                    throw new Error(`Failed to load vehicles (${response.status})`);
+                }
+                const data = await response.json();
+                vehicleManagerState.vehicles = (data.vehicles || []).map(v => ({
+                    name: v.name,
+                    capacity: Number(v.capacity),
+                    maxDistance: Number(v.maxDistance)
+                }));
+                renderVehicleManagerList();
+            } catch (error) {
+                console.error('Vehicle manager load error:', error);
+                list.innerHTML = `<div class="vehicle-manager-empty" style="color: #c0392b;">${error.message}</div>`;
+            } finally {
+                vehicleManagerState.loading = false;
+            }
+        }
+
+        function renderVehicleManagerList() {
+            const container = document.getElementById('vehicleManagerList');
+            if (!vehicleManagerState.vehicles.length) {
+                container.innerHTML = '<div class="vehicle-manager-empty">No vehicles defined yet</div>';
+                return;
+            }
+
+            container.innerHTML = vehicleManagerState.vehicles.map(vehicle => `
+                <div class="vehicle-manager-item">
+                    <div>
+                        <div class="vehicle-manager-item-name">${vehicle.name}</div>
+                        <div class="vehicle-manager-item-details">Capacity: ${vehicle.capacity} | Max Distance: ${vehicle.maxDistance}</div>
+                    </div>
+                    <button class="remove-btn" onclick="vehicleManagerRemoveVehicle('${vehicle.name}')">Remove</button>
+                </div>
+            `).join('');
+        }
+
+        function vehicleManagerAddVehicle() {
+            const nameInput = document.getElementById('vehicleManagerName');
+            const capacityInput = document.getElementById('vehicleManagerCapacity');
+            const maxDistanceInput = document.getElementById('vehicleManagerMaxDistance');
+
+            const name = nameInput.value.trim();
+            const capacity = parseInt(capacityInput.value, 10);
+            const maxDistance = parseFloat(maxDistanceInput.value);
+
+            if (!name || !capacity || Number.isNaN(maxDistance)) {
+                showMessage('vehicleManagerMessage', 'Please fill in all vehicle fields', 'error');
+                return;
+            }
+
+            if (vehicleManagerState.vehicles.find(v => v.name === name)) {
+                showMessage('vehicleManagerMessage', 'Vehicle with this name already exists', 'error');
+                return;
+            }
+
+            vehicleManagerState.vehicles.push({ name, capacity, maxDistance });
+            renderVehicleManagerList();
+
+            nameInput.value = '';
+            capacityInput.value = '';
+            maxDistanceInput.value = '';
+
+            showMessage('vehicleManagerMessage', 'Vehicle added', 'success');
+        }
+
+        function vehicleManagerRemoveVehicle(name) {
+            vehicleManagerState.vehicles = vehicleManagerState.vehicles.filter(v => v.name !== name);
+            renderVehicleManagerList();
+        }
+
+        function vehicleManagerClearAll() {
+            if (!vehicleManagerState.vehicles.length) {
+                showMessage('vehicleManagerMessage', 'No vehicles to clear', 'error');
+                return;
+            }
+            if (confirm('Clear all vehicles? Existing agents will be recreated with the next confirmation.')) {
+                vehicleManagerState.vehicles = [];
+                renderVehicleManagerList();
+            }
+        }
+
+        async function vehicleManagerSave() {
+            if (vehicleManagerState.loading) return;
+            if (!vehicleManagerState.vehicles.length) {
+                showMessage('vehicleManagerMessage', 'Please add at least one vehicle', 'error');
+                return;
+            }
+
+            vehicleManagerState.loading = true;
+            try {
+                const response = await fetch('/api/vehicles', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ vehicles: vehicleManagerState.vehicles })
+                });
+
+                const data = await response.json();
+                if (!response.ok || data.error) {
+                    throw new Error(data.error || 'Failed to save vehicles');
+                }
+
+                showMessage('vehicleManagerMessage', data.message || 'Vehicles saved', 'success');
+                loadAgentList();
+            } catch (error) {
+                console.error('Vehicle save error:', error);
+                showMessage('vehicleManagerMessage', error.message, 'error');
+            } finally {
+                vehicleManagerState.loading = false;
+            }
+        }
+
+        document.addEventListener('keydown', (event) => {
+            if (event.key !== 'Escape') return;
+            const vehicleOverlay = document.getElementById('vehicleManagerOverlay');
+            if (vehicleOverlay && vehicleOverlay.classList.contains('active')) {
+                closeVehicleManager();
+            }
+            const jsonOverlay = document.getElementById('jsonImportOverlay');
+            if (jsonOverlay && jsonOverlay.classList.contains('active')) {
+                closeJsonImport();
+            }
+        });
+
+        document.getElementById('vehicleManagerOverlay').addEventListener('click', (event) => {
+            if (event.target === event.currentTarget) {
+                closeVehicleManager();
+            }
+        });
+        document.getElementById('jsonImportOverlay').addEventListener('click', (event) => {
+            if (event.target === event.currentTarget) {
+                closeJsonImport();
+            }
+        });
         
         // Initialize on load
         window.addEventListener('load', () => {
             initMap();
             loadAgentList();
+            populateTestCaseSelect();
         });
         
         // Handle window resize

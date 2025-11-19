@@ -9,7 +9,9 @@ import project.Utils.JsonConfigReader;
 import project.Utils.JsonConfigReader.CVRPConfig;
 
 import java.util.List;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -25,7 +27,27 @@ public class Main {
     private static AgentContainer mainContainer;  // Made accessible for MRA to create DAs
     private static AgentController persistentMRA = null;  // Single persistent MRA
     private static String mraName = "mra-persistent";  // Name of persistent MRA
-    private static Set<String> createdDAs = new HashSet<>();  // Track created DAs by base name
+    private static Map<String, VehicleSpec> activeDAs = new HashMap<>();  // Track created DAs and their specs
+
+    private static class VehicleSpec {
+        final int capacity;
+        final double maxDistance;
+
+        VehicleSpec(int capacity, double maxDistance) {
+            this.capacity = capacity;
+            this.maxDistance = maxDistance;
+        }
+
+        static VehicleSpec fromConfig(JsonConfigReader.VehicleConfig config) {
+            return new VehicleSpec(config.capacity, config.maxDistance);
+        }
+
+        boolean matches(JsonConfigReader.VehicleConfig config) {
+            return config != null &&
+                   this.capacity == config.capacity &&
+                   Double.compare(this.maxDistance, config.maxDistance) == 0;
+        }
+    }
     
     /**
      * Gets the main container (for MRA to create DAs)
@@ -184,53 +206,79 @@ public class Main {
      * Creates delivery agents for the given vehicles
      * Called by MRA when it receives the first request, or by vehicle config poller
      */
-    public static void ensureDAsExist(List<JsonConfigReader.VehicleConfig> vehicles) {
+    public static synchronized void ensureDAsExist(List<JsonConfigReader.VehicleConfig> vehicles) {
         try {
             System.out.println("=== Ensuring Delivery Agents Exist ===");
+
+            Map<String, JsonConfigReader.VehicleConfig> desiredVehicles = new HashMap<>();
+            for (JsonConfigReader.VehicleConfig config : vehicles) {
+                desiredVehicles.put(config.name, config);
+            }
+
+            // Stop agents that are no longer present or whose specs have changed
+            Set<String> existingAgents = new HashSet<>(activeDAs.keySet());
+            for (String existingName : existingAgents) {
+                JsonConfigReader.VehicleConfig desiredConfig = desiredVehicles.get(existingName);
+                VehicleSpec currentSpec = activeDAs.get(existingName);
+
+                if (desiredConfig == null) {
+                    stopDeliveryAgent(existingName, "removed from configuration");
+                } else if (currentSpec == null || !currentSpec.matches(desiredConfig)) {
+                    stopDeliveryAgent(existingName, "specification changed");
+                }
+            }
+
+            // Create or reuse agents based on desired configuration
             for (JsonConfigReader.VehicleConfig vehicleConfig : vehicles) {
-                String daName = vehicleConfig.name; // Use base name (DA1, DA2, etc.)
-                
-                // Check if DA already exists
-                if (createdDAs.contains(daName)) {
-                    System.out.println("  DA '" + daName + "' already exists, reusing it");
+                VehicleSpec currentSpec = activeDAs.get(vehicleConfig.name);
+                if (currentSpec != null && currentSpec.matches(vehicleConfig)) {
+                    System.out.println("  DA '" + vehicleConfig.name + "' already running with matching specs");
                     continue;
                 }
-                
-                try {
-                    // Try to get existing agent
-                    jade.wrapper.AgentController existing = getMainContainer().getAgent(daName);
-                    if (existing != null) {
-                        System.out.println("  DA '" + daName + "' already exists, keeping it");
-                        createdDAs.add(daName);
-                        continue;
-                    }
-                } catch (Exception e) {
-                    // Agent doesn't exist, create it
-                }
-                
-                Object[] daArgs = new Object[]{
-                    daName,
-                    vehicleConfig.capacity,
-                    vehicleConfig.maxDistance
-                };
-                
-                System.out.println("Creating DA: name='" + daName + 
-                                 "', capacity=" + vehicleConfig.capacity + 
-                                 ", maxDistance=" + vehicleConfig.maxDistance);
-                
-                AgentController daController = getMainContainer().createNewAgent(
-                    daName,
-                    "project.Agent.DeliveryAgent",
-                    daArgs
-                );
-                daController.start();
-                createdDAs.add(daName);
-                System.out.println("  ✓ DA '" + daName + "' started");
+
+                startDeliveryAgent(vehicleConfig);
             }
+
             System.out.println("================================\n");
         } catch (Exception e) {
             System.err.println("Error ensuring DAs exist: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    private static void stopDeliveryAgent(String daName, String reason) {
+        try {
+            System.out.println("  Stopping DA '" + daName + "' (" + reason + ")");
+            AgentController controller = getMainContainer().getAgent(daName);
+            if (controller != null) {
+                controller.kill();
+            }
+        } catch (Exception e) {
+            System.out.println("  DA '" + daName + "' already stopped (" + reason + ")");
+        } finally {
+            activeDAs.remove(daName);
+        }
+    }
+
+    private static void startDeliveryAgent(JsonConfigReader.VehicleConfig vehicleConfig) throws Exception {
+        String daName = vehicleConfig.name;
+        Object[] daArgs = new Object[]{
+            daName,
+            vehicleConfig.capacity,
+            vehicleConfig.maxDistance
+        };
+
+        System.out.println("Creating DA: name='" + daName + 
+                         "', capacity=" + vehicleConfig.capacity + 
+                         ", maxDistance=" + vehicleConfig.maxDistance);
+
+        AgentController daController = getMainContainer().createNewAgent(
+            daName,
+            "project.Agent.DeliveryAgent",
+            daArgs
+        );
+        daController.start();
+        activeDAs.put(daName, VehicleSpec.fromConfig(vehicleConfig));
+        System.out.println("  ✓ DA '" + daName + "' started");
     }
 }

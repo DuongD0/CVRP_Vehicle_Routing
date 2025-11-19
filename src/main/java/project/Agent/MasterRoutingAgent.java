@@ -39,22 +39,40 @@ public class MasterRoutingAgent extends Agent {
     // Request queue - stores incoming requests to process
     private java.util.Queue<RequestQueueItem> requestQueue;
     
-    // Accumulated unrouted nodes (up to 6 before processing)
+    /**
+     * Buffer for accumulating unserved customers before batch processing.
+     * Customers are added here after each solve and processed when the buffer
+     * reaches MAX_ACCUMULATED_UNROUTED or when the request queue is empty.
+     */
     private List<CustomerInfo> accumulatedUnroutedNodes;
     private static final int MAX_ACCUMULATED_UNROUTED = 6;
     
-    // Persistent tracking of unserved customers across solving sessions
+    /**
+     * Working list of unserved customers included in the next solve attempt.
+     * This list is updated after each solve: customers that get served are removed,
+     * and newly unserved customers are added to accumulatedUnroutedNodes for future processing.
+     */
     private List<CustomerInfo> unservedCustomers;
     
-    // Request processing state
+    /**
+     * Request processing state
+     */
+    /** Flag to prevent concurrent request processing */
     private boolean isProcessingRequest;
+    /** The request currently being processed */
     private RequestQueueItem currentRequest;
+    /** 
+     * Most recent user-submitted request ID, used for synthetic unserved customer batches
+     * to maintain backend request ID consistency
+     */
+    private String lastUserRequestId;
     
     // Vehicle management
     private Map<String, VehicleInfo> registeredVehicles;
     private int expectedVehicleCount;  // Number of vehicles expected to respond
     private int receivedVehicleCount;  // Number of vehicles that have responded
     private boolean allVehiclesReceived;  // Flag to indicate all vehicles have responded
+    private Set<Integer> currentSyntheticCustomerIds;
     
     // Solver interface
     private VRPSolver solver;
@@ -110,6 +128,7 @@ public class MasterRoutingAgent extends Agent {
         expectedVehicleCount = 0;
         receivedVehicleCount = 0;
         allVehiclesReceived = false;
+        currentSyntheticCustomerIds = new HashSet<>();
         
         // Initialize solver
         solver = new ORToolsSolver();
@@ -150,13 +169,31 @@ public class MasterRoutingAgent extends Agent {
      * Inner class to represent a request in the queue
      */
     private static class RequestQueueItem {
-        String requestId;
-        List<CustomerInfo> customers;
+        final String requestId;
+        final String displayId;
+        final List<CustomerInfo> customers;
+        final boolean synthetic;
         
         RequestQueueItem(String requestId, List<CustomerInfo> customers) {
-            this.requestId = requestId;
-            this.customers = new ArrayList<>(customers);
+            this(requestId, requestId, customers, false);
         }
+        
+        RequestQueueItem(String requestId, String displayId, List<CustomerInfo> customers, boolean synthetic) {
+            this.requestId = requestId;
+            this.displayId = (displayId != null && !displayId.isEmpty())
+                ? displayId
+                : (requestId != null ? requestId : "request-" + System.currentTimeMillis());
+            this.customers = new ArrayList<>(customers);
+            this.synthetic = synthetic;
+        }
+        
+        String getDisplayId() {
+            return displayId;
+        }
+    }
+
+    private String getCurrentRequestLabel() {
+        return currentRequest != null ? currentRequest.getDisplayId() : "unknown-request";
     }
     
     /**
@@ -211,6 +248,7 @@ public class MasterRoutingAgent extends Agent {
                             logger.log("ERROR: Failed to parse MAX_DISTANCE: " + part);
                         }
                     }
+
                 }
 
                 // Use sender name as fallback if NAME is not in content
@@ -325,9 +363,6 @@ public class MasterRoutingAgent extends Agent {
                     shouldStop = true;
                     myAgent.removeBehaviour(this);
                     solveAndAssignRoutes();
-                } else {
-                    // Still waiting for minimum wait time
-                    long remainingMs = minWaitMs - elapsedTime;
                 }
             } else if (elapsedTime >= timeoutMs) {
                 // Timeout reached - proceed with whatever vehicles we have
@@ -470,7 +505,7 @@ public class MasterRoutingAgent extends Agent {
         // Log result as JSON (use requestId if available, otherwise use configName)
         String resultName = (currentRequest != null && currentRequest.requestId != null) 
             ? currentRequest.requestId 
-            : configName;
+            : (currentRequest != null ? currentRequest.getDisplayId() : configName);
         JsonResultLogger.logResult(result, resultName);
         
         // Submit solution to backend
@@ -490,7 +525,17 @@ public class MasterRoutingAgent extends Agent {
             return null;
         }
         
-        logger.logEvent("Solving CVRP problem for request: " + currentRequest.requestId);
+        logger.logEvent("Solving CVRP problem for request: " + getCurrentRequestLabel());
+        logger.logEvent("Request contains " + currentRequest.customers.size() + " customers:");
+        for (CustomerInfo customer : currentRequest.customers) {
+            logger.logEvent(String.format(
+                "  - ID:%d Name:%s Demand:%d Location:(%.2f, %.2f)",
+                customer.id,
+                customer.name != null ? customer.name : "C" + customer.id,
+                customer.demand,
+                customer.x,
+                customer.y));
+        }
         
         // Collect all registered vehicles
         List<VehicleInfo> availableVehicles = new ArrayList<>(registeredVehicles.values());
@@ -621,7 +666,12 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Updates unserved customers tracking: updates coordinates, removes served customers, adds to accumulated list
+     * Updates unserved customers tracking after a solve completes.
+     * - Updates coordinates and names for unserved customers from the result
+     * - Removes customers that were successfully served from the unserved list
+     * - Adds newly unserved customers to the accumulated unrouted nodes buffer
+     * 
+     * @param result The solution result containing routes and unserved customers
      */
     private void updateUnservedCustomersTracking(SolutionResult result) {
         // Update unserved customers with proper coordinates and names
@@ -637,7 +687,10 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Updates coordinates and names for unserved customers from result
+     * Updates coordinates and names for unserved customers by looking them up
+     * in the current request or previously unserved customers list.
+     * 
+     * @param unservedCustomers List of unserved customers to update
      */
     private void updateUnservedCustomerCoordinates(List<CustomerInfo> unservedCustomers) {
         for (CustomerInfo unserved : unservedCustomers) {
@@ -690,7 +743,12 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Adds new unserved customers to accumulated unrouted nodes (up to threshold)
+     * Adds new unserved customers to the accumulated unrouted nodes buffer.
+     * Duplicates are avoided by checking if a customer with the same ID already exists.
+     * The buffer is processed when it reaches MAX_ACCUMULATED_UNROUTED (6) customers
+     * or when the request queue is empty.
+     * 
+     * @param newUnservedCustomers List of newly unserved customers to add
      */
     private void addToAccumulatedUnroutedNodes(List<CustomerInfo> newUnservedCustomers) {
         for (CustomerInfo newUnserved : newUnservedCustomers) {
@@ -762,19 +820,29 @@ public class MasterRoutingAgent extends Agent {
      * Submits solution to backend API
      */
     private void submitSolutionToBackend(SolutionResult result) {
-        if (currentRequest != null && currentRequest.requestId != null) {
-            try {
-                logger.logEvent("Submitting solution to backend for request " + currentRequest.requestId);
-                boolean success = BackendClient.submitSolution(currentRequest.requestId, result, currentRequest.requestId);
-                if (success) {
-                    logger.logEvent("Solution submitted to backend successfully");
-                } else {
-                    logger.logEvent("Failed to submit solution to backend");
-                }
-            } catch (Exception e) {
-                logger.log("ERROR: Failed to submit solution to backend: " + e.getMessage());
-                e.printStackTrace();
+        if (currentRequest == null) {
+            logger.logEvent("Skipping backend submission - no active request");
+            return;
+        }
+
+        if (currentRequest.requestId == null || currentRequest.requestId.isEmpty()) {
+            logger.logEvent("Skipping backend submission for request " + currentRequest.getDisplayId() + 
+                          " - no backend request ID available");
+            return;
+        }
+
+        try {
+            logger.logEvent("Submitting solution to backend for request " + currentRequest.requestId +
+                          (currentRequest.synthetic ? " (synthetic batch: " + currentRequest.getDisplayId() + ")" : ""));
+            boolean success = BackendClient.submitSolution(currentRequest.requestId, result, currentRequest.requestId);
+            if (success) {
+                logger.logEvent("Solution submitted to backend successfully");
+            } else {
+                logger.logEvent("Failed to submit solution to backend");
             }
+        } catch (Exception e) {
+            logger.log("ERROR: Failed to submit solution to backend: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -821,20 +889,24 @@ public class MasterRoutingAgent extends Agent {
 
             // Update customer details for the route
             List<String> customerAgentIds = new ArrayList<>();
+            boolean routeContainsSynthetic = false;
             for (int j = 0; j < route.customers.size(); j++) {
                 CustomerInfo customer = route.customers.get(j);
-                // Find matching customer from current request
                 if (currentRequest != null) {
                     for (CustomerInfo originalCustomer : currentRequest.customers) {
                         if (originalCustomer.id == customer.id) {
                             customer.x = originalCustomer.x;
                             customer.y = originalCustomer.y;
                             customer.name = originalCustomer.name;
-                            customerAgentIds.add(originalCustomer.name);
                             break;
                         }
                     }
                 }
+                if (currentSyntheticCustomerIds.contains(customer.id)) {
+                    routeContainsSynthetic = true;
+                }
+                String agentId = customer.name != null ? customer.name : "C" + customer.id;
+                customerAgentIds.add(agentId);
             }
 
             StringBuilder routeContent = new StringBuilder();
@@ -862,6 +934,26 @@ public class MasterRoutingAgent extends Agent {
             routeContent.append("|DEPOT_X:").append(String.format("%.2f", depotX));
             routeContent.append("|DEPOT_Y:").append(String.format("%.2f", depotY));
 
+            if (routeContainsSynthetic) {
+                StringBuilder syntheticDetails = new StringBuilder();
+                syntheticDetails.append("Route ").append(routeId).append(" includes previously unserved customers: ");
+                boolean firstSynthetic = true;
+                for (CustomerInfo customer : route.customers) {
+                    if (currentSyntheticCustomerIds.contains(customer.id)) {
+                        if (!firstSynthetic) {
+                            syntheticDetails.append(", ");
+                        }
+                        syntheticDetails.append(String.format("%s(ID:%d @ %.2f,%.2f)",
+                            customer.name != null ? customer.name : "C" + customer.id,
+                            customer.id,
+                            customer.x,
+                            customer.y));
+                        firstSynthetic = false;
+                    }
+                }
+                logger.logEvent(syntheticDetails.toString());
+            }
+
             // Find DA by vehicle name (should match exactly with DA local name)
             AID daAID = findDAByName(targetVehicleName);
             if (daAID == null) {
@@ -882,10 +974,6 @@ public class MasterRoutingAgent extends Agent {
             String conversationId = "route-assignment-" + routeId + "-" + targetVehicleName + "-" + System.currentTimeMillis();
             routeAssignment.setConversationId(conversationId);
             routeAssignment.setContent("ROUTE_ASSIGNMENT:" + routeContent);
-
-            
-            // Log the message content (truncated if too long)
-            String fullContent = "ROUTE_ASSIGNMENT:" + routeContent;
 
             // Log conversation start with detailed information
             logger.logConversationStart(conversationId,
@@ -1026,7 +1114,7 @@ public class MasterRoutingAgent extends Agent {
             }
         }
     }
-    
+
     /**
      * Behavior to poll backend API for requests directly
      * Polls the backend API and adds requests to the queue
@@ -1055,12 +1143,13 @@ public class MasterRoutingAgent extends Agent {
                     // Convert customers to CustomerInfo
                     List<CustomerInfo> requestCustomers = new ArrayList<>();
                     for (JsonConfigReader.CustomerConfig customerConfig : requestConfig.customers) {
+                        String uniqueId = backendRequest.requestId + "-" + customerConfig.id;
                         CustomerInfo customer = new CustomerInfo(
                             Integer.parseInt(customerConfig.id.replaceAll("[^0-9]", "")),
                             customerConfig.x,
                             customerConfig.y,
                             customerConfig.demand,
-                            customerConfig.id
+                            uniqueId
                         );
                         requestCustomers.add(customer);
                     }
@@ -1077,7 +1166,7 @@ public class MasterRoutingAgent extends Agent {
             }
         }
     }
-    
+
     /**
      * Behavior to process requests from the queue
      * Processes requests one by one, accumulates unrouted nodes (up to 6) before processing
@@ -1106,10 +1195,31 @@ public class MasterRoutingAgent extends Agent {
                 // Process accumulated unrouted nodes
                 List<CustomerInfo> nodesToProcess = new ArrayList<>(accumulatedUnroutedNodes);
                 accumulatedUnroutedNodes.clear();
+                logger.logEvent("Creating synthetic unserved request with " + nodesToProcess.size() + " customers:");
+                for (CustomerInfo customer : nodesToProcess) {
+                    logger.logEvent(String.format(
+                        "  - ID:%d Name:%s Demand:%d Location:(%.2f, %.2f)",
+                        customer.id,
+                        customer.name != null ? customer.name : "C" + customer.id,
+                        customer.demand,
+                        customer.x,
+                        customer.y));
+                }
                 
+                String requestLabel = "unrouted-" + System.currentTimeMillis();
+                String backendRequestId = lastUserRequestId;
+
+                if (backendRequestId == null) {
+                    logger.logEvent("Processing accumulated unrouted nodes without backend request ID - backend submission will be skipped");
+                } else {
+                    logger.logEvent("Processing accumulated unrouted nodes using last request ID: " + backendRequestId);
+                }
+
                 RequestQueueItem unroutedRequest = new RequestQueueItem(
-                    "unrouted-" + System.currentTimeMillis(), 
-                    nodesToProcess
+                    backendRequestId,
+                    requestLabel,
+                    nodesToProcess,
+                    true
                 );
                 processRequest(unroutedRequest);
                 block(1000);
@@ -1119,7 +1229,7 @@ public class MasterRoutingAgent extends Agent {
             // Process next request from queue
             if (!requestQueue.isEmpty()) {
                 RequestQueueItem request = requestQueue.poll();
-                logger.logEvent("Processing request from queue: " + request.requestId);
+                logger.logEvent("Processing request from queue: " + request.getDisplayId());
                 processRequest(request);
             } else {
                 block(1000); // Check every second if queue is empty
@@ -1134,7 +1244,22 @@ public class MasterRoutingAgent extends Agent {
         isProcessingRequest = true;
         currentRequest = request;
         
-        logger.logEvent("Processing request " + request.requestId + ": " + request.customers.size() + " customers");
+        if (!request.synthetic && request.requestId != null) {
+            lastUserRequestId = request.requestId;
+        }
+
+        if (request.synthetic) {
+            currentSyntheticCustomerIds.clear();
+            for (CustomerInfo customer : request.customers) {
+                currentSyntheticCustomerIds.add(customer.id);
+            }
+            logger.logEvent("Synthetic request " + request.getDisplayId() + " will attempt " +
+                request.customers.size() + " previously unserved customers.");
+        } else {
+            currentSyntheticCustomerIds.clear();
+        }
+        
+        logger.logEvent("Processing request " + request.getDisplayId() + ": " + request.customers.size() + " customers");
         
         // Query all vehicles (always query all, even if processing queue)
         queryAllVehicles();

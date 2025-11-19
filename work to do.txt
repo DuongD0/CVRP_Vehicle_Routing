@@ -1,37 +1,3 @@
-work to do:
-- backend:
-    - process different types of data: 
-        - problem-related: 
-            - vehicle-only: to terminate/create corresponding das (those which names already in the list be kept intact, not on the list will be terminated, on the list but not initiated will be initiated)
-            - customer-only: use the existing list of das to solve the problem
-        - agent-related:
-            - da: state should be passed to some api to update the state on the website
-    - there should be separate apis for these datas
-
-- agent:
-    - da:
-        - if mra trying to query when some das are delivering, they may response busy
-        - states are busy and free (busy when delivering, free when at/arrived back to the depot position)
-        - when arrived back to the depot, must notify the depot (depot do not need to response back) (this conversation need to be logged)
-    - main:
-        - based on the type of data from api to terminate, start, or do nothing to the das
-
-- frontend:
-    - vehicle page:
-        - still current setting, but now on change will send vehicle-only data to the api (also force the user to confirm change on exit page)
-        - have a "save" button along with other neccessary buttons
-    - main page:
-        - request now not contain vehicle list anymore
-    - test cases:
-        - choosing test cases prompt the user to the vehicle page and force them to confirm changes before view the user data in the main page
-
-current problem:
-    - choosing test cases will create more agents then call all those agents to solve the problem, which should not be
-    - request the same problem again and again
-
-delete all current test cases in frontend
-vehicle agents should have a list of assigned routes from the mra
-- have 3 test cases:
     - test case 1: basic agent communication (basic cvrp)
         - all customers must be served in one go
         - mra: receive request, ask for capacity, assign route
@@ -48,53 +14,30 @@ vehicle agents should have a list of assigned routes from the mra
     - test case 4: multiple request when das have not arrived back
         - combination of all the above test cases, but now mra store unserved nodes in a separate list, until reached 6 (or no more requests left), take out for processing (before process the next request)
 
-    - test case 5: with time window
-        - mra: ask for capacity, speed, and maximum distance, assign route
-        - da: now 
 
-if test-case: send vehicle data along with route data, mra only ask for the presence of those vehicles
-if normal: send customer data only, mra queries all vehicle to solve the problem
-adjust vehicle list: will send the vehicle list only for main to send terminate request/create to match the list
+final work:
+- draw route for unserved customer data (turn unserved point to served point)
+- test case demonstration
+    - have some kind of drop-down list that let the user pick the test case they want to view
+- allow input data (using json)
+    - allow user to either
+        - write json data directly on the website (customer data)
+        - upload json file contain user data
+        - the json method will override the current customer list
 
-new frontend (in python completely) (implement in "frontend 2" folder):
-- load logs of agents in execution
-- visualize movement of das when executing route
-- load test cases (scenarios), pass to the backend, and visualize it
-- let the user to pick nodes with demand
-
-current implementation:
-- just let the mra receive request directly from the frontend (customer only list)
-- vehicle only list will be sent to the main to terminate/create da agents
-
-final res:
-a website that:
-- let user define vehicles ONCE
-- define customers and their demands
-- view information about the agents, their logs
-- visualize the routes and the movement of vehicles on the solved routes
-- visualization of unserved customers, how those are taken into the next request/solve independently
-- visualization of logs
-
-detailed:
-- requests only send customer info as all agents are defined at first to be initiated by the main
-- make use of the current apis and implement more if needed
-- the depot location is 0,0 but make it in the middle of the visual map
-
-flaw:
-    - continuous api call keep zoom the map out
-    - does not visualize the routes
-    - 
-    - a customer that has a extreme large demand will cause the system to keep solving for that customer
+error:
+    - the coordinate still 0
+    - visualization for vehicles with multiple routes assigned is flawed
+        - for the first route, it move as expected
+        - when new routes be assigned, the icon just teleport to the depot position
+    - analyze where the error could be and fix the problem
+idea:
+    - movement visual is update independently from the route visual
+    - when receive results for unserved customer, just turn the dashed line to  a straight line and the x points to normal points
+    - all routes must remain on the map except when the user decide to delete some customer nodes, then delete the lines that connect to that node
+    - it seems like the result affect the movement visual
 
 
-
-- if delete the customer right after posting a request, the map should still be able to generate the routes with corresponding customer node from previous request (
-- remove das, add
-
-frontend: send vehicle list with metadata
-backend: main check & adjust the vehicle agent list
-
-case 1: vehicle still delivering
-    - can just straight up delete the route that it is taking and the vehicle itself
-
-case 2: the icon may still visible
+- customer id should append request id for unique identifier, since multiple request can have the same customer id, which may confuse the frontend
+    - make sure the change is consistent between frontend and backend
+- remove the fix for 0 coordinates again, add print statement to print the list that contain unserved nodes to the console (not the log) for debug

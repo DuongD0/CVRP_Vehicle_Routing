@@ -278,13 +278,9 @@ public class DeliveryAgent extends Agent {
                     } else if (part.startsWith("DEPOT_X:")) {
                         depotXStr = part.substring("DEPOT_X:".length());
                         depotX = Double.parseDouble(depotXStr);
-                        // Update current position to depot position when depot is received
-                        currentX = depotX;
                     } else if (part.startsWith("DEPOT_Y:")) {
                         depotYStr = part.substring("DEPOT_Y:".length());
                         depotY = Double.parseDouble(depotYStr);
-                        // Update current position to depot position when depot is received
-                        currentY = depotY;
                     }
                 }
             } catch (Exception e) {

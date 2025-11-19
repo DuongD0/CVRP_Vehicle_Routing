@@ -209,8 +209,10 @@ public class BackendClient {
                 JsonArray customersArray = new JsonArray();
                 for (CustomerInfo customer : route.customers) {
                     JsonObject customerJson = new JsonObject();
-                    customerJson.addProperty("id", customer.id);
-                    customerJson.addProperty("name", customer.name != null ? customer.name : "C" + customer.id);
+                    String externalId = customer.name != null ? customer.name : "C" + customer.id;
+                    customerJson.addProperty("id", externalId);
+                    customerJson.addProperty("name", externalId);
+                    customerJson.addProperty("originalId", customer.id);
                     customerJson.addProperty("x", customer.x);
                     customerJson.addProperty("y", customer.y);
                     customerJson.addProperty("demand", customer.demand);
@@ -225,8 +227,10 @@ public class BackendClient {
             JsonArray unservedArray = new JsonArray();
             for (CustomerInfo customer : solution.unservedCustomers) {
                 JsonObject customerJson = new JsonObject();
-                customerJson.addProperty("id", customer.id);
-                customerJson.addProperty("name", customer.name != null ? customer.name : "C" + customer.id);
+                String externalId = customer.name != null ? customer.name : "C" + customer.id;
+                customerJson.addProperty("id", externalId);
+                customerJson.addProperty("name", externalId);
+                customerJson.addProperty("originalId", customer.id);
                 customerJson.addProperty("x", customer.x);
                 customerJson.addProperty("y", customer.y);
                 customerJson.addProperty("demand", customer.demand);
