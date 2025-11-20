@@ -347,7 +347,7 @@ public class MasterRoutingAgent extends Agent {
     private class WaitForVehiclesBehaviour extends TickerBehaviour {
         private long startTime;
         private long timeoutMs;
-        private long minWaitMs = 3000;  // Minimum wait time (3 seconds) even if all vehicles respond quickly
+        private long minWaitMs = 5000;  // Minimum wait time (5 seconds) even if all vehicles respond quickly
         private boolean shouldStop = false;
         
         public WaitForVehiclesBehaviour(Agent a, long period, long timeoutMs) {

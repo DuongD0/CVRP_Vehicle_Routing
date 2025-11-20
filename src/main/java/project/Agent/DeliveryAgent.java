@@ -726,22 +726,98 @@ public class DeliveryAgent extends Agent {
     
     /**
      * Registers DA with DF (Directory Facilitator) as "da-service"
+     * Includes retry logic and verification to ensure proper registration
      */
     private void registerWithDF() {
-        try {
-            DFAgentDescription dfd = new DFAgentDescription();
-            dfd.setName(getAID());
+        int maxRetries = 5;
+        long initialDelayMs = 500; // Start with 500ms delay
+        boolean registrationSuccessful = false;
+        
+        for (int attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                // Small delay before first attempt to ensure DF is ready
+                if (attempt == 1) {
+                    Thread.sleep(initialDelayMs);
+                }
+                
+                DFAgentDescription dfd = new DFAgentDescription();
+                dfd.setName(getAID());
+                
+                ServiceDescription sd = new ServiceDescription();
+                sd.setType("da-service");
+                sd.setName("CVRP-Delivery-Agent-" + vehicleName);
+                sd.setOwnership("CVRP-System");
+                dfd.addServices(sd);
+                
+                DFService.register(this, dfd);
+                
+                // Verify registration by searching for our own service
+                if (verifyDFRegistration()) {
+                    logger.logEvent("DF Registration successful (attempt " + attempt + ")");
+                    registrationSuccessful = true;
+                    break;
+                } else {
+                    logger.log("WARNING: DF registration completed but verification failed (attempt " + attempt + ")");
+                    // Deregister and retry
+                    try {
+                        DFService.deregister(this);
+                    } catch (FIPAException e) {
+                        // Ignore deregistration errors
+                    }
+                }
+            } catch (FIPAException fe) {
+                logger.log("ERROR: Failed to register with DF (attempt " + attempt + "/" + maxRetries + "): " + fe.getMessage());
+            } catch (InterruptedException ie) {
+                logger.log("ERROR: Registration interrupted: " + ie.getMessage());
+                Thread.currentThread().interrupt();
+                break;
+            } catch (Exception e) {
+                logger.log("ERROR: Unexpected error during DF registration (attempt " + attempt + "/" + maxRetries + "): " + e.getMessage());
+            }
             
+            // Exponential backoff: wait longer between retries
+            if (attempt < maxRetries) {
+                try {
+                    long delayMs = initialDelayMs * (long) Math.pow(2, attempt - 1);
+                    logger.log("Retrying DF registration in " + delayMs + "ms...");
+                    Thread.sleep(delayMs);
+                } catch (InterruptedException ie) {
+                    logger.log("ERROR: Retry delay interrupted");
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+            }
+        }
+        
+        if (!registrationSuccessful) {
+            logger.log("ERROR: Failed to register with DF after " + maxRetries + " attempts. Agent may not be discoverable.");
+        }
+    }
+    
+    /**
+     * Verifies that the agent is properly registered with DF
+     * by searching for its own service
+     */
+    private boolean verifyDFRegistration() {
+        try {
+            DFAgentDescription template = new DFAgentDescription();
             ServiceDescription sd = new ServiceDescription();
             sd.setType("da-service");
-            sd.setName("CVRP-Delivery-Agent-" + vehicleName);
-            sd.setOwnership("CVRP-System");
-            dfd.addServices(sd);
+            template.addServices(sd);
             
-            DFService.register(this, dfd);
-            logger.logEvent("DF Registration successful");
+            DFAgentDescription[] results = DFService.search(this, template);
+            if (results != null) {
+                for (DFAgentDescription result : results) {
+                    if (result.getName().equals(getAID())) {
+                        logger.logEvent("DF Registration verified - agent found in DF search");
+                        return true;
+                    }
+                }
+            }
+            return false;
         } catch (FIPAException fe) {
-            logger.log("ERROR: Failed to register with DF: " + fe.getMessage());
+            logger.log("ERROR: Failed to verify DF registration: " + fe.getMessage());
+            return false;
         }
     }
     
