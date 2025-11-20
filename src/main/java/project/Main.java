@@ -165,18 +165,59 @@ public class Main {
     private static void ensureMRAExists(JsonConfigReader.DepotConfig depot) {
         try {
             // Check if MRA already exists
+            boolean mraExists = false;
             if (persistentMRA != null) {
                 try {
                     // Try to get the agent to verify it's still alive
                     jade.wrapper.AgentController existing = getMainContainer().getAgent(mraName);
                     if (existing != null) {
                         System.out.println("  MRA already exists, keeping it");
-                        return;
+                        mraExists = true;
                     }
                 } catch (Exception e) {
-                    // MRA doesn't exist, create it
+                    // MRA doesn't exist
                     persistentMRA = null;
                 }
+            } else {
+                // Check if MRA exists even though we don't have a reference
+                try {
+                    jade.wrapper.AgentController existing = getMainContainer().getAgent(mraName);
+                    if (existing != null) {
+                        System.out.println("  MRA already exists, keeping it");
+                        persistentMRA = existing;
+                        mraExists = true;
+                    }
+                } catch (Exception e) {
+                    // MRA doesn't exist, will create it
+                }
+            }
+            
+            if (mraExists) {
+                return;
+            }
+            
+            // If MRA doesn't exist but there's a stale reference, try to terminate it first
+            if (persistentMRA != null) {
+                try {
+                    System.out.println("  Terminating stale MRA reference...");
+                    persistentMRA.kill();
+                    Thread.sleep(500);
+                } catch (Exception e) {
+                    // Ignore errors - agent might already be gone
+                }
+                persistentMRA = null;
+            }
+            
+            // Also check if agent exists in container and terminate it
+            try {
+                jade.wrapper.AgentController existing = getMainContainer().getAgent(mraName);
+                if (existing != null) {
+                    System.out.println("  Terminating existing MRA before creating new one...");
+                    existing.kill();
+                    Thread.sleep(500);
+                }
+            } catch (Exception e) {
+                // Agent doesn't exist, which is fine
             }
             
             // Create MRA with depot configuration
@@ -252,9 +293,12 @@ public class Main {
             AgentController controller = getMainContainer().getAgent(daName);
             if (controller != null) {
                 controller.kill();
+                // Wait a bit for the agent to fully terminate
+                Thread.sleep(500);
+                System.out.println("  ✓ DA '" + daName + "' terminated");
             }
         } catch (Exception e) {
-            System.out.println("  DA '" + daName + "' already stopped (" + reason + ")");
+            System.out.println("  DA '" + daName + "' already stopped or not found (" + reason + ")");
         } finally {
             activeDAs.remove(daName);
         }
@@ -262,6 +306,50 @@ public class Main {
 
     private static void startDeliveryAgent(JsonConfigReader.VehicleConfig vehicleConfig) throws Exception {
         String daName = vehicleConfig.name;
+        
+        // First, check if agent already exists and terminate it if necessary
+        boolean agentExists = false;
+        try {
+            AgentController existing = getMainContainer().getAgent(daName);
+            if (existing != null) {
+                agentExists = true;
+                System.out.println("  DA '" + daName + "' already exists, terminating it first...");
+                try {
+                    existing.kill();
+                    // Wait for the agent to fully terminate, with retries
+                    for (int i = 0; i < 5; i++) {
+                        Thread.sleep(200);
+                        try {
+                            AgentController check = getMainContainer().getAgent(daName);
+                            if (check == null) {
+                                break; // Agent is gone
+                            }
+                        } catch (Exception e) {
+                            break; // Agent is gone (exception means not found)
+                        }
+                    }
+                } catch (Exception e) {
+                    System.out.println("  Warning: Error terminating existing DA '" + daName + "': " + e.getMessage());
+                }
+            }
+        } catch (Exception e) {
+            // Agent doesn't exist, which is fine - we'll create it
+        }
+        
+        // Double-check that agent is gone before creating new one
+        if (agentExists) {
+            try {
+                AgentController verify = getMainContainer().getAgent(daName);
+                if (verify != null) {
+                    System.err.println("  ERROR: DA '" + daName + "' still exists after termination attempt. Retrying...");
+                    verify.kill();
+                    Thread.sleep(1000);
+                }
+            } catch (Exception e) {
+                // Good - agent is gone
+            }
+        }
+        
         Object[] daArgs = new Object[]{
             daName,
             vehicleConfig.capacity,

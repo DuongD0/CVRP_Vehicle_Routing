@@ -55,6 +55,13 @@ public class MasterRoutingAgent extends Agent {
     private List<CustomerInfo> unservedCustomers;
     
     /**
+     * Persistent coordinate map: stores customer coordinates by numeric ID (not request-prefixed name).
+     * This ensures unserved customers retain their coordinates when included in new solutions,
+     * regardless of request ID changes.
+     */
+    private Map<Integer, CustomerInfo> customerCoordinateMap;
+    
+    /**
      * Request processing state
      */
     /** Flag to prevent concurrent request processing */
@@ -116,6 +123,9 @@ public class MasterRoutingAgent extends Agent {
         
         // Initialize unserved customers list (starts empty, accumulates over time)
         unservedCustomers = new ArrayList<>();
+        
+        // Initialize persistent coordinate map for unserved customers
+        customerCoordinateMap = new HashMap<>();
         
         // Initialize request queue and accumulated unrouted nodes
         requestQueue = new java.util.LinkedList<>();
@@ -482,12 +492,40 @@ public class MasterRoutingAgent extends Agent {
         // Prepare customers for solving
         List<CustomerInfo> allCustomersToSolve = prepareCustomersForSolving();
         Map<Integer, CustomerInfo> customerLookup = buildCustomerLookup(allCustomersToSolve);
+        
+        // Build node index to customer ID mapping (solver uses node indices, not customer IDs)
+        Map<Integer, Integer> nodeIndexToCustomerId = new HashMap<>();
+        for (int i = 0; i < allCustomersToSolve.size(); i++) {
+            int nodeIndex = i + 1; // Node 0 is depot, customers start at 1
+            CustomerInfo customer = allCustomersToSolve.get(i);
+            nodeIndexToCustomerId.put(nodeIndex, customer.id);
+        }
+        
         List<CustomerRequest> customerRequests = convertToCustomerRequests(allCustomersToSolve);
         
         // Solve the VRP problem
         SolutionResult result = solveVRPProblem(availableVehicles, customerRequests, allCustomersToSolve);
         if (result == null) {
             return; // Error already logged
+        }
+        
+        // Fix customer IDs: solver uses node indices, convert to actual customer IDs
+        // Fix route customers
+        for (RouteInfo route : result.routes) {
+            for (CustomerInfo customer : route.customers) {
+                Integer actualCustomerId = nodeIndexToCustomerId.get(customer.id);
+                if (actualCustomerId != null) {
+                    customer.id = actualCustomerId;
+                }
+            }
+        }
+        
+        // Fix unserved customers
+        for (CustomerInfo unserved : result.unservedCustomers) {
+            Integer actualCustomerId = nodeIndexToCustomerId.get(unserved.id);
+            if (actualCustomerId != null) {
+                unserved.id = actualCustomerId;
+            }
         }
         
         // Populate coordinates and names for route customers before logging/submission
@@ -552,12 +590,38 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Prepares customers for solving by combining request customers with unserved customers
+     * Prepares customers for solving by combining request customers with unserved customers.
+     * Ensures unserved customers have their coordinates restored before solving.
      */
     private List<CustomerInfo> prepareCustomersForSolving() {
         List<CustomerInfo> allCustomersToSolve = new ArrayList<>();
         allCustomersToSolve.addAll(currentRequest.customers);
-        allCustomersToSolve.addAll(unservedCustomers);
+        
+        // Restore coordinates for unserved customers before adding them
+        if (!unservedCustomers.isEmpty()) {
+            // Create a copy of unserved customers and restore their coordinates
+            List<CustomerInfo> unservedWithCoordinates = new ArrayList<>();
+            for (CustomerInfo unserved : unservedCustomers) {
+                CustomerInfo restored = new CustomerInfo(
+                    unserved.id,
+                    unserved.x,
+                    unserved.y,
+                    unserved.demand,
+                    unserved.name != null ? unserved.name : "C" + unserved.id
+                );
+                
+                // Restore coordinates from persistent map
+                CustomerInfo stored = customerCoordinateMap.get(unserved.id);
+                if (stored != null) {
+                    restored.x = stored.x;
+                    restored.y = stored.y;
+                    restored.name = stored.name;
+                }
+                
+                unservedWithCoordinates.add(restored);
+            }
+            allCustomersToSolve.addAll(unservedWithCoordinates);
+        }
         
         logger.logEvent("Solving with " + currentRequest.customers.size() + " request + " + 
                       unservedCustomers.size() + " unserved = " + allCustomersToSolve.size() + " total");
@@ -687,34 +751,82 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Updates coordinates and names for unserved customers by looking them up
-     * in the current request or previously unserved customers list.
+     * Stores customer coordinates in the persistent map by numeric ID.
+     * This ensures coordinates are preserved across request boundaries.
+     * 
+     * @param customer Customer to store coordinates for
+     */
+    private void storeCustomerCoordinates(CustomerInfo customer) {
+        if (customer != null && customer.id > 0) {
+            // Store a copy with coordinates preserved
+            CustomerInfo stored = new CustomerInfo(
+                customer.id,
+                customer.x,
+                customer.y,
+                customer.demand,
+                customer.name != null ? customer.name : "C" + customer.id
+            );
+            customerCoordinateMap.put(customer.id, stored);
+            logger.logEvent("Stored coordinates for customer ID " + customer.id + 
+                          " at (" + customer.x + ", " + customer.y + ")");
+        }
+    }
+    
+    /**
+     * Updates coordinates and names for unserved customers using the persistent coordinate map.
+     * This ensures coordinates are preserved even when customers are included in new solutions
+     * with different request IDs.
      * 
      * @param unservedCustomers List of unserved customers to update
      */
     private void updateUnservedCustomerCoordinates(List<CustomerInfo> unservedCustomers) {
         for (CustomerInfo unserved : unservedCustomers) {
             boolean found = false;
-            // First check in request customers
-            for (CustomerInfo originalCustomer : currentRequest.customers) {
-                if (originalCustomer.id == unserved.id) {
-                    unserved.x = originalCustomer.x;
-                    unserved.y = originalCustomer.y;
-                    unserved.name = originalCustomer.name;
-                    found = true;
-                    break;
+            
+            // First check in persistent coordinate map (most reliable)
+            CustomerInfo stored = customerCoordinateMap.get(unserved.id);
+            if (stored != null) {
+                unserved.x = stored.x;
+                unserved.y = stored.y;
+                unserved.name = stored.name;
+                found = true;
+                logger.logEvent("Restored coordinates for unserved customer ID " + unserved.id + 
+                              " from coordinate map: (" + unserved.x + ", " + unserved.y + ")");
+            }
+            
+            // Fallback: check in current request customers
+            if (!found && currentRequest != null) {
+                for (CustomerInfo originalCustomer : currentRequest.customers) {
+                    if (originalCustomer.id == unserved.id) {
+                        unserved.x = originalCustomer.x;
+                        unserved.y = originalCustomer.y;
+                        unserved.name = originalCustomer.name;
+                        // Also store in map for future use
+                        storeCustomerCoordinates(originalCustomer);
+                        found = true;
+                        break;
+                    }
                 }
             }
-            // If not found in request customers, check in previously unserved
+            
+            // Fallback: check in previously unserved customers
             if (!found) {
                 for (CustomerInfo prevUnserved : this.unservedCustomers) {
                     if (prevUnserved.id == unserved.id) {
                         unserved.x = prevUnserved.x;
                         unserved.y = prevUnserved.y;
                         unserved.name = prevUnserved.name;
+                        // Also store in map for future use
+                        storeCustomerCoordinates(prevUnserved);
                         break;
                     }
                 }
+            }
+            
+            // If still not found, log warning
+            if (!found && (unserved.x == 0.0 && unserved.y == 0.0)) {
+                logger.log("WARNING: Could not restore coordinates for customer ID " + unserved.id + 
+                          " - coordinates remain (0, 0)");
             }
         }
     }
@@ -752,19 +864,38 @@ public class MasterRoutingAgent extends Agent {
      */
     private void addToAccumulatedUnroutedNodes(List<CustomerInfo> newUnservedCustomers) {
         for (CustomerInfo newUnserved : newUnservedCustomers) {
+            // Store coordinates in persistent map first
+            storeCustomerCoordinates(newUnserved);
+            
             // Check if already in accumulated list
             boolean alreadyExists = false;
             for (CustomerInfo existing : accumulatedUnroutedNodes) {
                 if (existing.id == newUnserved.id) {
+                    // Update existing entry with restored coordinates
+                    CustomerInfo stored = customerCoordinateMap.get(newUnserved.id);
+                    if (stored != null) {
+                        existing.x = stored.x;
+                        existing.y = stored.y;
+                        existing.name = stored.name;
+                    }
                     alreadyExists = true;
                     break;
                 }
             }
             
             if (!alreadyExists) {
-                CustomerInfo unservedCopy = new CustomerInfo(newUnserved.id, newUnserved.x, newUnserved.y, newUnserved.demand, newUnserved.name);
+                // Create copy with coordinates from map (if available)
+                CustomerInfo stored = customerCoordinateMap.get(newUnserved.id);
+                CustomerInfo unservedCopy = new CustomerInfo(
+                    newUnserved.id,
+                    stored != null ? stored.x : newUnserved.x,
+                    stored != null ? stored.y : newUnserved.y,
+                    newUnserved.demand,
+                    stored != null ? stored.name : (newUnserved.name != null ? newUnserved.name : "C" + newUnserved.id)
+                );
                 accumulatedUnroutedNodes.add(unservedCopy);
-                logger.logEvent("Added customer " + newUnserved.name + " (ID: " + newUnserved.id + 
+                logger.logEvent("Added customer " + unservedCopy.name + " (ID: " + unservedCopy.id + 
+                              ") at (" + unservedCopy.x + ", " + unservedCopy.y + 
                               ") to accumulated unrouted nodes (count: " + accumulatedUnroutedNodes.size() + ")");
             }
         }
@@ -1144,13 +1275,16 @@ public class MasterRoutingAgent extends Agent {
                     List<CustomerInfo> requestCustomers = new ArrayList<>();
                     for (JsonConfigReader.CustomerConfig customerConfig : requestConfig.customers) {
                         String uniqueId = backendRequest.requestId + "-" + customerConfig.id;
+                        int numericId = Integer.parseInt(customerConfig.id.replaceAll("[^0-9]", ""));
                         CustomerInfo customer = new CustomerInfo(
-                            Integer.parseInt(customerConfig.id.replaceAll("[^0-9]", "")),
+                            numericId,
                             customerConfig.x,
                             customerConfig.y,
                             customerConfig.demand,
                             uniqueId
                         );
+                        // Store coordinates in persistent map (by numeric ID, not request-prefixed name)
+                        storeCustomerCoordinates(customer);
                         requestCustomers.add(customer);
                     }
                     
@@ -1193,7 +1327,19 @@ public class MasterRoutingAgent extends Agent {
             
             if (shouldProcessUnrouted) {
                 // Process accumulated unrouted nodes
-                List<CustomerInfo> nodesToProcess = new ArrayList<>(accumulatedUnroutedNodes);
+                List<CustomerInfo> nodesToProcess = new ArrayList<>();
+                for (CustomerInfo node : accumulatedUnroutedNodes) {
+                    // Restore coordinates from persistent map before processing
+                    CustomerInfo stored = customerCoordinateMap.get(node.id);
+                    CustomerInfo restored = new CustomerInfo(
+                        node.id,
+                        stored != null ? stored.x : node.x,
+                        stored != null ? stored.y : node.y,
+                        node.demand,
+                        stored != null ? stored.name : (node.name != null ? node.name : "C" + node.id)
+                    );
+                    nodesToProcess.add(restored);
+                }
                 accumulatedUnroutedNodes.clear();
                 logger.logEvent("Creating synthetic unserved request with " + nodesToProcess.size() + " customers:");
                 for (CustomerInfo customer : nodesToProcess) {
