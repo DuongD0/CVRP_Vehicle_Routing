@@ -602,18 +602,21 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Prepares customers for solving by combining request customers with unserved customers.
+     * Prepares customers for solving by combining request customers with accumulated unserved customers.
      * Ensures unserved customers have their coordinates restored before solving.
+     * Uses accumulatedUnroutedNodes (persistent buffer) instead of unservedCustomers (working list)
+     * to include unserved customers from all previous requests.
      */
     private List<CustomerInfo> prepareCustomersForSolving() {
         List<CustomerInfo> allCustomersToSolve = new ArrayList<>();
         allCustomersToSolve.addAll(currentRequest.customers);
         
-        // Restore coordinates for unserved customers before adding them
-        if (!unservedCustomers.isEmpty()) {
-            // Create a copy of unserved customers and restore their coordinates
+        // Restore coordinates for accumulated unserved customers before adding them
+        // Use accumulatedUnroutedNodes to include unserved customers from all previous requests
+        if (!accumulatedUnroutedNodes.isEmpty()) {
+            // Create a copy of accumulated unserved customers and restore their coordinates
             List<CustomerInfo> unservedWithCoordinates = new ArrayList<>();
-            for (CustomerInfo unserved : unservedCustomers) {
+            for (CustomerInfo unserved : accumulatedUnroutedNodes) {
                 CustomerInfo restored = new CustomerInfo(
                     unserved.id,
                     unserved.x,
@@ -636,7 +639,7 @@ public class MasterRoutingAgent extends Agent {
         }
         
         logger.logEvent("Solving with " + currentRequest.customers.size() + " request + " + 
-                      unservedCustomers.size() + " unserved = " + allCustomersToSolve.size() + " total");
+                      accumulatedUnroutedNodes.size() + " accumulated unserved = " + allCustomersToSolve.size() + " total");
         
         return allCustomersToSolve;
     }
@@ -844,7 +847,8 @@ public class MasterRoutingAgent extends Agent {
     }
     
     /**
-     * Removes customers that were served (in routes) from the unserved customers list
+     * Removes customers that were served (in routes) from both the unserved customers list
+     * and the accumulated unrouted nodes buffer
      */
     private void removeServedCustomersFromUnservedList(List<RouteInfo> routes) {
         List<CustomerInfo> servedCustomerIds = new ArrayList<>();
@@ -854,11 +858,24 @@ public class MasterRoutingAgent extends Agent {
             }
         }
         
+        // Remove from unservedCustomers list (working list)
         unservedCustomers.removeIf(unserved -> {
             for (CustomerInfo served : servedCustomerIds) {
                 if (served.id == unserved.id) {
                     logger.logEvent("Customer " + unserved.name + " (ID: " + unserved.id + 
                                   ") removed from unserved list - now served");
+                    return true;
+                }
+            }
+            return false;
+        });
+        
+        // Also remove from accumulatedUnroutedNodes buffer (persistent across requests)
+        accumulatedUnroutedNodes.removeIf(unserved -> {
+            for (CustomerInfo served : servedCustomerIds) {
+                if (served.id == unserved.id) {
+                    logger.logEvent("Customer " + unserved.name + " (ID: " + unserved.id + 
+                                  ") removed from accumulated unrouted nodes - now served");
                     return true;
                 }
             }
