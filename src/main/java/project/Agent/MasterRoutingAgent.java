@@ -23,13 +23,25 @@ import project.Utils.BackendClient;
 import java.util.*;
 
 /**
- * Master Routing Agent (MRA) for CVRP
- * - Has its own location (depot)
- * - Reads problem from config (customers with id, demand, coordinates)
- * - Queries Delivery Agents (DAs) for vehicle information
- * - Solves routes using Google OR-Tools
- * - Assigns routes to DAs
- * - Outputs results as JSON
+ * Master Routing Agent (MRA) for CVRP Multi-Agent System
+ * 
+ * Responsibilities:
+ * - Polls backend API for customer requests using adaptive polling (2s active, 10s idle)
+ * - Queries Delivery Agents (DAs) for vehicle information (capacity, max distance, position)
+ * - Solves CVRP problems using Google OR-Tools solver
+ * - Assigns routes to DAs using FIPA-Request protocol
+ * - Manages unserved customers:
+ *   - Accumulates unserved customers in a buffer (up to 6)
+ *   - Processes accumulated unserved customers when threshold reached or queue empty
+ *   - Interleaves unserved customer processing every 5 regular requests to prevent starvation
+ * - Handles request queue processing (one request at a time)
+ * - Submits solutions to backend API
+ * 
+ * Key Features:
+ * - Adaptive polling: Reduces network traffic by polling less frequently when idle
+ * - Unserved customer management: Prevents unserved customers from being stuck indefinitely
+ * - Request queuing: Handles multiple concurrent requests sequentially
+ * - Persistent coordinate storage: Maintains customer coordinates across requests
  */
 public class MasterRoutingAgent extends Agent {
     // Depot location
@@ -1248,20 +1260,23 @@ public class MasterRoutingAgent extends Agent {
 
     /**
      * Behavior to poll backend API for requests directly
-     * Polls the backend API and adds requests to the queue
+     * Uses adaptive polling: polls frequently (2s) when requests are found,
+     * backs off (10s) when no requests are available to reduce unnecessary HTTP calls
      */
-    private class BackendAPIPoller extends TickerBehaviour {
-        public BackendAPIPoller() {
-            super(MasterRoutingAgent.this, 2000); // Poll every 2 seconds
-        }
+    private class BackendAPIPoller extends CyclicBehaviour {
+        private static final long POLL_INTERVAL_ACTIVE = 2000;  // 2 seconds when requests are found
+        private static final long POLL_INTERVAL_IDLE = 10000;   // 10 seconds when no requests
+        private long currentPollInterval = POLL_INTERVAL_ACTIVE; // Start with active polling
         
         @Override
-        protected void onTick() {
+        public void action() {
             try {
                 // Poll backend for requests
                 BackendClient.BackendRequest backendRequest = BackendClient.pollForRequest();
                 
                 if (backendRequest != null) {
+                    // Request found - switch to active polling and process request
+                    currentPollInterval = POLL_INTERVAL_ACTIVE;
                     logger.logEvent("Received request from backend API: " + backendRequest.requestId);
                     
                     // Convert backend request to CVRPConfig
@@ -1293,17 +1308,35 @@ public class MasterRoutingAgent extends Agent {
                     requestQueue.offer(newRequest);
                     
                     logger.logEvent("Added request from API to queue: " + backendRequest.requestId);
+                } else {
+                    // No request found - switch to idle polling (longer interval)
+                    if (currentPollInterval != POLL_INTERVAL_IDLE) {
+                        currentPollInterval = POLL_INTERVAL_IDLE;
+                        logger.logEvent("No requests available, switching to idle polling (10s interval)");
+                    }
                 }
             } catch (Exception e) {
                 // Silently handle errors (backend might not be running or no requests available)
                 // Don't spam logs with connection errors
+                // On error, use idle polling interval
+                currentPollInterval = POLL_INTERVAL_IDLE;
             }
+            
+            // Block for the current polling interval
+            block(currentPollInterval);
         }
     }
 
     /**
-     * Behavior to process requests from the queue
-     * Processes requests one by one, accumulates unrouted nodes (up to 6) before processing
+     * Behavior to process requests from the queue.
+     * 
+     * Processing Logic:
+     * - Processes requests one by one (sequential processing)
+     * - Accumulates unserved customers in a buffer (up to MAX_ACCUMULATED_UNROUTED = 6)
+     * - Processes accumulated unserved customers when:
+     *   a) Buffer reaches threshold (6 customers), OR
+     *   b) Request queue is empty and buffer is not empty
+     * - Prevents unserved customers from being stuck indefinitely
      */
     private class RequestQueueProcessor extends CyclicBehaviour {
         @Override

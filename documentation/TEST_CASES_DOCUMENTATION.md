@@ -14,20 +14,33 @@ The system consists of:
 
 ### Scenario Description
 
-This test case validates the fundamental agent communication workflow for a basic CVRP problem where all customers can be served in a single round. All vehicles have sufficient capacity and maximum distance to serve all customers.
+This test case validates the fundamental agent communication workflow for a basic CVRP problem where all customers can be served in a single round. All vehicles have sufficient capacity and maximum distance to serve all customers. Customers are arranged in clusters to create rounded routes that visit multiple customers in loops, demonstrating realistic delivery patterns. Customers are arranged in clusters to create rounded routes that visit multiple customers in loops, demonstrating realistic delivery patterns.
 
 ### Test Configuration
 
 - **Vehicles**: 4 vehicles (DA1, DA2, DA3, DA4)
   - Capacity: 50 items each
   - Max Distance: 1000.0 units each
-- **Customers**: 5 customers
-  - Customer 1: demand=10, location=(10.0, 10.0)
-  - Customer 2: demand=15, location=(20.0, 20.0)
-  - Customer 3: demand=20, location=(30.0, 10.0)
-  - Customer 4: demand=12, location=(15.0, 25.0)
-  - Customer 5: demand=18, location=(25.0, 15.0)
-- **Total Demand**: 75 items
+- **Customers**: 15 customers arranged in clusters
+  - **Cluster 1 (North-East)**: Customers 1-6
+    - Customer 1: demand=8, location=(15.0, 10.0)
+    - Customer 2: demand=12, location=(25.0, 15.0)
+    - Customer 3: demand=10, location=(35.0, 12.0)
+    - Customer 4: demand=9, location=(20.0, 25.0)
+    - Customer 5: demand=11, location=(30.0, 28.0)
+    - Customer 6: demand=7, location=(40.0, 30.0)
+  - **Cluster 2 (North-West)**: Customers 7-10
+    - Customer 7: demand=13, location=(10.0, 20.0)
+    - Customer 8: demand=10, location=(18.0, 35.0)
+    - Customer 9: demand=8, location=(28.0, 38.0)
+    - Customer 10: demand=12, location=(38.0, 40.0)
+  - **Cluster 3 (Far North)**: Customers 11-15
+    - Customer 11: demand=9, location=(5.0, 15.0)
+    - Customer 12: demand=11, location=(12.0, 30.0)
+    - Customer 13: demand=10, location=(22.0, 42.0)
+    - Customer 14: demand=8, location=(32.0, 45.0)
+    - Customer 15: demand=12, location=(42.0, 48.0)
+- **Total Demand**: 162 items
 - **Total Capacity**: 200 items (4 vehicles × 50)
 - **Depot**: Location (0.0, 0.0)
 
@@ -61,8 +74,10 @@ This test case validates the fundamental agent communication workflow for a basi
                               │<─5. Route Acceptance──┤
                               │   ROUTE_ACCEPTED: ROUTE:2|VEHICLE:DA2|STATUS:ACCEPTED
                               │
-[DA1] ──6. Execute Route──> [Customer 1] ──> [Customer 3] ──> [Depot]
-[DA2] ──6. Execute Route──> [Customer 2] ──> [Customer 4] ──> [Customer 5] ──> [Depot]
+[DA1] ──6. Execute Route──> [C1] ──> [C2] ──> [C3] ──> [Depot]
+[DA2] ──6. Execute Route──> [C4] ──> [C5] ──> [C6] ──> [Depot]
+[DA3] ──6. Execute Route──> [C7] ──> [C8] ──> [C9] ──> [C10] ──> [Depot]
+[DA4] ──6. Execute Route──> [C11] ──> [C12] ──> [C13] ──> [C14] ──> [C15] ──> [Depot]
                               │
                               │<─7. Arrival Notification──┤
                               │   DA_ARRIVED_AT_DEPOT
@@ -128,22 +143,36 @@ Content: DA_ARRIVED_AT_DEPOT
 2. **Vehicle Query**: MRA queries all registered DAs via DF (Directory Facilitator) for vehicle information (capacity, maxDistance, current position)
 3. **Vehicle Response**: Each DA responds with its vehicle information
 4. **Problem Solving**: MRA assembles the CVRP problem and solves it using OR-Tools solver:
-   - All customers can be served (total demand 75 < total capacity 200)
-   - Solver generates optimal routes minimizing distance while serving all customers
+   - All customers can be served (total demand 162 < total capacity 200)
+   - Solver generates optimal rounded routes minimizing distance while serving all customers
+   - Routes visit multiple customers in loops before returning to depot
 5. **Route Assignment**: MRA assigns routes to DAs via FIPA-Request protocol
 6. **Route Acceptance**: DAs validate routes (capacity and distance constraints) and accept them
 7. **Route Execution**: DAs execute routes by moving to customers sequentially, then returning to depot
 8. **Arrival Notification**: When DAs return to depot, they notify MRA (no response required)
 
+### Expected Route Patterns
+
+With this customer arrangement, the solver should create rounded routes such as:
+
+- **Route 1** (DA1): Depot → C1 → C2 → C3 → Depot (or similar loop)
+- **Route 2** (DA2): Depot → C4 → C5 → C6 → Depot
+- **Route 3** (DA3): Depot → C7 → C8 → C9 → C10 → Depot
+- **Route 4** (DA4): Depot → C11 → C12 → C13 → C14 → C15 → Depot
+
+Each route visits multiple customers in a rounded path before returning to the depot.
+
 ### Desired Outcome
 
-- ✅ All 5 customers are served in one round
-- ✅ Routes are assigned to vehicles (typically 2-3 vehicles used)
+- ✅ All 15 customers are served in one round
+- ✅ Routes are rounded (visit 3-5 customers each in loops)
+- ✅ Routes are assigned to 3-4 vehicles (typically all vehicles used)
 - ✅ All routes respect capacity constraints (demand ≤ 50 per vehicle)
 - ✅ All routes respect maximum distance constraints (route distance ≤ 1000.0)
-- ✅ Total distance is minimized
+- ✅ Total distance is minimized with efficient rounded paths
 - ✅ All DAs return to depot and notify MRA
 - ✅ No unserved customers remain
+- ✅ Solution demonstrates realistic delivery patterns with rounded routes
 - ✅ Solution is logged to JSON result file
 
 ---
@@ -159,16 +188,28 @@ This test case validates the system's ability to handle scenarios where total cu
 - **Vehicles**: 4 vehicles (DA1, DA2, DA3, DA4)
   - Capacity: 30 items each
   - Max Distance: 1000.0 units each
-- **Customers**: 6 customers
-  - Customer 1: demand=20, location=(10.0, 10.0)
-  - Customer 2: demand=25, location=(20.0, 20.0)
-  - Customer 3: demand=30, location=(30.0, 10.0)
-  - Customer 4: demand=22, location=(15.0, 25.0)
-  - Customer 5: demand=28, location=(25.0, 15.0)
-  - Customer 6: demand=15, location=(35.0, 20.0)
-- **Total Demand**: 140 items
+- **Customers**: 15 customers arranged in clusters
+  - **Cluster 1 (North-East)**: Customers 1-6
+    - Customer 1: demand=18, location=(15.0, 10.0)
+    - Customer 2: demand=22, location=(25.0, 15.0)
+    - Customer 3: demand=20, location=(35.0, 12.0)
+    - Customer 4: demand=19, location=(20.0, 25.0)
+    - Customer 5: demand=21, location=(30.0, 28.0)
+    - Customer 6: demand=17, location=(40.0, 30.0)
+  - **Cluster 2 (North-West)**: Customers 7-10
+    - Customer 7: demand=23, location=(10.0, 20.0)
+    - Customer 8: demand=20, location=(18.0, 35.0)
+    - Customer 9: demand=18, location=(28.0, 38.0)
+    - Customer 10: demand=22, location=(38.0, 40.0)
+  - **Cluster 3 (Far North)**: Customers 11-15
+    - Customer 11: demand=19, location=(5.0, 15.0)
+    - Customer 12: demand=21, location=(12.0, 30.0)
+    - Customer 13: demand=20, location=(22.0, 42.0)
+    - Customer 14: demand=18, location=(32.0, 45.0)
+    - Customer 15: demand=22, location=(42.0, 48.0)
+- **Total Demand**: 300 items
 - **Total Capacity**: 120 items (4 vehicles × 30)
-- **Shortfall**: 20 items cannot be delivered in first round
+- **Shortfall**: 180 items cannot be delivered in first round
 - **Depot**: Location (0.0, 0.0)
 
 ### Workflow Diagram
@@ -287,13 +328,13 @@ Content: ROUTE_ACCEPTED:1|VEHICLE:DA1|STATUS:ACCEPTED|DEMAND:25|DISTANCE:28.28|C
 
 ### How It Works
 
-1. **Initial Request**: MRA receives request with 6 customers (total demand 140 > total capacity 120)
+1. **Initial Request**: MRA receives request with 15 customers (total demand 300 > total capacity 120)
 2. **Vehicle Query**: MRA queries all DAs for vehicle information
 3. **First Round Solving**: 
-   - MRA solves CVRP problem with all 6 customers
+   - MRA solves CVRP problem with all 15 customers
    - OR-Tools solver uses disjunctions with penalties (1,000,000 per unserved customer)
    - Solver prioritizes maximizing items delivered over distance
-   - Result: Some customers served, some unserved (e.g., 4 customers served, 2 unserved)
+   - Result: Some customers served, some unserved (e.g., 8-10 customers served, 5-7 unserved)
 4. **Route Assignment (Round 1)**: MRA assigns routes to DAs
    - DAs validate routes (capacity and distance constraints)
    - Routes that exceed capacity are rejected by DAs
@@ -311,7 +352,7 @@ Content: ROUTE_ACCEPTED:1|VEHICLE:DA1|STATUS:ACCEPTED|DEMAND:25|DISTANCE:28.28|C
 
 ### Desired Outcome
 
-- ✅ First round: Maximum number of customers served (typically 4-5 customers, ~100-115 items)
+- ✅ First round: Maximum number of customers served (typically 8-10 customers, ~110-120 items)
 - ✅ Unserved customers are correctly identified and stored
 - ✅ Solver prioritizes items delivered over distance (serves customers with higher demand first if possible)
 - ✅ Second round: Unserved customers are processed and assigned to vehicles
@@ -334,14 +375,26 @@ This test case validates the system's ability to handle maximum distance constra
 - **Vehicles**: 4 vehicles (DA1, DA2, DA3, DA4)
   - Capacity: 50 items each
   - Max Distance: 50.0 units each (tight constraint)
-- **Customers**: 6 customers
-  - Customer 1: demand=10, location=(10.0, 10.0) - Distance from depot: ~14.14
-  - Customer 2: demand=15, location=(20.0, 20.0) - Distance from depot: ~28.28
-  - Customer 3: demand=20, location=(30.0, 10.0) - Distance from depot: ~31.62
-  - Customer 4: demand=12, location=(15.0, 25.0) - Distance from depot: ~29.15
-  - Customer 5: demand=18, location=(25.0, 15.0) - Distance from depot: ~29.15
-  - Customer 6: demand=25, location=(100.0, 100.0) - Distance from depot: ~141.42 (EXCEEDS MAX)
-- **Total Demand**: 100 items
+- **Customers**: 15 customers arranged in clusters
+  - **Cluster 1 (Near Depot)**: Customers 1-6 (within distance)
+    - Customer 1: demand=8, location=(10.0, 10.0) - Distance from depot: ~14.14
+    - Customer 2: demand=12, location=(20.0, 15.0) - Distance from depot: ~25.00
+    - Customer 3: demand=10, location=(30.0, 12.0) - Distance from depot: ~32.14
+    - Customer 4: demand=9, location=(15.0, 25.0) - Distance from depot: ~29.15
+    - Customer 5: demand=11, location=(25.0, 28.0) - Distance from depot: ~37.48
+    - Customer 6: demand=7, location=(35.0, 30.0) - Distance from depot: ~46.10
+  - **Cluster 2 (Near Depot)**: Customers 7-9 (within distance)
+    - Customer 7: demand=13, location=(8.0, 20.0) - Distance from depot: ~21.54
+    - Customer 8: demand=10, location=(18.0, 35.0) - Distance from depot: ~39.36
+    - Customer 9: demand=8, location=(28.0, 38.0) - Distance from depot: ~47.17
+  - **Cluster 3 (Far from Depot)**: Customers 10-15 (exceed distance)
+    - Customer 10: demand=12, location=(100.0, 100.0) - Distance from depot: ~141.42 (EXCEEDS MAX)
+    - Customer 11: demand=9, location=(5.0, 15.0) - Distance from depot: ~15.81
+    - Customer 12: demand=11, location=(12.0, 30.0) - Distance from depot: ~32.31
+    - Customer 13: demand=10, location=(22.0, 42.0) - Distance from depot: ~47.17
+    - Customer 14: demand=8, location=(90.0, 90.0) - Distance from depot: ~127.28 (EXCEEDS MAX)
+    - Customer 15: demand=12, location=(110.0, 110.0) - Distance from depot: ~155.56 (EXCEEDS MAX)
+- **Total Demand**: 150 items
 - **Total Capacity**: 200 items (4 vehicles × 50)
 - **Max Distance**: 50.0 units per vehicle
 - **Depot**: Location (0.0, 0.0)
@@ -445,27 +498,27 @@ Content: ROUTE_REJECTED:2|VEHICLE:DA1|STATUS:REJECTED|REASON:DISTANCE_EXCEEDED|D
 
 ### How It Works
 
-1. **Request Reception**: MRA receives request with 6 customers
+1. **Request Reception**: MRA receives request with 15 customers
 2. **Vehicle Query**: MRA queries all DAs for vehicle information (including maxDistance=50.0)
 3. **Problem Solving**: 
    - MRA assembles CVRP problem with distance dimension constraint
    - OR-Tools solver adds distance dimension with vehicle-specific maximum distances
-   - Customer 6 at (100.0, 100.0) is too far from depot (distance ~141.42 > 50.0)
-   - Solver cannot create a route to Customer 6 without exceeding max distance
-   - Customer 6 becomes unserved
-4. **Route Assignment**: MRA assigns routes for customers 1-5 (within distance constraint)
+   - Customers 10, 14, 15 are too far from depot (distances > 50.0)
+   - Solver cannot create routes to these customers without exceeding max distance
+   - Customers 10, 14, 15 become unserved
+4. **Route Assignment**: MRA assigns routes for customers 1-9, 11-13 (within distance constraint)
 5. **Route Validation**: DAs validate routes:
    - If route distance ≤ maxDistance: Accept
    - If route distance > maxDistance: Reject with reason "DISTANCE_EXCEEDED"
 6. **Route Execution**: DAs execute accepted routes
-7. **Unserved Customer Tracking**: Customer 6 is stored in unservedCustomers list
-8. **Second Round**: MRA attempts to process Customer 6 again, but it still exceeds max distance
-9. **Final State**: Customer 6 remains unserved (cannot be served due to distance constraint)
+7. **Unserved Customer Tracking**: Customers 10, 14, 15 are stored in unservedCustomers list
+8. **Second Round**: MRA attempts to process unserved customers again, but they still exceed max distance
+9. **Final State**: Customers 10, 14, 15 remain unserved (cannot be served due to distance constraint)
 
 ### Desired Outcome
 
-- ✅ Customers within distance constraint (1-5) are served
-- ✅ Customer 6 (beyond max distance) is correctly identified as unserved
+- ✅ Customers within distance constraint (1-9, 11-13) are served
+- ✅ Customers 10, 14, 15 (beyond max distance) are correctly identified as unserved
 - ✅ All assigned routes respect maximum distance constraint (route distance ≤ 50.0)
 - ✅ DAs reject routes that exceed maximum distance
 - ✅ Solver correctly applies distance dimension constraint
@@ -475,32 +528,92 @@ Content: ROUTE_REJECTED:2|VEHICLE:DA1|STATUS:REJECTED|REASON:DISTANCE_EXCEEDED|D
 
 ---
 
-## Test Case 4: Multiple Requests When DAs Have Not Arrived Back
+## Test Case 4: Multiple Requests & Unserved Customer Logic (Manual Testing)
 
 ### Scenario Description
 
-This test case validates the system's ability to handle multiple incoming requests while DAs are still executing routes from previous requests. The MRA accumulates unserved customers in a separate list until reaching a threshold (6 customers) or until no more requests are available, then processes them before handling the next request.
+This test case validates the system's ability to handle multiple incoming requests and demonstrates unserved customer accumulation logic. **This is a manual testing scenario** that requires step-by-step user interaction to demonstrate:
+- Unserved customer accumulation across multiple requests
+- Automatic processing when threshold (6 customers) is reached
+- Dynamic vehicle addition and automatic assignment to new vehicles with larger constraints
 
-### Test Configuration
+**Note**: This test case does not have a pre-configured JSON file. Users must manually set up vehicles and submit requests following the steps below.
 
-- **Vehicles**: 4 vehicles (DA1, DA2, DA3, DA4)
-  - Capacity: 40 items each
-  - Max Distance: 1000.0 units each
-- **Request 1**: 4 customers
-  - Customer 1: demand=15, location=(10.0, 10.0)
-  - Customer 2: demand=20, location=(20.0, 20.0)
-  - Customer 3: demand=25, location=(30.0, 10.0)
-  - Customer 4: demand=18, location=(15.0, 25.0)
-- **Request 2**: 4 customers (arrives while DAs are delivering)
-  - Customer 5: demand=22, location=(25.0, 15.0)
-  - Customer 6: demand=28, location=(35.0, 20.0)
-  - Customer 7: demand=30, location=(40.0, 10.0)
-  - Customer 8: demand=19, location=(18.0, 30.0)
-- **Total Demand (Request 1)**: 78 items
-- **Total Demand (Request 2)**: 99 items
-- **Total Capacity**: 160 items (4 vehicles × 40)
-- **Accumulation Threshold**: 6 unserved customers
-- **Depot**: Location (0.0, 0.0)
+### Manual Testing Steps
+
+#### Step 1: Initial Vehicle Setup
+1. Go to **"Manage Vehicles"** page
+2. Add **one vehicle** with restrictive constraints:
+   - **Name**: `DA1`
+   - **Capacity**: `50` items
+   - **Max Distance**: `50.0` units (small distance limit)
+3. Click **"Save & Continue"**
+4. Verify DA1 is created and active
+
+#### Step 2: Submit First Request (Far Customer)
+1. Go to **"Customers"** tab
+2. Add a customer that is **far from depot** (will exceed max distance):
+   - **Customer ID**: `1`
+   - **Demand**: `10`
+   - **X Coordinate**: `100.0` (far from depot at 0,0)
+   - **Y Coordinate**: `100.0`
+3. Click **"Add Customer"**
+4. Click **"Submit Request"`
+5. **Expected Result**:
+   - Customer 1 cannot be served (distance > 50.0)
+   - Customer 1 is added to unserved customers list
+   - Solution shows Customer 1 as unserved
+
+#### Step 3: Submit Second Request (Another Far Customer)
+1. While waiting for the first solution, add **another far customer (remember to remove the old customer from the list)**:
+   - **Customer ID**: `2`
+   - **Demand**: `15`
+   - **X Coordinate**: `120.0`
+   - **Y Coordinate**: `120.0`
+2. Click **"Add Customer"**
+3. Click **"Submit Request"**
+4. **Expected Result**:
+   - Customer 2 also cannot be served
+   - Customer 2 is added to accumulated unserved customers
+   - Both Customer 1 and Customer 2 are now in the unserved buffer
+
+#### Step 4: Add More Far Customers (Reach Threshold)
+1. Add **4 more far customers** to reach the threshold of 6:
+   - Customer 3: demand=12, x=110.0, y=110.0
+   - Customer 4: demand=14, x=130.0, y=130.0
+   - Customer 5: demand=11, x=105.0, y=105.0
+   - Customer 6: demand=13, x=125.0, y=125.0
+2. Submit each request separately
+3. **Expected Result**:
+   - As unserved customers accumulate, they are stored in the buffer
+   - When buffer reaches 6 customers, MRA processes them automatically
+   - However, they still cannot be served by DA1 (distance constraint)
+
+#### Step 5: Add New Vehicle with Larger Max Distance
+1. Go to **"Manage Vehicles"** page
+2. Add a **new vehicle** with larger max distance:
+   - **Name**: `DA2`
+   - **Capacity**: `50` items
+   - **Max Distance**: `200.0` units (large enough to reach far customers)
+3. Click **"Add Vehicle"**
+4. Click **"Save & Continue"**
+5. **Expected Result**:
+   - DA2 is created and registered with MRA
+   - MRA queries DA2 for vehicle information
+   - System recognizes DA2 can serve the far customers
+
+#### Step 6: Observe Automatic Unserved Customer Processing
+1. Wait for the system to process unserved customers
+2. The MRA will:
+   - Detect accumulated unserved customers (6 customers)
+   - Query all vehicles including DA2
+   - Solve CVRP problem with DA2's larger max distance
+   - Assign routes to DA2 to serve the previously unserved customers
+3. **Expected Result**:
+   - DA2 receives route assignments for the far customers
+   - Previously unserved customers (1-6) are now served by DA2
+   - Solution shows all customers served
+   - Map displays routes from DA2 to far customers
 
 ### Workflow Diagram
 
@@ -753,12 +866,12 @@ Content: DA_ARRIVED_AT_DEPOT
 
 ## Summary of Test Cases
 
-| Test Case | Key Feature | Unserved Customers | Multiple Rounds | Route Queuing |
-|-----------|-------------|---------------------|-----------------|---------------|
-| **Test Case 1** | Basic CVRP | None | No | No |
-| **Test Case 2** | Capacity Exceeded | Yes (demand > capacity) | Yes | No |
-| **Test Case 3** | Distance Constraint | Yes (distance > maxDistance) | Yes | No |
-| **Test Case 4** | Multiple Requests | Yes (accumulated) | Yes | Yes |
+| Test Case | Key Feature | Customers | Unserved Customers | Multiple Rounds | Route Queuing | Rounded Routes |
+|-----------|-------------|-----------|---------------------|-----------------|---------------|----------------|
+| **Test Case 1** | Basic CVRP | 15 | None | No | No | Yes |
+| **Test Case 2** | Capacity Exceeded | 15 | Yes (demand > capacity) | Yes | No | Yes |
+| **Test Case 3** | Distance Constraint | 15 | Yes (distance > maxDistance) | Yes | No | Yes |
+| **Test Case 4** | Multiple Requests & Unserved Logic | Manual Setup | Yes (accumulated) | Yes | Yes | Manual |
 
 ## Common Communication Patterns
 

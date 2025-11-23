@@ -212,6 +212,24 @@ def get_movement():
     except requests.exceptions.RequestException as e:
         return jsonify({'error': f'Cannot connect to backend: {str(e)}'}), 503
 
+@app.route('/api/test-cases/<filename>', methods=['GET'])
+def get_test_case(filename):
+    """Load test case from JSON file"""
+    try:
+        # Get project root (parent of frontend directory)
+        project_root = Path(__file__).parent.parent
+        test_case_path = project_root / 'test_cases' / filename
+        
+        if not test_case_path.exists():
+            return jsonify({'error': f'Test case file not found: {filename}'}), 404
+        
+        with open(test_case_path, 'r') as f:
+            test_data = json.load(f)
+        
+        return jsonify(test_data), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='localhost', port=5000, debug=True)
 

@@ -365,6 +365,22 @@ def update_agent_status():
             'info': info
         }
         
+        # If agent is terminated, remove its vehicle position from tracking
+        # This ensures terminated DA icons disappear from the frontend map
+        if status == 'terminated' and agent_type == 'da':
+            # Remove vehicle position if it exists (using agent_name as vehicle_name)
+            if agent_name in server.vehicle_positions:
+                del server.vehicle_positions[agent_name]
+                print(f"Removed vehicle position for terminated DA: {agent_name}")
+            # Also check for any vehicle positions with similar names (in case of naming mismatches)
+            # This handles cases where vehicle_name might have suffixes or prefixes
+            vehicles_to_remove = [vname for vname in server.vehicle_positions.keys() 
+                                 if vname != agent_name and (vname.startswith(agent_name + '-') 
+                                 or agent_name.startswith(vname + '-'))]
+            for vname in vehicles_to_remove:
+                del server.vehicle_positions[vname]
+                print(f"Removed vehicle position for terminated DA (matched): {vname}")
+        
         print(f"Agent status updated: {agent_name} ({agent_type}) -> {status}")
         return jsonify({'success': True, 'agent': agent_name}), 200
         

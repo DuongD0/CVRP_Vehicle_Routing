@@ -14,7 +14,7 @@ A comprehensive web interface for the CVRP Multi-Agent System.
 ## Installation
 
 ```bash
-cd "frontend 2"
+cd "frontend"
 pip install -r requirements.txt
 ```
 
@@ -33,21 +33,22 @@ python app.py
 ## Usage
 
 1. **Define Vehicles** (First Time):
+
    - Go to Vehicle Setup page
    - Add vehicles with name, capacity, and max distance
    - Click "Save & Continue"
-
 2. **Add Customers**:
+
    - On main page, go to "Customers" tab
    - Add customers with ID, demand, and coordinates
    - Click "Submit Request" to send to backend
-
 3. **View Solution**:
+
    - Map automatically updates when solution is received
    - Routes are displayed with different colors
    - Unserved customers are shown in orange
-
 4. **View Logs**:
+
    - Go to "Logs" tab
    - Select an agent from dropdown
    - View real-time logs
@@ -70,4 +71,3 @@ python app.py
 - Depot is at (0,0) but displayed in the center of the map
 - Requests only send customer data - vehicles are managed separately
 - The system automatically polls for solutions after submitting a request
-

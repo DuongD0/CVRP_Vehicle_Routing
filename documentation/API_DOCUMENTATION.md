@@ -19,7 +19,7 @@ Base URL: `http://localhost:8000`
 #### 1. Poll for Pending Requests
 **Endpoint:** `GET /api/solve-cvrp?action=poll`
 
-**Description:** Used by MRA to poll for pending CVRP requests from the queue.
+**Description:** Used by MRA to poll for pending CVRP requests from the queue. The MRA uses adaptive polling: polls every 2 seconds when requests are found, and backs off to 10 seconds when no requests are available to reduce unnecessary network traffic.
 
 **Query Parameters:**
 - `action` (required): Must be `"poll"`
@@ -944,13 +944,24 @@ All endpoints may return error responses in the following format:
 
 3. **Request ID**: All requests are assigned a UUID that is used to track status and retrieve solutions.
 
-4. **Polling**: The system uses polling for request processing. MRA polls for requests, and frontend polls for solutions.
+4. **Adaptive Polling**: The MRA uses adaptive polling to reduce network traffic:
+   - **Active polling**: 2 seconds when requests are found
+   - **Idle polling**: 10 seconds when no requests are available
+   - Automatically switches between intervals based on request availability
 
-5. **Agent Creation**: Agents are created when vehicles are confirmed via `/api/vehicles/confirm`. Main.java polls for this configuration.
+5. **Unserved Customer Handling**: 
+   - Unserved customers are accumulated in a buffer (up to 6 customers)
+   - Buffer is processed when it reaches threshold (6) OR when request queue is empty
+   - Prevents unserved customers from being stuck indefinitely
+   - New vehicles with larger constraints can automatically serve previously unserved customers
 
-6. **CORS**: Backend has CORS enabled for frontend integration.
+6. **Agent Creation**: Agents are created when vehicles are confirmed via `/api/vehicles/confirm`. Main.java polls for this configuration.
 
-7. **Session Management**: Frontend uses Flask sessions to store vehicle definitions.
+7. **Terminated Agent Cleanup**: When a DA reports 'terminated' status, its vehicle position is automatically removed from tracking, ensuring terminated DA icons disappear from the frontend map.
+
+8. **CORS**: Backend has CORS enabled for frontend integration.
+
+9. **Session Management**: Frontend uses Flask sessions to store vehicle definitions.
 
 ---
 
